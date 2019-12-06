@@ -1,12 +1,12 @@
 use std::{convert::TryInto, sync::Arc};
 
 use prost::Message as PMessage;
-use rocksdb::{Error as RocksError, Options, DB};
+use rocksdb::{Direction, Error as RocksError, IteratorMode, Options, DB};
 
 use crate::models::messaging::Message;
 
-const write_namespace: u8 = b'W';
-const message_namespace: u8 = b'M';
+const WRITE_NAMESPACE: u8 = b'w';
+const MESSAGE_NAMESPACE: u8 = b'm';
 
 #[derive(Debug)]
 pub enum PushError {
@@ -33,12 +33,12 @@ impl Database {
 
     /// Add new address to a database
     pub fn new_address(&self, addr: &[u8]) -> Result<(), RocksError> {
-        let key = [addr, &[write_namespace]].concat();
+        let key = [addr, &[WRITE_NAMESPACE]].concat();
         self.0.put(key, [0; 8])
     }
 
     pub fn get_write_head(&self, addr: &[u8]) -> Result<Option<u64>, RocksError> {
-        let key = [addr, &[write_namespace]].concat();
+        let key = [addr, &[WRITE_NAMESPACE]].concat();
         self.0.get(key).map(move |res| {
             res.map(move |item| {
                 let arr: [u8; 8] = item[..8].try_into().unwrap(); // This panics if stored bytes are malformed
@@ -48,7 +48,7 @@ impl Database {
     }
 
     pub fn get_write_head_raw(&self, addr: &[u8]) -> Result<Option<Vec<u8>>, RocksError> {
-        let key = [addr, &[write_namespace]].concat();
+        let key = [addr, &[WRITE_NAMESPACE]].concat();
         self.0.get(key)
     }
 
@@ -61,7 +61,7 @@ impl Database {
         let write_head = self
             .get_write_head_raw(addr)?
             .ok_or(PushError::MissingWriteHead)?;
-        let key = [addr, &[message_namespace], &write_head].concat();
+        let key = [addr, &[MESSAGE_NAMESPACE], &write_head].concat();
 
         // Encode message
         let mut raw_message = Vec::with_capacity(message.encoded_len());
@@ -69,5 +69,48 @@ impl Database {
 
         self.0.put(key, raw_message)?;
         Ok(())
+    }
+
+    pub fn get_message(&self, addr: &[u8], position: u64) -> Result<Option<Message>, RocksError> {
+        let position_raw = position.to_be_bytes();
+        let key = [addr, &[MESSAGE_NAMESPACE], &position_raw].concat();
+        self.0.get(key).map(|res| {
+            res.map(|item| {
+                Message::decode(&item[..]).unwrap() // This panics if stored bytes are malformed
+            })
+        })
+    }
+
+    pub fn get_messages(
+        &self,
+        addr: &[u8],
+        start: u64,
+        count: Option<u64>,
+    ) -> Result<Vec<Message>, RocksError> {
+        // Prefix key
+        let raw_start_height: [u8; 8] = start.to_be_bytes();
+        let start_key = [addr, &[MESSAGE_NAMESPACE], &raw_start_height].concat();
+        let namespace_key = [addr, &[MESSAGE_NAMESPACE]].concat();
+
+        // Init iterator
+        let iter = self
+            .0
+            .iterator(IteratorMode::From(&start_key, Direction::Forward));
+
+        let messages: Vec<Message> = if let Some(count) = count {
+            iter.take_while(|(key, _)| key[..namespace_key.len()] == namespace_key[..])
+                .take(count as usize)
+                .map(|(_, item)| {
+                    Message::decode(&item[..]).unwrap() // This panics if stored bytes are malformed
+                })
+                .collect()
+        } else {
+            iter.take_while(|(key, _)| key[..namespace_key.len()] == namespace_key[..])
+                .map(|(_, item)| {
+                    Message::decode(&item[..]).unwrap() // This panics if stored bytes are malformed
+                })
+                .collect()
+        };
+        Ok(messages)
     }
 }
