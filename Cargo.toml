@@ -5,6 +5,7 @@ authors = ["Harry Barber <harrybarber@protonmail.com>"]
 edition = "2018"
 
 [dependencies]
+rocksdb = "0.13.0"
 prost = { git = "https://github.com/LucioFranco/prost/", branch = "lucio/update-bytes-0.5" }
 bytes = "0.5.2"
 
