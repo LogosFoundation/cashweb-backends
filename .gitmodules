@@ -1,2 +1,4 @@
 [submodule "src/proto/pop"]
 	url = https://github.com/cashweb/pop-proto
+[submodule "src/proto/relay"]
+	url = https://github.com/cashweb/relay-proto
