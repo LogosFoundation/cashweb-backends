@@ -92,7 +92,6 @@ impl Service<PushMessageRequest> for Database {
 
 pub struct GetFiltersRequest {
     address: String,
-    body: Body,
 }
 
 impl Service<GetFiltersRequest> for Database {
