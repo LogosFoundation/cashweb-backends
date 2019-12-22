@@ -1,6 +1,6 @@
-use rocksdb::Error as RocksError;
 use bitcoincash_addr::{Base58Error, CashAddrDecodingError};
 use hyper::Error as HyperError;
+use rocksdb::Error as RocksError;
 
 #[derive(Debug)]
 pub enum GetError {
@@ -37,7 +37,7 @@ pub enum PushError {
     Address(CashAddrDecodingError, Base58Error),
     Buffer(HyperError),
     MessageDecode(prost::DecodeError),
-    DbPush(DbPushError)
+    DbPush(DbPushError),
 }
 
 impl From<(CashAddrDecodingError, Base58Error)> for PushError {
@@ -56,7 +56,7 @@ impl From<DbPushError> for PushError {
 pub enum GetFiltersError {
     Address(CashAddrDecodingError, Base58Error),
     Db(RocksError),
-    NotFound
+    NotFound,
 }
 
 impl From<RocksError> for GetFiltersError {
@@ -77,7 +77,7 @@ pub enum PutFiltersError {
     Buffer(HyperError),
     Db(RocksError),
     FilterDecode(prost::DecodeError),
-    NotFound
+    NotFound,
 }
 
 impl From<RocksError> for PutFiltersError {

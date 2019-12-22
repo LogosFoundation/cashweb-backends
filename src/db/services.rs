@@ -1,6 +1,7 @@
 use std::pin::Pin;
 
 use bitcoincash_addr::Address;
+use bytes::Buf as _;
 use futures_core::{
     task::{Context, Poll},
     Future,
@@ -8,16 +9,18 @@ use futures_core::{
 use hyper::{body, Body};
 use prost::Message as _;
 use tower_service::Service;
-use bytes::Buf as _;
 
-use crate::models::{messaging::{MessageSet}, filters::FilterApplication};
-use super::{Database, errors::{GetError, PushError, GetFiltersError, PutFiltersError}};
+use super::{
+    errors::{GetError, GetFiltersError, PushError, PutFiltersError},
+    Database,
+};
+use crate::models::{filters::FilterApplication, messaging::MessageSet};
 
 pub struct GetMessagesRequest {
     address: String,
     start: u64,
     count: Option<u64>,
-    take: bool
+    take: bool,
 }
 
 impl Service<GetMessagesRequest> for Database {
@@ -36,7 +39,8 @@ impl Service<GetMessagesRequest> for Database {
             let addr = Address::decode(&request.address)?;
 
             // Grab metadata from DB
-            let message_set = db_inner.get_messages(addr.as_body(), request.start, request.count)?;
+            let message_set =
+                db_inner.get_messages(addr.as_body(), request.start, request.count)?;
 
             // Serialize messages
             let mut raw_payload = Vec::with_capacity(message_set.encoded_len());
@@ -51,7 +55,7 @@ impl Service<GetMessagesRequest> for Database {
 
 pub struct PushMessageRequest {
     address: String,
-    body: Body
+    body: Body,
 }
 
 impl Service<PushMessageRequest> for Database {
@@ -70,10 +74,13 @@ impl Service<PushMessageRequest> for Database {
             let addr = Address::decode(&request.address)?;
 
             // Decode messages
-            let messages_raw = body::aggregate(request.body).await.map_err(PushError::Buffer)?;
+            let messages_raw = body::aggregate(request.body)
+                .await
+                .map_err(PushError::Buffer)?;
 
             // TODO: Do validation
-            let message_page = MessageSet::decode(messages_raw.bytes()).map_err(PushError::MessageDecode)?;
+            let message_page =
+                MessageSet::decode(messages_raw.bytes()).map_err(PushError::MessageDecode)?;
 
             db_inner.push_messages(addr.as_body(), messages_raw.bytes())?;
 
@@ -85,7 +92,7 @@ impl Service<PushMessageRequest> for Database {
 
 pub struct GetFiltersRequest {
     address: String,
-    body: Body
+    body: Body,
 }
 
 impl Service<GetFiltersRequest> for Database {
@@ -104,7 +111,9 @@ impl Service<GetFiltersRequest> for Database {
             let addr = Address::decode(&request.address)?;
 
             // Get filters
-            let mut filters = db_inner.get_filters(addr.as_body())?.ok_or(GetFiltersError::NotFound)?;
+            let mut filters = db_inner
+                .get_filters(addr.as_body())?
+                .ok_or(GetFiltersError::NotFound)?;
 
             // Don't show private filters
             if let Some(price_filter) = &filters.price_filter {
@@ -125,7 +134,7 @@ impl Service<GetFiltersRequest> for Database {
 
 pub struct PutFiltersRequest {
     address: String,
-    body: Body
+    body: Body,
 }
 
 impl Service<PutFiltersRequest> for Database {
@@ -144,10 +153,13 @@ impl Service<PutFiltersRequest> for Database {
             let addr = Address::decode(&request.address)?;
 
             // Decode messages
-            let filter_app_raw = body::aggregate(request.body).await.map_err(PutFiltersError::Buffer)?;
+            let filter_app_raw = body::aggregate(request.body)
+                .await
+                .map_err(PutFiltersError::Buffer)?;
 
             // TODO: Do validation
-            let filter_application = FilterApplication::decode(filter_app_raw.bytes()).map_err(PutFiltersError::FilterDecode)?;
+            let filter_application = FilterApplication::decode(filter_app_raw.bytes())
+                .map_err(PutFiltersError::FilterDecode)?;
 
             db_inner.put_filters(addr.as_body(), &filter_application.serialized_filters)?;
 

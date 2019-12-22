@@ -1,12 +1,15 @@
-pub mod services;
 pub mod errors;
+pub mod services;
 
 use std::{convert::TryInto, sync::Arc};
 
 use prost::Message as PMessage;
 use rocksdb::{Direction, Error as RocksError, IteratorMode, Options, DB};
 
-use crate::models::{messaging::{Message, MessageSet}, filters::Filters};
+use crate::models::{
+    filters::Filters,
+    messaging::{Message, MessageSet},
+};
 use errors::*;
 
 const WRITE_NAMESPACE: u8 = b'w';
@@ -69,7 +72,7 @@ impl Database {
         // Create key
         let position_raw = position.to_be_bytes();
         let key = [addr, &[MESSAGE_NAMESPACE], &position_raw].concat();
-        
+
         self.0.get(key).map(|res| {
             res.map(|item| {
                 Message::decode(&item[..]).unwrap() // This panics if stored bytes are malformed
