@@ -107,7 +107,7 @@ impl Database {
         Ok(MessageSet { messages })
     }
 
-    pub fn get_filter(&self, addr: &[u8]) -> Result<Option<Filters>, RocksError> {
+    pub fn get_filters(&self, addr: &[u8]) -> Result<Option<Filters>, RocksError> {
         let key = [addr, &[FILTER_NAMESPACE]].concat();
         self.0.get(key).map(|raw_filter_opt| {
             raw_filter_opt.map(|raw_filter| {
@@ -116,7 +116,7 @@ impl Database {
         })
     }
 
-    pub fn put_filter(&self, addr: &[u8]) -> Result<Option<Filters>, RocksError> {
+    pub fn put_filters(&self, addr: &[u8]) -> Result<Option<Filters>, RocksError> {
         let key = [addr, &[FILTER_NAMESPACE]].concat();
         self.0.get(key).map(|raw_filter_opt| {
             raw_filter_opt.map(|raw_filter| {

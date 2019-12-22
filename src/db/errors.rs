@@ -31,3 +31,22 @@ impl From<(CashAddrDecodingError, Base58Error)> for PushError {
 pub enum GetError {
 
 }
+
+#[derive(Debug)]
+pub enum GetFiltersError {
+    Address(CashAddrDecodingError, Base58Error),
+    Rocks(RocksError),
+    NotFound
+}
+
+impl From<RocksError> for GetFiltersError {
+    fn from(err: RocksError) -> Self {
+        GetFiltersError::Rocks(err)
+    }
+}
+
+impl From<(CashAddrDecodingError, Base58Error)> for GetFiltersError {
+    fn from((cash_err, base58_err): (CashAddrDecodingError, Base58Error)) -> Self {
+        GetFiltersError::Address(cash_err, base58_err)
+    }
+}
