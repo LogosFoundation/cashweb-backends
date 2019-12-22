@@ -8,9 +8,10 @@ use futures_core::{
 use hyper::{body, Body};
 use prost::Message as _;
 use tower_service::Service;
+use bytes::Buf as _;
 
-use crate::models::messaging::{MessageSet};
-use super::{Database, errors::{GetError, PushError, GetFiltersError}};
+use crate::models::{messaging::{MessageSet}, filters::FilterApplication};
+use super::{Database, errors::{GetError, PushError, GetFiltersError, PutFiltersError}};
 
 pub struct GetMessagesRequest {
     address: String,
@@ -21,7 +22,7 @@ pub struct GetMessagesRequest {
 
 impl Service<GetMessagesRequest> for Database {
     type Response = Vec<u8>;
-    type Error = ();
+    type Error = GetError;
     type Future = Pin<Box<dyn Future<Output = Result<Self::Response, Self::Error>> + Send>>;
 
     fn poll_ready(&mut self, _: &mut Context<'_>) -> Poll<Result<(), Self::Error>> {
@@ -32,10 +33,10 @@ impl Service<GetMessagesRequest> for Database {
         let db_inner = self.clone();
         let fut = async move {
             // Convert address
-            let addr = Address::decode(&request.address).unwrap();
+            let addr = Address::decode(&request.address)?;
 
             // Grab metadata from DB
-            let message_set = db_inner.get_messages(&addr.into_body(), request.start, request.count).unwrap();
+            let message_set = db_inner.get_messages(addr.as_body(), request.start, request.count)?;
 
             // Serialize messages
             let mut raw_payload = Vec::with_capacity(message_set.encoded_len());
@@ -69,8 +70,12 @@ impl Service<PushMessageRequest> for Database {
             let addr = Address::decode(&request.address)?;
 
             // Decode messages
-            let body_raw = body::aggregate(request.body).await.map_err(PushError::Buffer)?;
-            let message_page = MessageSet::decode(body_raw).map_err(PushError::MessageDecode)?;
+            let messages_raw = body::aggregate(request.body).await.map_err(PushError::Buffer)?;
+
+            // TODO: Do validation
+            let message_page = MessageSet::decode(messages_raw.bytes()).map_err(PushError::MessageDecode)?;
+
+            db_inner.push_messages(addr.as_body(), messages_raw.bytes())?;
 
             Ok(())
         };
@@ -80,6 +85,7 @@ impl Service<PushMessageRequest> for Database {
 
 pub struct GetFiltersRequest {
     address: String,
+    body: Body
 }
 
 impl Service<GetFiltersRequest> for Database {
@@ -112,6 +118,40 @@ impl Service<GetFiltersRequest> for Database {
             filters.encode(&mut raw_payload).unwrap();
 
             Ok(raw_payload)
+        };
+        Box::pin(fut)
+    }
+}
+
+pub struct PutFiltersRequest {
+    address: String,
+    body: Body
+}
+
+impl Service<PutFiltersRequest> for Database {
+    type Response = ();
+    type Error = PutFiltersError;
+    type Future = Pin<Box<dyn Future<Output = Result<Self::Response, Self::Error>> + Send>>;
+
+    fn poll_ready(&mut self, _: &mut Context<'_>) -> Poll<Result<(), Self::Error>> {
+        Poll::Ready(Ok(()))
+    }
+
+    fn call(&mut self, request: PutFiltersRequest) -> Self::Future {
+        let db_inner = self.clone();
+        let fut = async move {
+            // Convert address
+            let addr = Address::decode(&request.address)?;
+
+            // Decode messages
+            let filter_app_raw = body::aggregate(request.body).await.map_err(PutFiltersError::Buffer)?;
+
+            // TODO: Do validation
+            let filter_application = FilterApplication::decode(filter_app_raw.bytes()).map_err(PutFiltersError::FilterDecode)?;
+
+            db_inner.put_filters(addr.as_body(), &filter_application.serialized_filters)?;
+
+            Ok(())
         };
         Box::pin(fut)
     }

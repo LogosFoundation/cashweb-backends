@@ -26,12 +26,17 @@ impl Database {
 
     /// Add new address to a database
     pub fn new_address(&self, addr: &[u8]) -> Result<(), RocksError> {
+        // Create key
         let key = [addr, &[WRITE_NAMESPACE]].concat();
+
+        // Set write head to 0
         self.0.put(key, [0; 8])
     }
 
     pub fn get_write_head(&self, addr: &[u8]) -> Result<Option<u64>, RocksError> {
+        // Create key
         let key = [addr, &[WRITE_NAMESPACE]].concat();
+
         self.0.get(key).map(move |res| {
             res.map(move |item| {
                 let arr: [u8; 8] = item[..8].try_into().unwrap(); // This panics if stored bytes are malformed
@@ -45,7 +50,7 @@ impl Database {
         self.0.get(key)
     }
 
-    pub fn push_message(&self, addr: &[u8], message: &Message) -> Result<(), DbPushError> {
+    pub fn push_messages(&self, addr: &[u8], raw_message: &[u8]) -> Result<(), DbPushError> {
         // TODO: There is a race condition here
         // a) Wait until rocksdb supports transactions
         // b) Implement some sort of concurrent hashmap to represent locks
@@ -56,17 +61,15 @@ impl Database {
             .ok_or(DbPushError::MissingWriteHead)?;
         let key = [addr, &[MESSAGE_NAMESPACE], &write_head].concat();
 
-        // Encode message
-        let mut raw_message = Vec::with_capacity(message.encoded_len());
-        message.encode(&mut raw_message).unwrap();
-
         self.0.put(key, raw_message)?;
         Ok(())
     }
 
     pub fn get_message(&self, addr: &[u8], position: u64) -> Result<Option<Message>, RocksError> {
+        // Create key
         let position_raw = position.to_be_bytes();
         let key = [addr, &[MESSAGE_NAMESPACE], &position_raw].concat();
+        
         self.0.get(key).map(|res| {
             res.map(|item| {
                 Message::decode(&item[..]).unwrap() // This panics if stored bytes are malformed
@@ -108,7 +111,9 @@ impl Database {
     }
 
     pub fn get_filters(&self, addr: &[u8]) -> Result<Option<Filters>, RocksError> {
+        // Prefix key
         let key = [addr, &[FILTER_NAMESPACE]].concat();
+
         self.0.get(key).map(|raw_filter_opt| {
             raw_filter_opt.map(|raw_filter| {
                 Filters::decode(&raw_filter[..]).unwrap() // This panics if stored bytes are malformed
@@ -116,12 +121,10 @@ impl Database {
         })
     }
 
-    pub fn put_filters(&self, addr: &[u8]) -> Result<Option<Filters>, RocksError> {
+    pub fn put_filters(&self, addr: &[u8], raw_filters: &[u8]) -> Result<(), RocksError> {
+        // Prefix key
         let key = [addr, &[FILTER_NAMESPACE]].concat();
-        self.0.get(key).map(|raw_filter_opt| {
-            raw_filter_opt.map(|raw_filter| {
-                Filters::decode(&raw_filter[..]).unwrap() // This panics if stored bytes are malformed
-            })
-        })
+
+        self.0.put(key, raw_filters)
     }
 }

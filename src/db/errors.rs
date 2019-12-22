@@ -3,14 +3,32 @@ use bitcoincash_addr::{Base58Error, CashAddrDecodingError};
 use hyper::Error as HyperError;
 
 #[derive(Debug)]
+pub enum GetError {
+    Address(CashAddrDecodingError, Base58Error),
+    Db(RocksError),
+}
+
+impl From<(CashAddrDecodingError, Base58Error)> for GetError {
+    fn from((cash_err, base58_err): (CashAddrDecodingError, Base58Error)) -> Self {
+        GetError::Address(cash_err, base58_err)
+    }
+}
+
+impl From<RocksError> for GetError {
+    fn from(err: RocksError) -> Self {
+        GetError::Db(err)
+    }
+}
+
+#[derive(Debug)]
 pub enum DbPushError {
-    Rocks(RocksError),
+    Db(RocksError),
     MissingWriteHead,
 }
 
 impl From<RocksError> for DbPushError {
     fn from(err: RocksError) -> Self {
-        DbPushError::Rocks(err)
+        DbPushError::Db(err)
     }
 }
 
@@ -18,7 +36,8 @@ impl From<RocksError> for DbPushError {
 pub enum PushError {
     Address(CashAddrDecodingError, Base58Error),
     Buffer(HyperError),
-    MessageDecode(prost::DecodeError)
+    MessageDecode(prost::DecodeError),
+    DbPush(DbPushError)
 }
 
 impl From<(CashAddrDecodingError, Base58Error)> for PushError {
@@ -27,26 +46,48 @@ impl From<(CashAddrDecodingError, Base58Error)> for PushError {
     }
 }
 
-#[derive(Debug)]
-pub enum GetError {
-
+impl From<DbPushError> for PushError {
+    fn from(err: DbPushError) -> Self {
+        PushError::DbPush(err)
+    }
 }
 
 #[derive(Debug)]
 pub enum GetFiltersError {
     Address(CashAddrDecodingError, Base58Error),
-    Rocks(RocksError),
+    Db(RocksError),
     NotFound
 }
 
 impl From<RocksError> for GetFiltersError {
     fn from(err: RocksError) -> Self {
-        GetFiltersError::Rocks(err)
+        GetFiltersError::Db(err)
     }
 }
 
 impl From<(CashAddrDecodingError, Base58Error)> for GetFiltersError {
     fn from((cash_err, base58_err): (CashAddrDecodingError, Base58Error)) -> Self {
         GetFiltersError::Address(cash_err, base58_err)
+    }
+}
+
+#[derive(Debug)]
+pub enum PutFiltersError {
+    Address(CashAddrDecodingError, Base58Error),
+    Buffer(HyperError),
+    Db(RocksError),
+    FilterDecode(prost::DecodeError),
+    NotFound
+}
+
+impl From<RocksError> for PutFiltersError {
+    fn from(err: RocksError) -> Self {
+        PutFiltersError::Db(err)
+    }
+}
+
+impl From<(CashAddrDecodingError, Base58Error)> for PutFiltersError {
+    fn from((cash_err, base58_err): (CashAddrDecodingError, Base58Error)) -> Self {
+        PutFiltersError::Address(cash_err, base58_err)
     }
 }
