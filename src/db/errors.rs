@@ -37,7 +37,7 @@ pub enum PushError {
     Address(CashAddrDecodingError, Base58Error),
     Buffer(HyperError),
     MessageDecode(prost::DecodeError),
-    DbPush(DbPushError),
+    Db(RocksError),
 }
 
 impl From<(CashAddrDecodingError, Base58Error)> for PushError {
@@ -46,9 +46,9 @@ impl From<(CashAddrDecodingError, Base58Error)> for PushError {
     }
 }
 
-impl From<DbPushError> for PushError {
-    fn from(err: DbPushError) -> Self {
-        PushError::DbPush(err)
+impl From<RocksError> for PushError {
+    fn from(err: RocksError) -> Self {
+        PushError::Db(err)
     }
 }
 

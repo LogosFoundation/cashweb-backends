@@ -1,4 +1,6 @@
+use std::convert::TryFrom;
 use std::pin::Pin;
+use std::time::{SystemTime, UNIX_EPOCH};
 
 use bitcoincash_addr::Address;
 use bytes::Buf as _;
@@ -15,6 +17,16 @@ use super::{
     Database,
 };
 use crate::models::{filters::FilterApplication, messaging::MessageSet};
+
+fn get_unix_now() -> u64 {
+    u64::try_from(
+        SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .expect("time went backwards")
+            .as_millis(),
+    )
+    .expect("we're in the distant future")
+}
 
 pub struct GetMessagesRequest {
     address: String,
@@ -82,7 +94,8 @@ impl Service<PushMessageRequest> for Database {
             let message_page =
                 MessageSet::decode(messages_raw.bytes()).map_err(PushError::MessageDecode)?;
 
-            db_inner.push_messages(addr.as_body(), messages_raw.bytes())?;
+            let timestamp = get_unix_now();
+            db_inner.push_message(addr.as_body(), messages_raw.bytes(), timestamp)?;
 
             Ok(())
         };

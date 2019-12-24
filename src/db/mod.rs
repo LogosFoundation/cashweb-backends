@@ -1,18 +1,19 @@
 pub mod errors;
 pub mod services;
 
-use std::{convert::TryInto, sync::Arc};
+use std::sync::Arc;
 
 use prost::Message as PMessage;
 use rocksdb::{Direction, Error as RocksError, IteratorMode, Options, DB};
+use sha2::{Digest, Sha256};
 
 use crate::models::{
     filters::Filters,
     messaging::{Message, MessageSet},
 };
-use errors::*;
 
-const WRITE_NAMESPACE: u8 = b'w';
+const DIGEST_LEN: usize = 4;
+
 const MESSAGE_NAMESPACE: u8 = b'm';
 const FILTER_NAMESPACE: u8 = b'f';
 
@@ -27,42 +28,24 @@ impl Database {
         DB::open(&opts, &path).map(Arc::new).map(Database)
     }
 
-    /// Add new address to a database
-    pub fn new_address(&self, addr: &[u8]) -> Result<(), RocksError> {
-        // Create key
-        let key = [addr, &[WRITE_NAMESPACE]].concat();
-
-        // Set write head to 0
-        self.0.put(key, [0; 8])
-    }
-
-    pub fn get_write_head(&self, addr: &[u8]) -> Result<Option<u64>, RocksError> {
-        // Create key
-        let key = [addr, &[WRITE_NAMESPACE]].concat();
-
-        self.0.get(key).map(move |res| {
-            res.map(move |item| {
-                let arr: [u8; 8] = item[..8].try_into().unwrap(); // This panics if stored bytes are malformed
-                u64::from_be_bytes(arr)
-            })
-        })
-    }
-
-    pub fn get_write_head_raw(&self, addr: &[u8]) -> Result<Option<Vec<u8>>, RocksError> {
-        let key = [addr, &[WRITE_NAMESPACE]].concat();
-        self.0.get(key)
-    }
-
-    pub fn push_messages(&self, addr: &[u8], raw_message: &[u8]) -> Result<(), DbPushError> {
-        // TODO: There is a race condition here
-        // a) Wait until rocksdb supports transactions
-        // b) Implement some sort of concurrent hashmap to represent locks
+    pub fn push_message(
+        &self,
+        addr: &[u8],
+        raw_message: &[u8],
+        timestamp: u64,
+    ) -> Result<(), RocksError> {
+        // Message digest
+        let digest = Sha256::new().chain(raw_message).result();
 
         // Create key
-        let write_head = self
-            .get_write_head_raw(addr)?
-            .ok_or(DbPushError::MissingWriteHead)?;
-        let key = [addr, &[MESSAGE_NAMESPACE], &write_head].concat();
+        let raw_timestamp: [u8; 8] = timestamp.to_be_bytes();
+        let key = [
+            addr,
+            &[MESSAGE_NAMESPACE],
+            &raw_timestamp,
+            &digest[..DIGEST_LEN],
+        ]
+        .concat();
 
         self.0.put(key, raw_message)?;
         Ok(())
@@ -83,28 +66,38 @@ impl Database {
     pub fn get_messages(
         &self,
         addr: &[u8],
-        start: u64,
-        count: Option<u64>,
+        start_time: u64,
+        end_time: Option<u64>,
     ) -> Result<MessageSet, RocksError> {
         // Prefix key
-        let raw_start_height: [u8; 8] = start.to_be_bytes();
-        let start_key = [addr, &[MESSAGE_NAMESPACE], &raw_start_height].concat();
+        let raw_start_time: [u8; 8] = start_time.to_be_bytes();
+        let start_key = [addr, &[MESSAGE_NAMESPACE], &raw_start_time].concat();
         let namespace_key = [addr, &[MESSAGE_NAMESPACE]].concat();
+
+        // Check whether key is within namespace
+        let in_namespace = |key: &[u8]| key[..namespace_key.len()] == namespace_key[..];
 
         // Init iterator
         let iter = self
             .0
             .iterator(IteratorMode::From(&start_key, Direction::Forward));
 
-        let messages: Vec<Message> = if let Some(count) = count {
-            iter.take_while(|(key, _)| key[..namespace_key.len()] == namespace_key[..])
-                .take(count as usize)
+        let raw_end_time = end_time.map(|end_time| end_time.to_be_bytes());
+
+        let messages: Vec<Message> = if let Some(raw_end_time) = raw_end_time {
+            // Check whether key is before end time
+            let before_end_time =
+                |key: &[u8]| key[namespace_key.len()..namespace_key.len() + 8] < raw_end_time[..];
+
+            // Take items inside namespace and before end time
+            iter.take_while(|(key, _)| in_namespace(key) && before_end_time(key))
                 .map(|(_, item)| {
                     Message::decode(&item[..]).unwrap() // This panics if stored bytes are malformed
                 })
                 .collect()
         } else {
-            iter.take_while(|(key, _)| key[..namespace_key.len()] == namespace_key[..])
+            // Take items inside namespace
+            iter.take_while(|(key, _)| in_namespace(key))
                 .map(|(_, item)| {
                     Message::decode(&item[..]).unwrap() // This panics if stored bytes are malformed
                 })
