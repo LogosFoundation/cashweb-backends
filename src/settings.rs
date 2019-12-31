@@ -4,6 +4,8 @@ use serde::Deserialize;
 
 use crate::bitcoin::Network;
 
+const FOLDER_DIR: &str = ".relay";
+
 #[derive(Debug, Deserialize)]
 pub struct Settings {
     pub bind: String,
@@ -11,7 +13,6 @@ pub struct Settings {
     pub rpc_port: u16,
     pub rpc_username: String,
     pub rpc_password: String,
-    pub zmq_port: u16,
     pub secret: String,
     pub db_path: String,
     pub network: Network,
@@ -23,7 +24,11 @@ impl Settings {
 
         // Set defaults
         let yaml = load_yaml!("cli.yml");
-        let matches = App::from_yaml(yaml).get_matches();
+        let matches = App::from_yaml(yaml)
+            .about(crate_description!())
+            .author(crate_authors!("\n"))
+            .version(crate_version!())
+            .get_matches();
         let home_dir = match dirs::home_dir() {
             Some(some) => some,
             None => return Err(ConfigError::Message("no home directory".to_string())),
@@ -33,16 +38,15 @@ impl Settings {
         s.set_default("rpc_port", "18443")?;
         s.set_default("rpc_username", "username")?;
         s.set_default("rpc_password", "password")?;
-        s.set_default("zmq_port", "28332")?;
         s.set_default("secret", "secret")?;
         let mut default_db = home_dir.clone();
-        default_db.push(".keyserver-rust/db");
+        default_db.push(format!("{}/db", FOLDER_DIR));
         s.set_default("db_path", default_db.to_str())?;
         s.set_default("network", "regnet")?;
 
         // Load config from file
         let mut default_config = home_dir;
-        default_config.push(".keyserver-rust/config");
+        default_config.push(format!("{}/config", FOLDER_DIR));
         let default_config_str = default_config.to_str().unwrap();
         let config_path = matches.value_of("config").unwrap_or(default_config_str);
         s.merge(File::with_name(config_path).required(false))?;

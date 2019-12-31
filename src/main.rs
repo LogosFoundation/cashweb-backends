@@ -77,10 +77,6 @@ async fn main() -> io::Result<()> {
                     // Message handlers
                     web::resource("/message")
                         .data(db_inner.clone())
-                        .wrap(CheckPayment::new(
-                            bitcoin_client_inner.clone(),
-                            wallet_state_inner.clone(),
-                        )) // Apply payment check to put key
                         .route(web::get().to(get_messages))
                         .route(web::put().to(put_message)),
                 ).service(
