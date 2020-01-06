@@ -15,7 +15,7 @@ pub mod settings;
 use std::io;
 
 use actix_cors::Cors;
-use actix_web::{http::header, middleware::Logger, web, App, HttpServer};
+use actix_web::{http::{header, Method}, middleware::Logger, web, App, HttpServer};
 use env_logger::Env;
 use lazy_static::lazy_static;
 
@@ -77,6 +77,11 @@ async fn main() -> io::Result<()> {
                     // Message handlers
                     web::resource("/message")
                         .data(db_inner.clone())
+                        .wrap(CheckPayment::new(
+                            bitcoin_client_inner.clone(),
+                            wallet_state_inner.clone(),
+                            Method::GET
+                        )) // Apply payment check to put filter
                         .route(web::get().to(get_messages))
                         .route(web::put().to(put_message)),
                 ).service(
@@ -86,9 +91,10 @@ async fn main() -> io::Result<()> {
                         .wrap(CheckPayment::new(
                             bitcoin_client_inner.clone(),
                             wallet_state_inner.clone(),
-                        )) // Apply payment check to put key
-                        .route(web::get().to(get_filter))
-                        .route(web::put().to(put_filter))
+                            Method::PUT
+                        )) // Apply payment check to put filter
+                        .route(web::get().to(get_filters))
+                        .route(web::put().to(put_filters))
                 )
             )
             .service(

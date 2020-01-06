@@ -119,11 +119,19 @@ pub async fn payment_handler(
 /*
 Payment middleware
 */
-pub struct CheckPayment(BitcoinClient<HttpConnector>, WalletState);
+pub struct CheckPayment { 
+    client: BitcoinClient<HttpConnector>, 
+    wallet_state: WalletState, 
+    protected_method: Method
+}
 
 impl CheckPayment {
-    pub fn new(client: BitcoinClient<HttpConnector>, wallet_state: WalletState) -> Self {
-        CheckPayment(client, wallet_state)
+    pub fn new(client: BitcoinClient<HttpConnector>, wallet_state: WalletState, protected_method: Method) -> Self {
+        CheckPayment { 
+            client, 
+            wallet_state, 
+            protected_method
+        }
     }
 }
 
@@ -142,8 +150,9 @@ where
     fn new_transform(&self, service: S) -> Self::Future {
         ready(Ok(CheckPaymentMiddleware {
             service,
-            client: self.0.clone(),
-            wallet_state: self.1.clone(),
+            client: self.client.clone(),
+            wallet_state: self.wallet_state.clone(),
+            protected_method: self.protected_method.clone()
         }))
     }
 }
@@ -151,6 +160,7 @@ pub struct CheckPaymentMiddleware<S> {
     service: S,
     client: BitcoinClient<HttpConnector>,
     wallet_state: WalletState,
+    protected_method: Method
 }
 
 impl<S> Service for CheckPaymentMiddleware<S>
@@ -170,9 +180,8 @@ where
 
     fn call(&mut self, req: ServiceRequest) -> Self::Future {
         // Only pay for put
-        match *req.method() {
-            Method::PUT => (),
-            _ => return Box::pin(self.service.call(req)),
+        if req.method() != self.protected_method {
+            return Box::pin(self.service.call(req))
         }
 
         // Get request data

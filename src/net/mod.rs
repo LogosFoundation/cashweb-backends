@@ -83,7 +83,7 @@ pub async fn put_message(
     Ok(HttpResponse::Ok().finish())
 }
 
-pub async fn get_filter(
+pub async fn get_filters(
     addr_str: web::Path<String>,
     db_data: web::Data<Database>,
 ) -> Result<HttpResponse, ServerError> {
@@ -92,7 +92,7 @@ pub async fn get_filter(
 
     // Get filters
     let mut filters = db_data
-        .get_filter(addr.as_body())?
+        .get_filters(addr.as_body())?
         .ok_or(ServerError::NotFound)?;
 
     // Don't show private filters
@@ -110,7 +110,7 @@ pub async fn get_filter(
     Ok(HttpResponse::Ok().body(raw_payload))
 }
 
-pub async fn put_filter(
+pub async fn put_filters(
     addr_str: web::Path<String>,
     mut payload: web::Payload,
     db_data: web::Data<Database>,
@@ -128,7 +128,7 @@ pub async fn put_filter(
     let filter_application =
         FilterApplication::decode(filters_raw).map_err(ServerError::FilterDecode)?;
 
-    db_data.put_filter(addr.as_body(), &filter_application.serialized_filters)?;
+    db_data.put_filters(addr.as_body(), &filter_application.serialized_filters)?;
 
     // Respond
     Ok(HttpResponse::Ok().finish())
