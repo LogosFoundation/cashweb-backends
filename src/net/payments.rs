@@ -23,6 +23,7 @@ use futures::{
 };
 use prost::Message;
 use url::Url;
+use json_rpc::clients::http::HttpConnector;
 
 use crate::{bitcoin::*, models::bip70::*, SETTINGS};
 
@@ -37,7 +38,7 @@ pub const VALID_DURATION: u64 = 30;
 pub async fn payment_handler(
     req: HttpRequest,
     mut payload: web::Payload,
-    data: web::Data<(BitcoinClient, WalletState)>,
+    data: web::Data<(BitcoinClient<HttpConnector>, WalletState)>,
 ) -> Result<HttpResponse, ServerError> {
     // Check headers
     let headers = req.headers();
@@ -118,10 +119,10 @@ pub async fn payment_handler(
 /*
 Payment middleware
 */
-pub struct CheckPayment(BitcoinClient, WalletState);
+pub struct CheckPayment(BitcoinClient<HttpConnector>, WalletState);
 
 impl CheckPayment {
-    pub fn new(client: BitcoinClient, wallet_state: WalletState) -> Self {
+    pub fn new(client: BitcoinClient<HttpConnector>, wallet_state: WalletState) -> Self {
         CheckPayment(client, wallet_state)
     }
 }
@@ -148,7 +149,7 @@ where
 }
 pub struct CheckPaymentMiddleware<S> {
     service: S,
-    client: BitcoinClient,
+    client: BitcoinClient<HttpConnector>,
     wallet_state: WalletState,
 }
 

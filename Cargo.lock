@@ -321,6 +321,21 @@ version = "0.5.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 
 [[package]]
+name = "async-json-rpc"
+version = "0.1.0"
+source = "git+https://github.com/hlb8122/async-json-rpc#c0b39a9d6f40c651f465bd06360be1f417089b5f"
+dependencies = [
+ "base64 0.11.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "futures-core 0.3.1 (registry+https://github.com/rust-lang/crates.io-index)",
+ "futures-util 0.3.1 (registry+https://github.com/rust-lang/crates.io-index)",
+ "hyper 0.13.1 (registry+https://github.com/rust-lang/crates.io-index)",
+ "hyper-tls 0.4.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "serde 1.0.104 (registry+https://github.com/rust-lang/crates.io-index)",
+ "serde_json 1.0.44 (registry+https://github.com/rust-lang/crates.io-index)",
+ "tower-service 0.3.0 (registry+https://github.com/rust-lang/crates.io-index)",
+]
+
+[[package]]
 name = "async-trait"
 version = "0.1.22"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -548,6 +563,7 @@ dependencies = [
  "actix-rt 1.0.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "actix-service 1.0.1 (registry+https://github.com/rust-lang/crates.io-index)",
  "actix-web 2.0.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "async-json-rpc 0.1.0 (git+https://github.com/hlb8122/async-json-rpc)",
  "base64 0.11.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "bitcoin 0.21.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "bitcoin_hashes 0.7.3 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -568,7 +584,7 @@ dependencies = [
  "secp256k1 0.17.1 (registry+https://github.com/rust-lang/crates.io-index)",
  "serde 1.0.104 (registry+https://github.com/rust-lang/crates.io-index)",
  "serde_json 1.0.44 (registry+https://github.com/rust-lang/crates.io-index)",
- "sha2 0.8.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "sha2 0.8.1 (registry+https://github.com/rust-lang/crates.io-index)",
  "subtle 2.2.2 (registry+https://github.com/rust-lang/crates.io-index)",
  "url 2.1.0 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
@@ -2100,7 +2116,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 
 [[package]]
 name = "sha2"
-version = "0.8.0"
+version = "0.8.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 dependencies = [
  "block-buffer 0.7.3 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -2687,6 +2703,7 @@ dependencies = [
 "checksum arrayref 0.3.5 (registry+https://github.com/rust-lang/crates.io-index)" = "0d382e583f07208808f6b1249e60848879ba3543f57c32277bf52d69c2f0f0ee"
 "checksum arrayvec 0.4.12 (registry+https://github.com/rust-lang/crates.io-index)" = "cd9fd44efafa8690358b7408d253adf110036b88f55672a933f01d616ad9b1b9"
 "checksum arrayvec 0.5.1 (registry+https://github.com/rust-lang/crates.io-index)" = "cff77d8686867eceff3105329d4698d96c2391c176d5d03adc90c7389162b5b8"
+"checksum async-json-rpc 0.1.0 (git+https://github.com/hlb8122/async-json-rpc)" = "<none>"
 "checksum async-trait 0.1.22 (registry+https://github.com/rust-lang/crates.io-index)" = "c8df72488e87761e772f14ae0c2480396810e51b2c2ade912f97f0f7e5b95e3c"
 "checksum atty 0.2.13 (registry+https://github.com/rust-lang/crates.io-index)" = "1803c647a3ec87095e7ae7acfca019e98de5ec9a7d01343f611cf3152ed71a90"
 "checksum autocfg 0.1.7 (registry+https://github.com/rust-lang/crates.io-index)" = "1d49d90015b3c36167a20fe2810c5cd875ad504b39cff3d4eae7977e6b7c1cb2"
@@ -2887,7 +2904,7 @@ dependencies = [
 "checksum serde_test 0.8.23 (registry+https://github.com/rust-lang/crates.io-index)" = "110b3dbdf8607ec493c22d5d947753282f3bae73c0f56d322af1e8c78e4c23d5"
 "checksum serde_urlencoded 0.6.1 (registry+https://github.com/rust-lang/crates.io-index)" = "9ec5d77e2d4c73717816afac02670d5c4f534ea95ed430442cad02e7a6e32c97"
 "checksum sha1 0.6.0 (registry+https://github.com/rust-lang/crates.io-index)" = "2579985fda508104f7587689507983eadd6a6e84dd35d6d115361f530916fa0d"
-"checksum sha2 0.8.0 (registry+https://github.com/rust-lang/crates.io-index)" = "7b4d8bfd0e469f417657573d8451fb33d16cfe0989359b93baf3a1ffc639543d"
+"checksum sha2 0.8.1 (registry+https://github.com/rust-lang/crates.io-index)" = "27044adfd2e1f077f649f59deb9490d3941d674002f7d062870a60ebe9bd47a0"
 "checksum shlex 0.1.1 (registry+https://github.com/rust-lang/crates.io-index)" = "7fdf1b9db47230893d76faad238fd6097fd6d6a9245cd7a4d90dbd639536bbd2"
 "checksum signal-hook-registry 1.2.0 (registry+https://github.com/rust-lang/crates.io-index)" = "94f478ede9f64724c5d173d7bb56099ec3e2d9fc2774aac65d34b8b890405f41"
 "checksum slab 0.4.2 (registry+https://github.com/rust-lang/crates.io-index)" = "c111b5bd5695e56cffe5129854aa230b39c93a305372fdbb2668ca2394eea9f8"
