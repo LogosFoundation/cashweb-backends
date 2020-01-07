@@ -21,9 +21,9 @@ use futures::{
     prelude::*,
     task::{Context, Poll},
 };
+use json_rpc::clients::http::HttpConnector;
 use prost::Message;
 use url::Url;
-use json_rpc::clients::http::HttpConnector;
 
 use crate::{bitcoin::*, models::bip70::*, SETTINGS};
 
@@ -119,18 +119,22 @@ pub async fn payment_handler(
 /*
 Payment middleware
 */
-pub struct CheckPayment { 
-    client: BitcoinClient<HttpConnector>, 
-    wallet_state: WalletState, 
-    protected_method: Method
+pub struct CheckPayment {
+    client: BitcoinClient<HttpConnector>,
+    wallet_state: WalletState,
+    protected_method: Method,
 }
 
 impl CheckPayment {
-    pub fn new(client: BitcoinClient<HttpConnector>, wallet_state: WalletState, protected_method: Method) -> Self {
-        CheckPayment { 
-            client, 
-            wallet_state, 
-            protected_method
+    pub fn new(
+        client: BitcoinClient<HttpConnector>,
+        wallet_state: WalletState,
+        protected_method: Method,
+    ) -> Self {
+        CheckPayment {
+            client,
+            wallet_state,
+            protected_method,
         }
     }
 }
@@ -152,7 +156,7 @@ where
             service,
             client: self.client.clone(),
             wallet_state: self.wallet_state.clone(),
-            protected_method: self.protected_method.clone()
+            protected_method: self.protected_method.clone(),
         }))
     }
 }
@@ -160,7 +164,7 @@ pub struct CheckPaymentMiddleware<S> {
     service: S,
     client: BitcoinClient<HttpConnector>,
     wallet_state: WalletState,
-    protected_method: Method
+    protected_method: Method,
 }
 
 impl<S> Service for CheckPaymentMiddleware<S>
@@ -181,7 +185,7 @@ where
     fn call(&mut self, req: ServiceRequest) -> Self::Future {
         // Only pay for put
         if req.method() != self.protected_method {
-            return Box::pin(self.service.call(req))
+            return Box::pin(self.service.call(req));
         }
 
         // Get request data

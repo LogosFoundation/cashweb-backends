@@ -13,12 +13,9 @@ use futures::prelude::*;
 use prost::Message as _;
 
 use crate::{
-    crypto::{Address},
+    crypto::Address,
     db::Database,
-    models::{
-        filters::FilterApplication,
-        messaging::MessageSet,
-    },
+    models::{filters::FilterApplication, messaging::MessageSet},
 };
 
 use errors::ServerError;

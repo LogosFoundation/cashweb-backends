@@ -92,8 +92,8 @@ impl Settings {
         }
 
         // Set the bitcoin network
-        if let Some(db_path) = matches.value_of("network") {
-            s.set("network", db_path)?;
+        if let Some(network) = matches.value_of("network") {
+            s.set("network", network)?;
         }
 
         s.try_into()
