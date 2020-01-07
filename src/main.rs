@@ -76,6 +76,12 @@ async fn main() -> io::Result<()> {
             .wrap(Logger::new("%a %{User-Agent}i"))
             .wrap(cors)
             .service(
+                // Payment endpoint
+                web::resource("/payments")
+                    .data((bitcoin_client_inner.clone(), wallet_state_inner.clone()))
+                    .route(web::post().to(payment_handler)),
+            )
+            .service(
                 // Address scope
                 web::scope("/{addr}")
                     .service(
@@ -95,19 +101,13 @@ async fn main() -> io::Result<()> {
                         web::resource("/filters")
                             .data(db_inner)
                             .wrap(CheckPayment::new(
-                                bitcoin_client_inner.clone(),
-                                wallet_state_inner.clone(),
+                                bitcoin_client_inner,
+                                wallet_state_inner,
                                 Method::PUT,
                             )) // Apply payment check to put filter
                             .route(web::get().to(get_filters))
                             .route(web::put().to(put_filters)),
                     ),
-            )
-            .service(
-                // Payment endpoint
-                web::resource("/payments")
-                    .data((bitcoin_client_inner, wallet_state_inner))
-                    .route(web::post().to(payment_handler)),
             )
             .service(actix_files::Files::new("/", "./static/").index_file("index.html"))
     })
