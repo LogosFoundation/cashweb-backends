@@ -25,6 +25,7 @@ impl<C> std::ops::Deref for BitcoinClient<C> {
     }
 }
 
+#[derive(Debug)]
 pub enum BitcoinError {
     Http(HttpError),
     Rpc(RpcError),
