@@ -243,9 +243,10 @@ where
                 };
 
                 // Decode put address
-                let uri = req.uri();
-                let put_addr_path = uri.path();
-                let put_addr_str = &put_addr_path[6..]; // TODO: This is super hacky
+                let put_addr_str = req
+                    .match_info()
+                    .get("addr")
+                    .expect("wrapped route with no {addr}"); // TODO: This is safe when wrapping a {addr}
                 let put_addr = match Address::decode(put_addr_str) {
                     Ok(ok) => ok,
                     Err((cash_err, base58_err)) => {
@@ -255,7 +256,7 @@ where
 
                 // Generate merchant URL
                 let base_url = format!("{}://{}", scheme, host);
-                let merchant_url = format!("{}{}", base_url, put_addr_path);
+                let merchant_url = format!("{}{}", base_url, req.uri());
 
                 let response = new_addr.and_then(move |addr_raw| {
                     // Generate outputs
