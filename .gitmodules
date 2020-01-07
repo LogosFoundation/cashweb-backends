@@ -1,4 +1,6 @@
-[submodule "src/proto/pop"]
+[submodule "pop-protobufs"]
+	path = src/proto/pop
 	url = https://github.com/cashweb/pop-proto
-[submodule "src/proto/relay"]
+[submodule "relay-protobufs"]
+	path = src/proto/relay
 	url = https://github.com/cashweb/relay-proto
