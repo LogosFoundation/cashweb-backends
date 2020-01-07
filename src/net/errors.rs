@@ -209,7 +209,7 @@ impl error::ResponseError for PaymentError {
             PaymentError::NoTx => HttpResponse::BadRequest(),
             PaymentError::TxDeserialize(_) => HttpResponse::BadRequest(),
             PaymentError::InvalidOutputs => HttpResponse::BadRequest(),
-            PaymentError::InvalidTx => HttpResponse::BadRequest(),
+            PaymentError::TxReject(_) => HttpResponse::BadRequest(),
             PaymentError::MismatchedNetwork => HttpResponse::BadRequest(),
             PaymentError::AddrFetchFailed => HttpResponse::InternalServerError(),
         }
