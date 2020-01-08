@@ -1,4 +1,4 @@
-use std::sync::Arc;
+use std::{convert::TryInto, sync::Arc};
 
 use prost::Message as PMessage;
 use rocksdb::{Direction, Error as RocksError, IteratorMode, Options, DB};
@@ -6,7 +6,7 @@ use sha2::{Digest, Sha256};
 
 use crate::models::{
     filters::Filters,
-    messaging::{Message, MessageSet},
+    messaging::{Message, MessagePage, MessageSet, TimedMessage},
 };
 
 const DIGEST_LEN: usize = 4;
@@ -65,7 +65,7 @@ impl Database {
         addr: &[u8],
         start_time: u64,
         end_time: Option<u64>,
-    ) -> Result<MessageSet, RocksError> {
+    ) -> Result<MessagePage, RocksError> {
         // Prefix key
         let raw_start_time: [u8; 8] = start_time.to_be_bytes();
         let start_key = [addr, &[MESSAGE_NAMESPACE], &raw_start_time].concat();
@@ -74,6 +74,14 @@ impl Database {
         // Check whether key is within namespace
         let in_namespace = |key: &[u8]| key[..namespace_key.len()] == namespace_key[..];
 
+        // Convert timestamp array to u64
+        let time_slice = |key: &[u8]| {
+            let arr: [u8; 8] = key[namespace_key.len()..namespace_key.len() + 8]
+                .try_into()
+                .unwrap(); // This is safe
+            u64::from_be_bytes(arr)
+        };
+
         // Init iterator
         let iter = self
             .0
@@ -81,26 +89,34 @@ impl Database {
 
         let raw_end_time = end_time.map(|end_time| end_time.to_be_bytes());
 
-        let messages: Vec<Message> = if let Some(raw_end_time) = raw_end_time {
+        let messages: Vec<TimedMessage> = if let Some(raw_end_time) = raw_end_time {
             // Check whether key is before end time
             let before_end_time =
                 |key: &[u8]| key[namespace_key.len()..namespace_key.len() + 8] < raw_end_time[..];
 
             // Take items inside namespace and before end time
             iter.take_while(|(key, _)| in_namespace(key) && before_end_time(key))
-                .map(|(_, item)| {
-                    Message::decode(&item[..]).unwrap() // This panics if stored bytes are malformed
+                .map(|(key, item)| {
+                    let message = Some(Message::decode(&item[..]).unwrap()); // This panics if stored bytes are malformed
+                    TimedMessage {
+                        timestamp: time_slice(&key) as i64,
+                        message,
+                    }
                 })
                 .collect()
         } else {
             // Take items inside namespace
             iter.take_while(|(key, _)| in_namespace(key))
-                .map(|(_, item)| {
-                    Message::decode(&item[..]).unwrap() // This panics if stored bytes are malformed
+                .map(|(key, item)| {
+                    let message = Some(Message::decode(&item[..]).unwrap()); // This panics if stored bytes are malformed
+                    TimedMessage {
+                        timestamp: time_slice(&key) as i64,
+                        message,
+                    }
                 })
                 .collect()
         };
-        Ok(MessageSet { messages })
+        Ok(MessagePage { messages })
     }
 
     pub fn get_filters(&self, addr: &[u8]) -> Result<Option<Filters>, RocksError> {
