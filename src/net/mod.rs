@@ -73,7 +73,11 @@ pub async fn put_message(
         MessageSet::decode(&messages_raw[..]).map_err(ServerError::MessagesDecode)?;
 
     let timestamp = get_unix_now();
-    db_data.push_message(addr.as_body(), &messages_raw[..], timestamp)?;
+    for message in message_page.messages {
+        let mut raw_message = Vec::with_capacity(message.encoded_len());
+        message.encode(&mut raw_message).unwrap(); // This is safe
+        db_data.push_message(addr.as_body(), &raw_message[..], timestamp)?;
+    }
 
     // Respond
     Ok(HttpResponse::Ok().finish())
