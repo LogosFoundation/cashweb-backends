@@ -157,30 +157,17 @@ fn extract_pubkey_hash(raw_script: &[u8]) -> Option<Vec<u8>> {
     Some(raw_script[3..23].to_vec())
 }
 
-pub fn generate_outputs(pk_hash: Vec<u8>, base_url: &str, put_pk_hash: Vec<u8>) -> Vec<Output> {
+pub fn generate_outputs(pk_hash: &[u8]) -> Vec<Output> {
     // Generate p2pkh
     let p2pkh_script_pre: [u8; 3] = [118, 169, 20];
     let p2pkh_script_post: [u8; 2] = [136, 172];
-    let p2pkh_script = [&p2pkh_script_pre[..], &pk_hash[..], &p2pkh_script_post[..]].concat();
+    let p2pkh_script = [&p2pkh_script_pre[..], pk_hash, &p2pkh_script_post[..]].concat();
     let p2pkh_output = Output {
         amount: Some(PRICE),
         script: p2pkh_script,
     };
 
-    // Generate op return
-    let raw_base_url = base_url.as_bytes();
-    let op_return_script = [
-        &[106, 9 + 20 + base_url.len() as u8][..],
-        &KEYSERVER_PREFIX[..],
-        &put_pk_hash[..],
-        raw_base_url,
-    ]
-    .concat();
-    let op_return_output = Output {
-        amount: Some(0),
-        script: op_return_script,
-    };
-    vec![p2pkh_output, op_return_output]
+    vec![p2pkh_output]
 }
 
 #[cfg(test)]
@@ -190,7 +177,7 @@ mod tests {
     #[test]
     fn test_gen_check_output() {
         let pk_hash = [3; 20].to_vec();
-        let outputs = generate_outputs(pk_hash.clone(), "", pk_hash.clone());
+        let outputs = generate_outputs(&pk_hash);
         assert_eq!(PRICE, outputs.get(0).unwrap().amount.unwrap());
         let extracted_pkh = extract_pubkey_hash(&outputs.get(0).unwrap().script[..]);
         assert_eq!(pk_hash, extracted_pkh.unwrap());

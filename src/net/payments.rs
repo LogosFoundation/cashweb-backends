@@ -247,20 +247,19 @@ where
                     .match_info()
                     .get("addr")
                     .expect("wrapped route with no {addr}"); // TODO: This is safe when wrapping a {addr}
-                let put_addr = match Address::decode(put_addr_str) {
+                match Address::decode(put_addr_str) {
                     Ok(ok) => ok,
                     Err((cash_err, base58_err)) => {
                         return Box::pin(err(ServerError::Address(cash_err, base58_err).into()))
                     }
                 };
 
-                // Generate merchant URL
+                // Generate merchant data
                 let base_url = format!("{}://{}", scheme, host);
-                let merchant_url = format!("{}{}", base_url, req.uri());
 
                 let response = new_addr.and_then(move |addr_raw| {
                     // Generate outputs
-                    let outputs = generate_outputs(addr_raw, &base_url, put_addr.into_body());
+                    let outputs = generate_outputs(&addr_raw);
 
                     // Collect payment details
                     let payment_url = Some(format!("{}{}", base_url, PAYMENT_PATH));
@@ -269,7 +268,7 @@ where
                         time: current_time.duration_since(UNIX_EPOCH).unwrap().as_secs(),
                         expires: Some(expiry_time.duration_since(UNIX_EPOCH).unwrap().as_secs()),
                         memo: None,
-                        merchant_data: Some(merchant_url.as_bytes().to_vec()),
+                        merchant_data: Some(addr_raw),
                         outputs,
                         payment_url,
                     };
