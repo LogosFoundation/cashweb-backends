@@ -26,7 +26,7 @@ use lazy_static::lazy_static;
 use crate::{
     bitcoin::{BitcoinClient, WalletState},
     db::Database,
-    net::{payments::*, *},
+    net::{payments::*, ws::ws_connect, *},
     settings::Settings,
 };
 
@@ -101,12 +101,23 @@ async fn main() -> io::Result<()> {
                         web::resource("/filters")
                             .data(db_inner)
                             .wrap(CheckPayment::new(
-                                bitcoin_client_inner,
-                                wallet_state_inner,
+                                bitcoin_client_inner.clone(),
+                                wallet_state_inner.clone(),
                                 Method::PUT,
                             )) // Apply payment check to put filter
                             .route(web::get().to(get_filters))
                             .route(web::put().to(put_filters)),
+                    )
+                    .service(
+                        // Message handlers
+                        web::resource("/ws")
+                            // .data(db_inner.clone()) // TODO: Get stream
+                            .wrap(CheckPayment::new(
+                                bitcoin_client_inner,
+                                wallet_state_inner,
+                                Method::GET,
+                            )) // Apply payment check to put filter
+                            .route(web::get().to(ws_connect)),
                     ),
             )
             .service(actix_files::Files::new("/", "./static/").index_file("index.html"))

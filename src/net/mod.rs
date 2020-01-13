@@ -1,5 +1,6 @@
 pub mod errors;
 pub mod payments;
+pub mod ws;
 
 use std::{
     convert::TryFrom,

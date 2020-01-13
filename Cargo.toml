@@ -6,10 +6,12 @@ edition = "2018"
 description = "Cash:web Relay is a end-to-end encrypted message relay server"
 
 [dependencies]
+actix = "0.9.0"
 actix-cors = "0.2.0"
 actix-files = "0.2.1"
 actix-rt = "1.0.0"
 actix-web = "2.0.0"
+actix-web-actors = "2.0.0"
 actix-service = "1.0.1"
 base64 = "0.11.0"
 bitcoin = "0.21.0"
