@@ -25,10 +25,10 @@ hex = "0.4.0"
 json-rpc = { package = "async-json-rpc", git = "https://github.com/hlb8122/async-json-rpc" }
 lazy_static = "1.4.0"
 log = "0.4.8"
-prost = { git = "https://github.com/danburkert/prost" }
+prost = "0.6.0"
 reqwest = { git = "https://github.com/seanmonstar/reqwest", features = ["json"] }
 rocksdb = "0.13.0"
-secp256k1 = { version = "0.17.1", features = ["rand"] }
+secp256k1 = { version = "0.17.1", features = ["rand-std"] }
 serde = { version = "1.0.104", features = ["derive"] }
 serde_json = "1.0.44"
 sha2 = "0.8.1"
@@ -36,4 +36,4 @@ subtle = "2.2.2"
 url = "2.1.0"
 
 [build-dependencies]
-prost-build = { git = "https://github.com/danburkert/prost" }
+prost-build = "0.6.0"
