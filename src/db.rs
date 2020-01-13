@@ -6,7 +6,7 @@ use sha2::{Digest, Sha256};
 
 use crate::models::{
     filters::Filters,
-    messaging::{Message, MessagePage, MessageSet, TimedMessage},
+    messaging::{Message, MessagePage, TimedMessage},
 };
 
 const DIGEST_LEN: usize = 4;
