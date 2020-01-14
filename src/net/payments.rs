@@ -8,7 +8,7 @@ use actix_service::{Service, Transform};
 use actix_web::{
     dev::{Body, ServiceRequest, ServiceResponse},
     http::{
-        header::{HeaderValue, ACCEPT, AUTHORIZATION, CONTENT_TYPE, LOCATION, PRAGMA},
+        header::{HeaderValue, ACCEPT, AUTHORIZATION, CONTENT_TYPE, PRAGMA},
         Method,
     },
     web, Error, HttpRequest, HttpResponse, ResponseError,
@@ -23,7 +23,6 @@ use futures::{
 };
 use json_rpc::clients::http::HttpConnector;
 use prost::Message;
-use url::Url;
 
 use crate::{bitcoin::*, models::bip70::*, SETTINGS};
 
@@ -103,14 +102,8 @@ pub async fn payment_handler(
         url_safe_config,
     );
 
-    // Generate paymentredirect
-    let redirect_url =
-        Url::parse(str::from_utf8(&merchant_data).map_err(|_| PaymentError::InvalidMerchantDat)?)
-            .map_err(|_| PaymentError::InvalidMerchantDat)?;
-
     // Generate response
     Ok(HttpResponse::Accepted()
-        .header(LOCATION, redirect_url.into_string())
         .header(AUTHORIZATION, format!("POP {}", token))
         .header(PRAGMA, "no-cache")
         .body(raw_ack))
