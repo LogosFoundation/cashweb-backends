@@ -186,6 +186,18 @@ where
         let scheme = conn_info.scheme().to_owned();
         let host = conn_info.host().to_owned();
 
+        // Decode put address
+        let put_addr_str = req
+            .match_info()
+            .get("addr")
+            .expect("wrapped route with no {addr}"); // TODO: This is safe when wrapping a {addr}
+        let put_addr = match Address::decode(put_addr_str) {
+            Ok(ok) => ok,
+            Err((cash_err, base58_err)) => {
+                return Box::pin(err(ServerError::Address(cash_err, base58_err).into()))
+            }
+        };
+
         // Grab token query from authorization header then query string
         let token_str: String = match req.headers().get(AUTHORIZATION) {
             Some(some) => match some.to_str() {
@@ -235,18 +247,6 @@ where
                     }
                 };
 
-                // Decode put address
-                let put_addr_str = req
-                    .match_info()
-                    .get("addr")
-                    .expect("wrapped route with no {addr}"); // TODO: This is safe when wrapping a {addr}
-                match Address::decode(put_addr_str) {
-                    Ok(ok) => ok,
-                    Err((cash_err, base58_err)) => {
-                        return Box::pin(err(ServerError::Address(cash_err, base58_err).into()))
-                    }
-                };
-
                 // Generate merchant data
                 let base_url = format!("{}://{}", scheme, host);
 
@@ -261,7 +261,7 @@ where
                         time: current_time.duration_since(UNIX_EPOCH).unwrap().as_secs(),
                         expires: Some(expiry_time.duration_since(UNIX_EPOCH).unwrap().as_secs()),
                         memo: None,
-                        merchant_data: Some(addr_raw),
+                        merchant_data: Some(put_addr.into_body()),
                         outputs,
                         payment_url,
                     };
@@ -305,12 +305,8 @@ where
             }
         };
 
-        // Generate merchant URL
-        let uri = req.uri();
-        let merchant_url = format!("{}://{}{}", scheme, host, uri.path());
-
         // Validate
-        if !validate_token(merchant_url.as_bytes(), SETTINGS.secret.as_bytes(), &token) {
+        if !validate_token(put_addr.as_body(), SETTINGS.secret.as_bytes(), &token) {
             Box::pin(ok(req.into_response(
                 ServerError::Payment(PaymentError::InvalidAuth).error_response(),
             )))
