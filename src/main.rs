@@ -14,6 +14,7 @@ pub mod settings;
 
 use std::io;
 
+use actix::Actor;
 use actix_cors::Cors;
 use actix_web::{
     http::{header, Method},
@@ -26,7 +27,11 @@ use lazy_static::lazy_static;
 use crate::{
     bitcoin::{BitcoinClient, WalletState},
     db::Database,
-    net::{payments::*, ws::ws_connect, *},
+    net::{
+        payments::*,
+        ws::{ws_connect, MessageBus},
+        *,
+    },
     settings::Settings,
 };
 
@@ -52,6 +57,10 @@ async fn main() -> io::Result<()> {
         SETTINGS.rpc_username.clone(),
         SETTINGS.rpc_password.clone(),
     );
+
+    // Init message bus
+    let message_bus = MessageBus::default();
+    let msg_bus_addr = message_bus.start();
 
     // Init REST server
     HttpServer::new(move || {
@@ -88,6 +97,7 @@ async fn main() -> io::Result<()> {
                         // Message handlers
                         web::resource("/messages")
                             .data(db_inner.clone())
+                            .data(msg_bus_addr.clone())
                             .wrap(CheckPayment::new(
                                 bitcoin_client_inner.clone(),
                                 wallet_state_inner.clone(),
@@ -111,7 +121,7 @@ async fn main() -> io::Result<()> {
                     .service(
                         // Message handlers
                         web::resource("/ws")
-                            // .data(db_inner.clone()) // TODO: Get stream
+                            .data(msg_bus_addr.clone())
                             .wrap(CheckPayment::new(
                                 bitcoin_client_inner,
                                 wallet_state_inner,

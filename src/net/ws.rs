@@ -1,76 +1,125 @@
 use std::collections::HashMap;
-use std::sync::{
-    atomic::{AtomicUsize, Ordering},
-    Arc,
-};
 use std::time::{Duration, Instant};
 
 use actix::{
+    fut::wrap_future,
     prelude::{ActorContext, AsyncContext},
-    Actor, Addr, StreamHandler,
+    Actor, Addr, Handler, Message, Running, StreamHandler,
 };
 use actix_web::{web, Error, HttpRequest, HttpResponse};
 use actix_web_actors::ws;
 use bitcoincash_addr::Address;
-use parking_lot::RwLock;
+use futures::future::{FutureExt, TryFutureExt};
 
 use super::errors::*;
-use crate::models::messaging::Message;
 
 const CLIENT_TIMEOUT: Duration = Duration::from_secs(10);
 const HEARTBEAT_INTERVAL: Duration = Duration::from_secs(5);
 
-pub type AddrMap = HashMap<usize, Addr<MessagingSocket>>;
-pub type AddrSocketsMap = HashMap<Vec<u8>, Sockets>;
+pub type AddrSocketsMap = HashMap<Vec<u8>, Vec<Addr<MessagingSocket>>>;
 
 #[derive(Clone)]
-pub struct Sockets {
-    pub nonce: Arc<AtomicUsize>,
-    pub map: AddrMap,
-}
-
-impl Sockets {
-    fn new() -> Self {
-        Sockets {
-            nonce: Arc::new(AtomicUsize::new(0)),
-            map: HashMap::new(),
-        }
-    }
-
-    fn push(&mut self, addr: Addr<MessagingSocket>) {
-        let nonce = self.nonce.fetch_add(1, Ordering::SeqCst);
-        self.map.insert(nonce, addr);
-    }
-}
-
 pub struct MessageBus {
-    ws_map: Arc<RwLock<AddrSocketsMap>>,
+    ws_map: AddrSocketsMap,
 }
 
-impl MessageBus {
-    fn get(&self, addr_raw: &Vec<u8>) -> Option<Sockets> {
-        self.ws_map.read().get(addr_raw).cloned()
-    }
-
-    fn insert(&self, addr_raw: &Vec<u8>, addr: Addr<MessagingSocket>) {
-        let mut write_guard = self.ws_map.write();
-        if let Some(sockets) = write_guard.get_mut(addr_raw) {
-            sockets.push(addr);
-        } else {
-            let mut sockets = Sockets::new();
-            sockets.push(addr);
-            write_guard.insert(addr_raw.clone(), sockets);
+impl Default for MessageBus {
+    fn default() -> Self {
+        MessageBus {
+            ws_map: HashMap::new(),
         }
     }
 }
 
-struct MessagingSocket {
+impl Actor for MessageBus {
+    type Context = actix::Context<Self>;
+}
+
+pub struct NewSocket {
+    addr: Vec<u8>,
+    actor_addr: Addr<MessagingSocket>,
+}
+
+impl Message for NewSocket {
+    type Result = ();
+}
+
+impl Handler<NewSocket> for MessageBus {
+    type Result = ();
+
+    fn handle(&mut self, msg: NewSocket, _: &mut actix::Context<Self>) {
+        if let Some(sockets) = self.ws_map.get_mut(&msg.addr) {
+            sockets.push(msg.actor_addr);
+        } else {
+            self.ws_map.insert(msg.addr, vec![msg.actor_addr]);
+        }
+    }
+}
+
+pub struct RemoveSocket {
+    raw_addr: Vec<u8>,
+    actor_addr: Addr<MessagingSocket>,
+}
+
+impl Message for RemoveSocket {
+    type Result = ();
+}
+
+impl Handler<RemoveSocket> for MessageBus {
+    type Result = ();
+
+    fn handle(&mut self, msg: RemoveSocket, _: &mut actix::Context<Self>) {
+        if let Some(sockets) = self.ws_map.get_mut(&msg.raw_addr) {
+            if let Some((id, _)) = sockets
+                .iter()
+                .enumerate()
+                .find(move |(_, addr)| **addr == msg.actor_addr)
+            {
+                sockets.remove(id);
+            }
+        }
+    }
+}
+
+pub struct SendMessage {
+    pub addr: Vec<u8>,
+    pub message_set_raw: Vec<u8>, // TODO: Make Bytes
+}
+
+impl Message for SendMessage {
+    type Result = ();
+}
+
+impl Handler<SendMessage> for MessageBus {
+    type Result = ();
+
+    fn handle(&mut self, msg: SendMessage, ctx: &mut actix::Context<Self>) {
+        if let Some(sockets) = self.ws_map.get(&msg.addr) {
+            for addr in sockets {
+                let send_message_set = SendMessageSet(msg.message_set_raw.clone());
+                let send_message_fut = addr
+                    .send(send_message_set)
+                    .map_err(|err| error!("{:#?}", err))
+                    .map(|_| ());
+                ctx.spawn(wrap_future(send_message_fut));
+            }
+        }
+    }
+}
+
+pub struct MessagingSocket {
     hb: Instant,
+    message_bus: Addr<MessageBus>,
+    addr_raw: Vec<u8>,
 }
 
 impl MessagingSocket {
-    fn new() -> Self {
-        Self { hb: Instant::now() }
+    fn new(addr_raw: Vec<u8>, message_bus: Addr<MessageBus>) -> Self {
+        MessagingSocket {
+            hb: Instant::now(),
+            addr_raw,
+            message_bus,
+        }
     }
 
     /// Send a ping every heartbeat
@@ -93,6 +142,20 @@ impl Actor for MessagingSocket {
     fn started(&mut self, ctx: &mut Self::Context) {
         self.hb(ctx);
     }
+
+    fn stopping(&mut self, ctx: &mut Self::Context) -> Running {
+        let remove_socket = RemoveSocket {
+            raw_addr: self.addr_raw.clone(),
+            actor_addr: ctx.address(),
+        };
+        let terminate_fut = self
+            .message_bus
+            .send(remove_socket)
+            .map_err(|err| error!("{:#?}", err))
+            .map(|_| ());
+        ctx.spawn(wrap_future(terminate_fut));
+        Running::Stop
+    }
 }
 
 impl StreamHandler<Result<ws::Message, ws::ProtocolError>> for MessagingSocket {
@@ -114,12 +177,31 @@ impl StreamHandler<Result<ws::Message, ws::ProtocolError>> for MessagingSocket {
     }
 }
 
+pub struct SendMessageSet(pub Vec<u8>);
+
+impl Message for SendMessageSet {
+    type Result = ();
+}
+
+impl Handler<SendMessageSet> for MessagingSocket {
+    type Result = ();
+
+    fn handle(
+        &mut self,
+        msg: SendMessageSet,
+        ctx: &mut ws::WebsocketContext<Self>,
+    ) -> Self::Result {
+        ctx.binary(msg.0)
+    }
+}
+
 pub async fn ws_connect(
     request: HttpRequest,
     addr_str: web::Path<String>,
     stream: web::Payload,
-    msg_bus: web::Data<MessageBus>,
+    msg_bus: web::Data<Addr<MessageBus>>,
 ) -> Result<HttpResponse, Error> {
+    // Decode address
     let addr = match Address::decode(&addr_str) {
         Ok(ok) => ok,
         Err((cash_err, base58_err)) => {
@@ -127,8 +209,18 @@ pub async fn ws_connect(
         }
     };
     let raw_addr = addr.into_body();
-    let (actor_addr, response) = ws::start_with_addr(MessagingSocket::new(), &request, stream)?;
-    msg_bus.as_ref().insert(&raw_addr, actor_addr);
+
+    // Start websocket
+    let (actor_addr, response) = ws::start_with_addr(
+        MessagingSocket::new(raw_addr.clone(), msg_bus.as_ref().clone()),
+        &request,
+        stream,
+    )?;
+    let new_socket = NewSocket {
+        addr: raw_addr.clone(),
+        actor_addr,
+    };
+    msg_bus.send(new_socket).await.unwrap(); // TODO: Make safe
 
     Ok(response)
 }

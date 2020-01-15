@@ -7,6 +7,7 @@ use std::{
     time::{SystemTime, UNIX_EPOCH},
 };
 
+use actix::Addr;
 use actix_web::{web, HttpResponse};
 use bytes::BytesMut;
 use futures::prelude::*;
@@ -16,6 +17,7 @@ use crate::{
     crypto::Address,
     db::Database,
     models::{filters::FilterApplication, messaging::MessageSet},
+    ws::MessageBus,
 };
 
 use errors::ServerError;
@@ -59,6 +61,7 @@ pub async fn put_message(
     addr_str: web::Path<String>,
     mut payload: web::Payload,
     db_data: web::Data<Database>,
+    msg_bus: web::Data<Addr<MessageBus>>,
 ) -> Result<HttpResponse, ServerError> {
     // Convert address
     let addr = Address::decode(&addr_str)?;
@@ -79,6 +82,18 @@ pub async fn put_message(
         message.encode(&mut raw_message).unwrap(); // This is safe
         db_data.push_message(addr.as_body(), &raw_message[..], timestamp)?;
     }
+
+    // Send over WS
+    let send_ws = async move {
+        let send_message = ws::SendMessage {
+            addr: addr.into_body(),
+            message_set_raw: messages_raw.to_vec(),
+        };
+        if let Err(err) = msg_bus.as_ref().send(send_message).await {
+            error!("{:#?}", err);
+        }
+    };
+    actix_rt::spawn(send_ws);
 
     // Respond
     Ok(HttpResponse::Ok().finish())
