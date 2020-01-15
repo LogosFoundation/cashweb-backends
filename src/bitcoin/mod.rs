@@ -2,13 +2,10 @@ mod client;
 
 pub const PRICE: u64 = 5;
 
-use std::{
-    collections::HashSet,
-    string::ToString,
-    sync::{Arc, RwLock},
-};
+use std::{collections::HashSet, string::ToString, sync::Arc};
 
 use bitcoin::{Transaction, TxOut};
+use parking_lot::RwLock;
 use serde::Deserialize;
 
 use crate::{crypto::Address, models::bip70::Output, SETTINGS};
@@ -60,11 +57,11 @@ pub struct WalletState(Arc<RwLock<HashSet<Vec<u8>>>>);
 
 impl WalletState {
     pub fn add(&self, addr: Vec<u8>) {
-        self.0.write().unwrap().insert(addr);
+        self.0.write().insert(addr);
     }
 
     pub fn remove(&self, addr: Vec<u8>) {
-        self.0.write().unwrap().remove(&addr);
+        self.0.write().remove(&addr);
     }
 
     pub fn check_p2pkh(&self, output: &TxOut) -> bool {
@@ -78,9 +75,9 @@ impl WalletState {
         let script = &output.script_pubkey[..];
         if let Some(pubkey_hash) = extract_pubkey_hash(script) {
             // Check if wallet contains that address
-            if self.0.read().unwrap().contains(&pubkey_hash) {
+            if self.0.read().contains(&pubkey_hash) {
                 // Flush address
-                self.0.write().unwrap().remove(&pubkey_hash);
+                self.0.write().remove(&pubkey_hash);
                 true
             } else {
                 false
