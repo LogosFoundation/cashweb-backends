@@ -16,7 +16,10 @@ use prost::Message as _;
 use crate::{
     crypto::Address,
     db::Database,
-    models::{filters::FilterApplication, messaging::MessageSet},
+    models::{
+        filters::FilterApplication,
+        messaging::{MessageSet, TimedMessageSet},
+    },
     ws::MessageBus,
 };
 
@@ -73,21 +76,28 @@ pub async fn put_message(
     }
 
     // TODO: Do validation
-    let message_page =
-        MessageSet::decode(&messages_raw[..]).map_err(ServerError::MessagesDecode)?;
+    let message_set = MessageSet::decode(&messages_raw[..]).map_err(ServerError::MessagesDecode)?;
 
     let timestamp = get_unix_now();
-    for message in message_page.messages {
+    for message in &message_set.messages {
         let mut raw_message = Vec::with_capacity(message.encoded_len());
         message.encode(&mut raw_message).unwrap(); // This is safe
         db_data.push_message(addr.as_body(), &raw_message[..], timestamp)?;
     }
 
+    // Create WS message
+    let timed_message_set = TimedMessageSet {
+        timestamp: timestamp as i64,
+        messages: message_set.messages,
+    };
+    let mut timed_msg_set_raw = Vec::with_capacity(timed_message_set.encoded_len());
+    timed_message_set.encode(&mut timed_msg_set_raw).unwrap(); // This is safe
+
     // Send over WS
     let send_ws = async move {
         let send_message = ws::SendMessage {
             addr: addr.into_body(),
-            message_set_raw: messages_raw.to_vec(),
+            timed_msg_set_raw,
         };
         if let Err(err) = msg_bus.as_ref().send(send_message).await {
             error!("{:#?}", err);

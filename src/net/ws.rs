@@ -83,7 +83,7 @@ impl Handler<RemoveSocket> for MessageBus {
 
 pub struct SendMessage {
     pub addr: Vec<u8>,
-    pub message_set_raw: Vec<u8>, // TODO: Make Bytes
+    pub timed_msg_set_raw: Vec<u8>, // TODO: Make Bytes
 }
 
 impl Message for SendMessage {
@@ -96,7 +96,7 @@ impl Handler<SendMessage> for MessageBus {
     fn handle(&mut self, msg: SendMessage, ctx: &mut actix::Context<Self>) {
         if let Some(sockets) = self.ws_map.get(&msg.addr) {
             for addr in sockets {
-                let send_message_set = SendMessageSet(msg.message_set_raw.clone());
+                let send_message_set = SendMessageSet(msg.timed_msg_set_raw.clone());
                 let send_message_fut = addr
                     .send(send_message_set)
                     .map_err(|err| error!("{:#?}", err))
