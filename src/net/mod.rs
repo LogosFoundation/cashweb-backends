@@ -20,7 +20,7 @@ use crate::{
         filters::FilterApplication,
         messaging::{MessageSet, TimedMessageSet},
     },
-    ws::MessageBus,
+    ws::bus::MessageBus,
 };
 
 use errors::ServerError;
@@ -95,7 +95,7 @@ pub async fn put_message(
 
     // Send over WS
     let send_ws = async move {
-        let send_message = ws::SendMessage {
+        let send_message = ws::bus::SendMessage {
             addr: addr.into_body(),
             timed_msg_set_raw,
         };

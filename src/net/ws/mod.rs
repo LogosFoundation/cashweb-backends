@@ -1,4 +1,5 @@
-use std::collections::HashMap;
+pub mod bus;
+
 use std::time::{Duration, Instant};
 
 use actix::{
@@ -9,103 +10,13 @@ use actix::{
 use actix_web::{web, Error, HttpRequest, HttpResponse};
 use actix_web_actors::ws;
 use bitcoincash_addr::Address;
-use futures::future::{FutureExt, TryFutureExt};
+use futures::{FutureExt, TryFutureExt};
 
 use super::errors::*;
+use bus::{MessageBus, NewSocket, RemoveSocket};
 
 const CLIENT_TIMEOUT: Duration = Duration::from_secs(10);
 const HEARTBEAT_INTERVAL: Duration = Duration::from_secs(5);
-
-pub type AddrSocketsMap = HashMap<Vec<u8>, Vec<Addr<MessagingSocket>>>;
-
-#[derive(Clone)]
-pub struct MessageBus {
-    ws_map: AddrSocketsMap,
-}
-
-impl Default for MessageBus {
-    fn default() -> Self {
-        MessageBus {
-            ws_map: HashMap::new(),
-        }
-    }
-}
-
-impl Actor for MessageBus {
-    type Context = actix::Context<Self>;
-}
-
-pub struct NewSocket {
-    addr: Vec<u8>,
-    actor_addr: Addr<MessagingSocket>,
-}
-
-impl Message for NewSocket {
-    type Result = ();
-}
-
-impl Handler<NewSocket> for MessageBus {
-    type Result = ();
-
-    fn handle(&mut self, msg: NewSocket, _: &mut actix::Context<Self>) {
-        if let Some(sockets) = self.ws_map.get_mut(&msg.addr) {
-            sockets.push(msg.actor_addr);
-        } else {
-            self.ws_map.insert(msg.addr, vec![msg.actor_addr]);
-        }
-    }
-}
-
-pub struct RemoveSocket {
-    raw_addr: Vec<u8>,
-    actor_addr: Addr<MessagingSocket>,
-}
-
-impl Message for RemoveSocket {
-    type Result = ();
-}
-
-impl Handler<RemoveSocket> for MessageBus {
-    type Result = ();
-
-    fn handle(&mut self, msg: RemoveSocket, _: &mut actix::Context<Self>) {
-        if let Some(sockets) = self.ws_map.get_mut(&msg.raw_addr) {
-            if let Some((id, _)) = sockets
-                .iter()
-                .enumerate()
-                .find(move |(_, addr)| **addr == msg.actor_addr)
-            {
-                sockets.remove(id);
-            }
-        }
-    }
-}
-
-pub struct SendMessage {
-    pub addr: Vec<u8>,
-    pub timed_msg_set_raw: Vec<u8>, // TODO: Make Bytes
-}
-
-impl Message for SendMessage {
-    type Result = ();
-}
-
-impl Handler<SendMessage> for MessageBus {
-    type Result = ();
-
-    fn handle(&mut self, msg: SendMessage, ctx: &mut actix::Context<Self>) {
-        if let Some(sockets) = self.ws_map.get(&msg.addr) {
-            for addr in sockets {
-                let send_message_set = SendMessageSet(msg.timed_msg_set_raw.clone());
-                let send_message_fut = addr
-                    .send(send_message_set)
-                    .map_err(|err| error!("{:#?}", err))
-                    .map(|_| ());
-                ctx.spawn(wrap_future(send_message_fut));
-            }
-        }
-    }
-}
 
 pub struct MessagingSocket {
     hb: Instant,

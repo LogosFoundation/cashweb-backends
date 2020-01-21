@@ -29,7 +29,7 @@ use crate::{
     db::Database,
     net::{
         payments::*,
-        ws::{ws_connect, MessageBus},
+        ws::{bus::MessageBus, ws_connect},
         *,
     },
     settings::Settings,
