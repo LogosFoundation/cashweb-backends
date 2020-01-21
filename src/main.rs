@@ -97,6 +97,7 @@ async fn main() -> io::Result<()> {
                         // Message handlers
                         web::resource("/messages")
                             .data(db_inner.clone())
+                            .data(bitcoin_client_inner.clone())
                             .data(msg_bus_addr.clone())
                             .wrap(CheckPayment::new(
                                 bitcoin_client_inner.clone(),
