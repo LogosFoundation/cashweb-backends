@@ -47,6 +47,7 @@ pub enum ServerError {
     UnsupportedSigScheme,
     Payment(PaymentError),
     Address(cashaddr::DecodingError, base58::DecodingError),
+    Stamp(BitcoinError),
 }
 
 impl fmt::Display for ServerError {
@@ -64,6 +65,7 @@ impl fmt::Display for ServerError {
             ServerError::UnsupportedSigScheme => "signature scheme not supported",
             ServerError::Payment(err) => return err.fmt(f),
             ServerError::Validation(err) => return err.fmt(f),
+            ServerError::Stamp(_) => "invalid stamp",
         };
         write!(f, "{}", printable)
     }
@@ -131,6 +133,7 @@ impl error::ResponseError for ServerError {
             ServerError::Crypto(err) => err.error_response(),
             ServerError::Payment(err) => err.error_response(),
             ServerError::Address(_, _) => HttpResponse::BadRequest().body(self.to_string()),
+            ServerError::Stamp(_) => HttpResponse::BadRequest().body(self.to_string()),
         }
     }
 }

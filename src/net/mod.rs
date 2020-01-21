@@ -11,9 +11,11 @@ use actix::Addr;
 use actix_web::{web, HttpResponse};
 use bytes::BytesMut;
 use futures::prelude::*;
+use json_rpc::clients::http::HttpConnector;
 use prost::Message as _;
 
 use crate::{
+    bitcoin::*,
     crypto::Address,
     db::Database,
     models::{
@@ -64,6 +66,7 @@ pub async fn put_message(
     addr_str: web::Path<String>,
     mut payload: web::Payload,
     db_data: web::Data<Database>,
+    bitcoin_client: web::Data<BitcoinClient<HttpConnector>>,
     msg_bus: web::Data<Addr<MessageBus>>,
 ) -> Result<HttpResponse, ServerError> {
     // Convert address
@@ -77,6 +80,13 @@ pub async fn put_message(
 
     // TODO: Do validation
     let message_set = MessageSet::decode(&messages_raw[..]).map_err(ServerError::MessagesDecode)?;
+    for message in &message_set.messages {
+        let stamp_tx = &message.stamp_tx;
+        bitcoin_client
+            .send_tx(stamp_tx)
+            .await
+            .map_err(ServerError::Stamp)?;
+    }
 
     let timestamp = get_unix_now();
     for message in &message_set.messages {
