@@ -12,11 +12,11 @@ actix-files = "0.2.1"
 actix-rt = "1.0.0"
 actix-web = "2.0.0"
 actix-web-actors = "2.0.0"
-actix-service = "1.0.2"
+actix-service = "1.0.5"
 base64 = "0.11.0"
 bitcoin = "0.23.0"
 bitcoincash-addr = "0.5.1"
-bitcoin_hashes = "0.7.3"
+bitcoin_hashes = "0.7.4"
 bytes = "0.5.3"
 clap = { version = "2.33.0", features = ["yaml"] }
 config = "0.10.1"
@@ -28,7 +28,7 @@ json-rpc = { package = "async-json-rpc", git = "https://github.com/hlb8122/async
 lazy_static = "1.4.0"
 log = "0.4.8"
 parking_lot = "0.10.0"
-prost = "0.6.0"
+prost = "0.6.1"
 reqwest = { git = "https://github.com/seanmonstar/reqwest", features = ["json"] }
 rocksdb = "0.13.0"
 secp256k1 = { version = "0.17.2", features = ["rand-std"] }
@@ -39,4 +39,4 @@ subtle = "2.2.2"
 url = "2.1.1"
 
 [build-dependencies]
-prost-build = "0.6.0"
+prost-build = "0.6.1"

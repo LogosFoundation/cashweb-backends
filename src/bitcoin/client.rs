@@ -1,6 +1,6 @@
-use json_rpc::{clients::http::HttpConnector, prelude::*};
-
 use std::sync::Arc;
+
+use json_rpc::{clients::http::HttpConnector, prelude::*};
 
 use serde_json::Value;
 
