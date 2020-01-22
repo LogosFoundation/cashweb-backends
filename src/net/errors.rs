@@ -36,18 +36,54 @@ impl Into<ValidationError> for CryptoError {
 }
 
 #[derive(Debug)]
+pub enum StampError {
+    Decode(TxDeserializeError),
+    MissingOutput,
+    NotP2PKH,
+    TxReject(BitcoinError),
+    UnexpectedAddress,
+}
+
+impl fmt::Display for StampError {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        let printable = match self {
+            StampError::Decode(err) => return err.fmt(f),
+            StampError::TxReject(err) => match err {
+                BitcoinError::EmptyResponse => "empty response",
+                BitcoinError::Http(err) => return err.fmt(f),
+                BitcoinError::Json(err) => return err.fmt(f),
+                BitcoinError::Rpc(err) => return write!(f, "{:#?}", err),
+            },
+            StampError::MissingOutput => "missing stamp output",
+            StampError::NotP2PKH => "stamp output was not p2pkh",
+            StampError::UnexpectedAddress => "stamp address was unexpected",
+        };
+        write!(f, "{}", printable)
+    }
+}
+
+impl error::ResponseError for StampError {
+    fn error_response(&self) -> HttpResponse {
+        HttpResponse::BadRequest().body(self.to_string())
+    }
+}
+
+#[derive(Debug)]
 pub enum ServerError {
+    Address(cashaddr::DecodingError, base58::DecodingError),
     Buffer(error::PayloadError),
     DB(RocksError),
+    DestinationMalformed,
+    DegenerateCombination,
+    Crypto(CryptoError),
     FilterDecode(prost::DecodeError),
     Validation(ValidationError),
-    Crypto(CryptoError),
-    NotFound,
     MessagesDecode(prost::DecodeError),
-    UnsupportedSigScheme,
+    NotFound,
+    PayloadDecode(prost::DecodeError),
     Payment(PaymentError),
-    Address(cashaddr::DecodingError, base58::DecodingError),
-    Stamp(BitcoinError),
+    Stamp(StampError),
+    UnsupportedSigScheme,
 }
 
 impl fmt::Display for ServerError {
@@ -59,15 +95,26 @@ impl fmt::Display for ServerError {
             ServerError::Buffer(err) => return err.fmt(f),
             ServerError::Crypto(err) => return err.fmt(f),
             ServerError::DB(err) => return err.fmt(f),
+            ServerError::DegenerateCombination => {
+                "combined public key was the reciprocal of the destination address"
+            }
+            ServerError::DestinationMalformed => "destination pubkey malformed",
             ServerError::FilterDecode(err) => return err.fmt(f),
             ServerError::MessagesDecode(err) => return err.fmt(f),
             ServerError::NotFound => "not found",
             ServerError::UnsupportedSigScheme => "signature scheme not supported",
+            ServerError::PayloadDecode(err) => return err.fmt(f),
             ServerError::Payment(err) => return err.fmt(f),
             ServerError::Validation(err) => return err.fmt(f),
-            ServerError::Stamp(_) => "invalid stamp",
+            ServerError::Stamp(err) => return err.fmt(f),
         };
         write!(f, "{}", printable)
+    }
+}
+
+impl From<StampError> for ServerError {
+    fn from(err: StampError) -> Self {
+        ServerError::Stamp(err)
     }
 }
 
@@ -122,18 +169,21 @@ impl error::ResponseError for ValidationError {
 impl error::ResponseError for ServerError {
     fn error_response(&self) -> HttpResponse {
         match self {
-            ServerError::Validation(err) => err.error_response(),
+            ServerError::Address(_, _) => HttpResponse::BadRequest().body(self.to_string()),
             // Do not yield sensitive information to clients
-            ServerError::DB(_) => HttpResponse::InternalServerError().body("internal db error"),
+            ServerError::DB(_) => HttpResponse::InternalServerError().body(""),
             ServerError::Buffer(_) => HttpResponse::BadRequest().body(self.to_string()),
+            ServerError::DegenerateCombination => HttpResponse::BadRequest().body(self.to_string()),
+            ServerError::DestinationMalformed => HttpResponse::BadRequest().body(self.to_string()),
+            ServerError::Crypto(err) => err.error_response(),
             ServerError::FilterDecode(_) => HttpResponse::BadRequest().body(self.to_string()),
             ServerError::MessagesDecode(_) => HttpResponse::BadRequest().body(self.to_string()),
             ServerError::NotFound => HttpResponse::NotFound().body(self.to_string()),
             ServerError::UnsupportedSigScheme => HttpResponse::BadRequest().body(self.to_string()),
-            ServerError::Crypto(err) => err.error_response(),
+            ServerError::Validation(err) => err.error_response(),
             ServerError::Payment(err) => err.error_response(),
-            ServerError::Address(_, _) => HttpResponse::BadRequest().body(self.to_string()),
-            ServerError::Stamp(_) => HttpResponse::BadRequest().body(self.to_string()),
+            ServerError::PayloadDecode(_) => HttpResponse::BadRequest().body(self.to_string()),
+            ServerError::Stamp(err) => err.error_response(),
         }
     }
 }

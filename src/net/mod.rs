@@ -9,10 +9,16 @@ use std::{
 
 use actix::Addr;
 use actix_web::{web, HttpResponse};
+use bitcoin::{util::psbt::serialize::Deserialize, Transaction};
+use bitcoin_hashes::{hash160, sha256, Hash};
 use bytes::BytesMut;
 use futures::prelude::*;
 use json_rpc::clients::http::HttpConnector;
 use prost::Message as _;
+use secp256k1::{
+    key::{PublicKey, SecretKey},
+    Secp256k1,
+};
 
 use crate::{
     bitcoin::*,
@@ -20,12 +26,12 @@ use crate::{
     db::Database,
     models::{
         filters::FilterApplication,
-        messaging::{MessageSet, TimedMessageSet},
+        messaging::{MessageSet, Payload, TimedMessageSet},
     },
     ws::bus::MessageBus,
 };
 
-use errors::ServerError;
+use errors::{ServerError, StampError};
 
 #[derive(Deserialize)]
 pub struct GetQuery {
@@ -78,14 +84,48 @@ pub async fn put_message(
         messages_raw.extend_from_slice(&item.map_err(ServerError::Buffer)?);
     }
 
-    // TODO: Do validation
+    // Validation
     let message_set = MessageSet::decode(&messages_raw[..]).map_err(ServerError::MessagesDecode)?;
     for message in &message_set.messages {
         let stamp_tx = &message.stamp_tx;
+
+        // Get pubkey hash from stamp tx
+        let tx = Transaction::deserialize(stamp_tx).map_err(StampError::Decode)?;
+        let output = tx.output.get(0).ok_or(StampError::MissingOutput)?;
+        let script = &output.script_pubkey;
+        if !script.is_p2pkh() {
+            return Err(ServerError::Stamp(StampError::NotP2PKH));
+        }
+        let pubkey_hash = &script.as_bytes()[2..22]; // This is safe as we've checked it's a p2pkh
+
+        // Calculate payload pubkey hash
+        let payload_digest = sha256::Hash::hash(&message.serialized_payload[..]);
+        let payload_secret_key = SecretKey::from_slice(&payload_digest).unwrap(); // TODO: Check this is safe
+        let payload_public_key =
+            PublicKey::from_secret_key(&Secp256k1::signing_only(), &payload_secret_key);
+
+        // Get destination public key
+        let payload =
+            Payload::decode(&message.serialized_payload[..]).map_err(ServerError::PayloadDecode)?;
+        let destination_public_key = PublicKey::from_slice(&payload.destination[..])
+            .map_err(|_| ServerError::DestinationMalformed)?;
+
+        // Combine keys
+        let combined_key = destination_public_key
+            .combine(&payload_public_key)
+            .map_err(|_| ServerError::DegenerateCombination)?;
+        let combine_key_raw = combined_key.serialize();
+        let combine_pubkey_hash = hash160::Hash::hash(&combine_key_raw[..]).into_inner();
+
+        // Check equivalence
+        if combine_pubkey_hash != pubkey_hash {
+            return Err(ServerError::Stamp(StampError::UnexpectedAddress));
+        }
+
         bitcoin_client
             .send_tx(stamp_tx)
             .await
-            .map_err(ServerError::Stamp)?;
+            .map_err(StampError::TxReject)?;
     }
 
     let timestamp = get_unix_now();
