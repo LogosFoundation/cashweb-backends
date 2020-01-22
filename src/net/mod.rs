@@ -96,7 +96,7 @@ pub async fn put_message(
         if !script.is_p2pkh() {
             return Err(ServerError::Stamp(StampError::NotP2PKH));
         }
-        let pubkey_hash = &script.as_bytes()[2..22]; // This is safe as we've checked it's a p2pkh
+        let pubkey_hash = &script.as_bytes()[3..23]; // This is safe as we've checked it's a p2pkh
 
         // Calculate payload pubkey hash
         let payload_digest = sha256::Hash::hash(&message.serialized_payload[..]);
