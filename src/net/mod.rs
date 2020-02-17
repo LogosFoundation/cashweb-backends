@@ -23,7 +23,7 @@ use secp256k1::{
 use crate::{
     bitcoin::*,
     crypto::Address,
-    db::Database,
+    db::{BoxType, Database},
     models::{
         filters::FilterApplication,
         messaging::{MessageSet, Payload, TimedMessageSet},
@@ -132,7 +132,7 @@ pub async fn put_message(
     for message in &message_set.messages {
         let mut raw_message = Vec::with_capacity(message.encoded_len());
         message.encode(&mut raw_message).unwrap(); // This is safe
-        db_data.push_message(addr.as_body(), &raw_message[..], timestamp)?;
+        db_data.push_message(addr.as_body(), BoxType::Inbox, timestamp, &raw_message[..])?;
     }
 
     // Create WS message
