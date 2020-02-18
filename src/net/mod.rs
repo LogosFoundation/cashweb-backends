@@ -7,7 +7,8 @@ use std::{
 
 use bitcoin::{util::psbt::serialize::Deserialize, Transaction};
 use bitcoin_hashes::{hash160, sha256, Hash};
-use bytes::Bytes;
+use bitcoincash_addr::Address;
+use bytes::{Bytes, BytesMut};
 use futures::prelude::*;
 use json_rpc::clients::http::HttpConnector;
 use prost::Message as _;
@@ -16,7 +17,7 @@ use secp256k1::{
     Secp256k1,
 };
 use sha2::{Digest, Sha256};
-use warp::reply::Response;
+use warp::http::Response;
 
 use crate::{
     bitcoin::*,
@@ -49,7 +50,7 @@ pub async fn get_messages_inbox(
     addr_str: String,
     database: Database,
     query: GetQuery,
-) -> Result<Response, ServerError> {
+) -> Result<Response<Vec<u8>>, ServerError> {
     // Convert address
     let addr = Address::decode(&addr_str)?;
 
@@ -62,42 +63,44 @@ pub async fn get_messages_inbox(
                 hex::decode(start_digest_hex).map_err(ServerError::MalformedStartDigest)?;
             database
                 .get_msg_key_by_digest(addr, &start_digest)?
-                .ok_or(ServerError::StartDigestNotFound)
+                .ok_or(ServerError::StartDigestNotFound)?
         }
         (Some(_), Some(_)) => return Err(ServerError::StartBothGiven),
+        _ => return Err(ServerError::MissingStart),
     };
 
-    let message_set = match query.end {
-        Some(timestamp) => {
-            let end_prefix = db::msg_prefix(addr, BoxType::Inbox, timestamp);
-            db.get_messages_range(&start_prefix, Some(&end_prefix))?
+    let end_prefix = match (query.end_time, query.end_digest) {
+        (Some(end_time), None) => Some(db::msg_prefix(addr, BoxType::Inbox, end_time)),
+        (None, Some(end_digest_hex)) => {
+            let start_digest =
+                hex::decode(end_digest_hex).map_err(ServerError::MalformedEndDigest)?;
+            let msg_key = database
+                .get_msg_key_by_digest(addr, &start_digest)?
+                .ok_or(ServerError::EndDigestNotFound)?;
+            Some(msg_key)
         }
-        None => db.get_messages_range(&start_prefix, None)?,
+        (Some(_), Some(_)) => return Err(ServerError::EndBothGiven),
+        _ => None,
     };
+
+    let message_set = database.get_messages_range(&start_prefix, end_prefix)?;
 
     // Serialize messages
     let mut raw_payload = Vec::with_capacity(message_set.encoded_len());
     message_set.encode(&mut raw_payload).unwrap();
 
     // Respond
-    Ok(HttpResponse::Ok().body(raw_payload))
+    Ok(Response::builder().body(raw_payload)) // TODO: Headers
 }
 
 pub async fn put_message(
     addr_str: String,
-    mut payload: Bytes,
-    db_data: web::Data<Database>,
-    bitcoin_client: web::Data<BitcoinClient<HttpConnector>>,
-    msg_bus: web::Data<Addr<MessageBus>>,
-) -> Result<HttpResponse, ServerError> {
+    messages_raw: Bytes,
+    database: Database,
+    bitcoin_client: BitcoinClient<HttpConnector>,
+) -> Result<Response<()>, ServerError> {
     // Convert address
     let addr = Address::decode(&addr_str)?;
-
-    // Decode metadata
-    let mut messages_raw = BytesMut::new();
-    while let Some(item) = payload.next().await {
-        messages_raw.extend_from_slice(&item.map_err(ServerError::Buffer)?);
-    }
 
     // Validation
     let message_set = MessageSet::decode(&messages_raw[..]).map_err(ServerError::MessagesDecode)?;
@@ -148,7 +151,7 @@ pub async fn put_message(
         let mut raw_message = Vec::with_capacity(message.encoded_len());
         message.encode(&mut raw_message).unwrap(); // This is safe
         let digest = Sha256::new().chain(&raw_message).result();
-        db_data.push_message(
+        database.push_message(
             addr.as_body(),
             BoxType::Inbox,
             timestamp,
@@ -166,30 +169,29 @@ pub async fn put_message(
     timed_message_set.encode(&mut timed_msg_set_raw).unwrap(); // This is safe
 
     // Send over WS
-    let send_ws = async move {
-        let send_message = ws::bus::SendMessage {
-            addr: addr.into_body(),
-            timed_msg_set_raw,
-        };
-        if let Err(err) = msg_bus.as_ref().send(send_message).await {
-            error!("{:#?}", err);
-        }
-    };
-    actix_rt::spawn(send_ws);
+    // let send_ws = async move {
+    //     let send_message = ws::bus::SendMessage {
+    //         addr: addr.into_body(),
+    //         timed_msg_set_raw,
+    //     };
+    //     if let Err(err) = msg_bus.as_ref().send(send_message).await {
+    //         error!("{:#?}", err);
+    //     }
+    // };
 
     // Respond
-    Ok(HttpResponse::Ok().finish())
+    Ok(Response::builder().body(()))
 }
 
 pub async fn get_filters(
-    addr_str: web::Path<String>,
-    db_data: web::Data<Database>,
-) -> Result<HttpResponse, ServerError> {
+    addr_str: String,
+    database: Database,
+) -> Result<Response<Vec<u8>>, ServerError> {
     // Convert address
     let addr = Address::decode(&addr_str)?;
 
     // Get filters
-    let mut filters = db_data
+    let mut filters = database
         .get_filters(addr.as_body())?
         .ok_or(ServerError::NotFound)?;
 
@@ -205,22 +207,16 @@ pub async fn get_filters(
     filters.encode(&mut raw_payload).unwrap();
 
     // Respond
-    Ok(HttpResponse::Ok().body(raw_payload))
+    Ok(Response::builder().body(raw_payload)) // TODO: Headers
 }
 
 pub async fn put_filters(
-    addr_str: web::Path<String>,
-    mut payload: web::Payload,
-    db_data: web::Data<Database>,
-) -> Result<HttpResponse, ServerError> {
+    addr_str: String,
+    filters_raw: Bytes,
+    db_data: Database,
+) -> Result<Response<()>, ServerError> {
     // Convert address
     let addr = Address::decode(&addr_str)?;
-
-    // Decode filters
-    let mut filters_raw = BytesMut::new();
-    while let Some(item) = payload.next().await {
-        filters_raw.extend_from_slice(&item.map_err(ServerError::Buffer)?);
-    }
 
     // TODO: Do validation
     let filter_application =
@@ -229,5 +225,5 @@ pub async fn put_filters(
     db_data.put_filters(addr.as_body(), &filter_application.serialized_filters)?;
 
     // Respond
-    Ok(HttpResponse::Ok().finish())
+    Ok(Response::builder().body(()))
 }
