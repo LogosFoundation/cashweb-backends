@@ -104,7 +104,7 @@ async fn main() -> io::Result<()> {
                                 wallet_state_inner.clone(),
                                 Method::GET,
                             )) // Apply payment check to put filter
-                            .route(web::get().to(get_messages))
+                            .route(web::get().to(get_messages_inbox))
                             .route(web::put().to(put_message)),
                     )
                     .service(

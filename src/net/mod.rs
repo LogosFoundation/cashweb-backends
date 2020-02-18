@@ -19,11 +19,12 @@ use secp256k1::{
     key::{PublicKey, SecretKey},
     Secp256k1,
 };
+use sha2::{Digest, Sha256};
 
 use crate::{
     bitcoin::*,
     crypto::Address,
-    db::{BoxType, Database},
+    db::{self, BoxType, Database},
     models::{
         filters::FilterApplication,
         messaging::{MessageSet, Payload, TimedMessageSet},
@@ -49,7 +50,7 @@ fn get_unix_now() -> u64 {
     .expect("we're in the distant future")
 }
 
-pub async fn get_messages(
+pub async fn get_messages_inbox(
     addr_str: web::Path<String>,
     db_data: web::Data<Database>,
     query: web::Query<GetQuery>,
@@ -58,7 +59,15 @@ pub async fn get_messages(
     let addr = Address::decode(&addr_str)?;
 
     // Grab metadata from DB
-    let message_set = db_data.get_messages(addr.as_body(), query.start, query.end)?;
+    let addr = addr.as_body();
+    let start_prefix = db::msg_prefix(addr, BoxType::Inbox, query.start);
+    let message_set = match query.end {
+        Some(timestamp) => {
+            let end_prefix = db::msg_prefix(addr, BoxType::Inbox, timestamp);
+            db_data.get_messages_range(&start_prefix, Some(&end_prefix))?
+        }
+        None => db_data.get_messages_range(&start_prefix, None)?,
+    };
 
     // Serialize messages
     let mut raw_payload = Vec::with_capacity(message_set.encoded_len());
@@ -132,7 +141,14 @@ pub async fn put_message(
     for message in &message_set.messages {
         let mut raw_message = Vec::with_capacity(message.encoded_len());
         message.encode(&mut raw_message).unwrap(); // This is safe
-        db_data.push_message(addr.as_body(), BoxType::Inbox, timestamp, &raw_message[..])?;
+        let digest = Sha256::new().chain(&raw_message).result();
+        db_data.push_message(
+            addr.as_body(),
+            BoxType::Inbox,
+            timestamp,
+            &raw_message[..],
+            &digest[..],
+        )?;
     }
 
     // Create WS message
