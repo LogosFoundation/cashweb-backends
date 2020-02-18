@@ -5,7 +5,6 @@ extern crate log;
 #[macro_use]
 extern crate serde;
 
-pub mod bitcoin;
 pub mod db;
 pub mod models;
 pub mod net;
@@ -17,12 +16,7 @@ use env_logger::Env;
 use lazy_static::lazy_static;
 use warp::Filter;
 
-use crate::{
-    bitcoin::{BitcoinClient, WalletState},
-    db::Database,
-    net::*,
-    settings::Settings,
-};
+use crate::{db::Database, net::*, settings::Settings};
 
 lazy_static! {
     pub static ref SETTINGS: Settings = Settings::new().expect("couldn't load config");
@@ -36,16 +30,6 @@ async fn main() {
 
     // Open DB
     let db = Database::try_new(&SETTINGS.db_path).expect("failed to open database");
-
-    // Init wallet
-    let wallet_state = WalletState::default();
-
-    // Init Bitcoin client
-    let bitcoin_client = BitcoinClient::new(
-        format!("http://{}:{}", SETTINGS.node_ip.clone(), SETTINGS.rpc_port),
-        SETTINGS.rpc_username.clone(),
-        SETTINGS.rpc_password.clone(),
-    );
 
     // Init message bus
 

@@ -78,6 +78,21 @@ impl Database {
         Ok(opt_key.map(|key| [addr, &key, &digest[..DIGEST_LEN]].concat()))
     }
 
+    pub fn remove_message_by_digest(
+        &self,
+        addr: &[u8],
+        digest: &[u8],
+    ) -> Result<Option<()>, RocksError> {
+        let digest_key = [addr, &[DIGEST_NAMESPACE], &digest].concat();
+        let opt_key = self.0.get(digest_key)?;
+        let key = match opt_key {
+            Some(some) => some,
+            None => return Ok(None),
+        };
+
+        self.0.delete(key).map(|_| Some(()))
+    }
+
     pub fn push_message(
         &self,
         addr: &[u8],
@@ -172,6 +187,8 @@ impl Database {
 
         Ok(MessagePage { messages })
     }
+
+    // TODO: Delete message range
 
     pub fn get_filters(&self, addr: &[u8]) -> Result<Option<Filters>, RocksError> {
         // Prefix key

@@ -20,7 +20,6 @@ use sha2::{Digest, Sha256};
 use warp::http::Response;
 
 use crate::{
-    bitcoin::*,
     db::{self, BoxType, Database},
     models::{
         filters::FilterApplication,
@@ -93,11 +92,17 @@ pub async fn get_messages_inbox(
     Ok(Response::builder().body(raw_payload)) // TODO: Headers
 }
 
+pub async fn delete_messages_inbox(
+    addr_str: String,
+    database: Database,
+    query: GetQuery,
+) -> Result<Response<()>, ServerError> {
+}
+
 pub async fn put_message(
     addr_str: String,
     messages_raw: Bytes,
     database: Database,
-    bitcoin_client: BitcoinClient<HttpConnector>,
 ) -> Result<Response<()>, ServerError> {
     // Convert address
     let addr = Address::decode(&addr_str)?;
