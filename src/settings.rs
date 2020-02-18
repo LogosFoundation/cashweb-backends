@@ -5,6 +5,12 @@ use serde::Deserialize;
 use crate::bitcoin::Network;
 
 const FOLDER_DIR: &str = ".relay";
+const DEFAULT_BIND: &str = "127.0.0.1:8080";
+const DEFAULT_RPC_ADDR: &str = "127.0.0.1:18443";
+const DEFAULT_RPC_USER: &str = "user";
+const DEFAULT_RPC_PASSWORD: &str = "password";
+const DEFAULT_NETWORK: &str = "regnet";
+const DEFAULT_MESSAGE_LIMIT: usize = 1024 * 5;
 
 #[derive(Debug, Deserialize)]
 pub struct Settings {
@@ -16,6 +22,12 @@ pub struct Settings {
     pub secret: String,
     pub db_path: String,
     pub network: Network,
+    pub limits: Limits,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct Limits {
+    message_size: usize,
 }
 
 impl Settings {
@@ -33,16 +45,16 @@ impl Settings {
             Some(some) => some,
             None => return Err(ConfigError::Message("no home directory".to_string())),
         };
-        s.set_default("bind", "127.0.0.1:8080")?;
-        s.set_default("node_ip", "127.0.0.1")?;
-        s.set_default("rpc_port", "18443")?;
-        s.set_default("rpc_username", "username")?;
-        s.set_default("rpc_password", "password")?;
-        s.set_default("secret", "secret")?;
+        s.set_default("bind", DEFAULT_BIND)?;
+        s.set_default("rpc_addr", DEFAULT_RPC_ADDR)?;
+        s.set_default("rpc_username", DEFAULT_RPC_USER)?;
+        s.set_default("rpc_password", DEFAULT_RPC_PASSWORD)?;
+        s.set_default("secret", "secret")?; // TODO: Remove
         let mut default_db = home_dir.clone();
         default_db.push(format!("{}/db", FOLDER_DIR));
         s.set_default("db_path", default_db.to_str())?;
-        s.set_default("network", "regnet")?;
+        s.set_default("network", DEFAULT_NETWORK)?;
+        s.set_default("limits.message_size", DEFAULT_MESSAGE_LIMIT as i64)?;
 
         // Load config from file
         let mut default_config = home_dir;

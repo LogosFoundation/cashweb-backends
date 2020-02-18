@@ -1,5 +1,3 @@
-pub mod errors;
-pub mod payments;
 pub mod ws;
 
 use std::{
@@ -7,11 +5,9 @@ use std::{
     time::{SystemTime, UNIX_EPOCH},
 };
 
-use actix::Addr;
-use actix_web::{web, HttpResponse};
 use bitcoin::{util::psbt::serialize::Deserialize, Transaction};
 use bitcoin_hashes::{hash160, sha256, Hash};
-use bytes::BytesMut;
+use bytes::Bytes;
 use futures::prelude::*;
 use json_rpc::clients::http::HttpConnector;
 use prost::Message as _;
@@ -20,24 +16,23 @@ use secp256k1::{
     Secp256k1,
 };
 use sha2::{Digest, Sha256};
+use warp::reply::Response;
 
 use crate::{
     bitcoin::*,
-    crypto::Address,
     db::{self, BoxType, Database},
     models::{
         filters::FilterApplication,
         messaging::{MessageSet, Payload, TimedMessageSet},
     },
-    ws::bus::MessageBus,
 };
-
-use errors::{ServerError, StampError};
 
 #[derive(Deserialize)]
 pub struct GetQuery {
-    start: u64,
-    end: Option<u64>,
+    start_digest: Option<String>,
+    end_digest: Option<String>,
+    start_time: Option<u64>,
+    end_time: Option<u64>,
 }
 
 fn get_unix_now() -> u64 {
@@ -51,22 +46,33 @@ fn get_unix_now() -> u64 {
 }
 
 pub async fn get_messages_inbox(
-    addr_str: web::Path<String>,
-    db_data: web::Data<Database>,
-    query: web::Query<GetQuery>,
-) -> Result<HttpResponse, ServerError> {
+    addr_str: String,
+    database: Database,
+    query: GetQuery,
+) -> Result<Response, ServerError> {
     // Convert address
     let addr = Address::decode(&addr_str)?;
 
     // Grab metadata from DB
     let addr = addr.as_body();
-    let start_prefix = db::msg_prefix(addr, BoxType::Inbox, query.start);
+    let start_prefix = match (query.start_time, query.start_digest) {
+        (Some(start_time), None) => db::msg_prefix(addr, BoxType::Inbox, start_time),
+        (None, Some(start_digest_hex)) => {
+            let start_digest =
+                hex::decode(start_digest_hex).map_err(ServerError::MalformedStartDigest)?;
+            database
+                .get_msg_key_by_digest(addr, &start_digest)?
+                .ok_or(ServerError::StartDigestNotFound)
+        }
+        (Some(_), Some(_)) => return Err(ServerError::StartBothGiven),
+    };
+
     let message_set = match query.end {
         Some(timestamp) => {
             let end_prefix = db::msg_prefix(addr, BoxType::Inbox, timestamp);
-            db_data.get_messages_range(&start_prefix, Some(&end_prefix))?
+            db.get_messages_range(&start_prefix, Some(&end_prefix))?
         }
-        None => db_data.get_messages_range(&start_prefix, None)?,
+        None => db.get_messages_range(&start_prefix, None)?,
     };
 
     // Serialize messages
@@ -78,8 +84,8 @@ pub async fn get_messages_inbox(
 }
 
 pub async fn put_message(
-    addr_str: web::Path<String>,
-    mut payload: web::Payload,
+    addr_str: String,
+    mut payload: Bytes,
     db_data: web::Data<Database>,
     bitcoin_client: web::Data<BitcoinClient<HttpConnector>>,
     msg_bus: web::Data<Addr<MessageBus>>,
