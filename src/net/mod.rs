@@ -1,3 +1,4 @@
+pub mod errors;
 pub mod ws;
 
 use std::{
@@ -20,12 +21,13 @@ use sha2::{Digest, Sha256};
 use warp::http::Response;
 
 use crate::{
-    db::{self, BoxType, Database},
+    db::{self, Database},
     models::{
         filters::FilterApplication,
         messaging::{MessageSet, Payload, TimedMessageSet},
     },
 };
+use errors::*;
 
 #[derive(Deserialize)]
 pub struct GetQuery {
@@ -45,18 +47,18 @@ fn get_unix_now() -> u64 {
     .expect("we're in the distant future")
 }
 
-pub async fn get_messages_inbox(
+pub async fn get_messages(
     addr_str: String,
-    database: Database,
     query: GetQuery,
+    database: Database,
 ) -> Result<Response<Vec<u8>>, ServerError> {
     // Convert address
     let addr = Address::decode(&addr_str)?;
-
-    // Grab metadata from DB
     let addr = addr.as_body();
+
+    // Get start prefix
     let start_prefix = match (query.start_time, query.start_digest) {
-        (Some(start_time), None) => db::msg_prefix(addr, BoxType::Inbox, start_time),
+        (Some(start_time), None) => db::msg_prefix(addr, start_time),
         (None, Some(start_digest_hex)) => {
             let start_digest =
                 hex::decode(start_digest_hex).map_err(ServerError::MalformedStartDigest)?;
@@ -68,8 +70,9 @@ pub async fn get_messages_inbox(
         _ => return Err(ServerError::MissingStart),
     };
 
+    // Get end prefix
     let end_prefix = match (query.end_time, query.end_digest) {
-        (Some(end_time), None) => Some(db::msg_prefix(addr, BoxType::Inbox, end_time)),
+        (Some(end_time), None) => Some(db::msg_prefix(addr, end_time)),
         (None, Some(end_digest_hex)) => {
             let start_digest =
                 hex::decode(end_digest_hex).map_err(ServerError::MalformedEndDigest)?;
@@ -82,22 +85,23 @@ pub async fn get_messages_inbox(
         _ => None,
     };
 
-    let message_set = database.get_messages_range(&start_prefix, end_prefix)?;
+    let message_set =
+        database.get_messages_range(&start_prefix, end_prefix.as_ref().map(|v| &v[..]))?;
 
     // Serialize messages
     let mut raw_payload = Vec::with_capacity(message_set.encoded_len());
     message_set.encode(&mut raw_payload).unwrap();
 
     // Respond
-    Ok(Response::builder().body(raw_payload)) // TODO: Headers
+    Ok(Response::builder().body(raw_payload).unwrap()) // TODO: Headers
 }
 
-pub async fn delete_messages_inbox(
-    addr_str: String,
-    database: Database,
-    query: GetQuery,
-) -> Result<Response<()>, ServerError> {
-}
+// pub async fn delete_messages_inbox(
+//     addr_str: String,
+//     database: Database,
+//     query: GetQuery,
+// ) -> Result<Response<()>, ServerError> {
+// }
 
 pub async fn put_message(
     addr_str: String,
@@ -145,10 +149,10 @@ pub async fn put_message(
             return Err(ServerError::Stamp(StampError::UnexpectedAddress));
         }
 
-        bitcoin_client
-            .send_tx(stamp_tx)
-            .await
-            .map_err(StampError::TxReject)?;
+        // bitcoin_client
+        //     .send_tx(stamp_tx)
+        //     .await
+        //     .map_err(StampError::TxReject)?;
     }
 
     let timestamp = get_unix_now();
@@ -156,13 +160,7 @@ pub async fn put_message(
         let mut raw_message = Vec::with_capacity(message.encoded_len());
         message.encode(&mut raw_message).unwrap(); // This is safe
         let digest = Sha256::new().chain(&raw_message).result();
-        database.push_message(
-            addr.as_body(),
-            BoxType::Inbox,
-            timestamp,
-            &raw_message[..],
-            &digest[..],
-        )?;
+        database.push_message(addr.as_body(), timestamp, &raw_message[..], &digest[..])?;
     }
 
     // Create WS message
@@ -185,7 +183,7 @@ pub async fn put_message(
     // };
 
     // Respond
-    Ok(Response::builder().body(()))
+    Ok(Response::builder().body(()).unwrap())
 }
 
 pub async fn get_filters(
@@ -212,7 +210,7 @@ pub async fn get_filters(
     filters.encode(&mut raw_payload).unwrap();
 
     // Respond
-    Ok(Response::builder().body(raw_payload)) // TODO: Headers
+    Ok(Response::builder().body(raw_payload).unwrap()) // TODO: Headers
 }
 
 pub async fn put_filters(
@@ -230,5 +228,5 @@ pub async fn put_filters(
     db_data.put_filters(addr.as_body(), &filter_application.serialized_filters)?;
 
     // Respond
-    Ok(Response::builder().body(()))
+    Ok(Response::builder().body(()).unwrap())
 }

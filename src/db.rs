@@ -22,41 +22,20 @@ const MSG_KEY_LEN: usize = NAMESPACE_LEN + 8 + DIGEST_LEN;
 #[derive(Clone)]
 pub struct Database(Arc<DB>);
 
-pub enum BoxType {
-    Inbox,
-    Outbox,
-}
-
-impl Into<u8> for BoxType {
-    fn into(self) -> u8 {
-        match self {
-            Self::Inbox => INBOX_NAMESPACE,
-            Self::Outbox => OUTBOX_NAMESPACE,
-        }
-    }
-}
-
-pub fn msg_key(addr: &[u8], box_type: BoxType, timestamp: u64, digest: &[u8]) -> Vec<u8> {
+pub fn msg_key(addr: &[u8], timestamp: u64, digest: &[u8]) -> Vec<u8> {
     let raw_timestamp: [u8; 8] = timestamp.to_be_bytes();
     [
         addr,
         &[MESSAGE_NAMESPACE],
-        &[box_type.into()],
         &raw_timestamp,
         &digest[..DIGEST_LEN],
     ]
     .concat()
 }
 
-pub fn msg_prefix(addr: &[u8], box_type: BoxType, timestamp: u64) -> Vec<u8> {
+pub fn msg_prefix(addr: &[u8], timestamp: u64) -> Vec<u8> {
     let raw_timestamp: [u8; 8] = timestamp.to_be_bytes();
-    [
-        addr,
-        &[MESSAGE_NAMESPACE],
-        &[box_type.into()],
-        &raw_timestamp,
-    ]
-    .concat()
+    [addr, &[MESSAGE_NAMESPACE], &raw_timestamp].concat()
 }
 
 impl Database {
@@ -96,33 +75,20 @@ impl Database {
     pub fn push_message(
         &self,
         addr: &[u8],
-        box_type: BoxType,
         timestamp: u64,
         raw_message: &[u8],
         digest: &[u8],
     ) -> Result<(), RocksError> {
-        let box_type = box_type.into();
-
         // Create key
         let raw_timestamp: [u8; 8] = timestamp.to_be_bytes();
-        let key = [
-            addr,
-            &[MESSAGE_NAMESPACE],
-            &[box_type],
-            &raw_timestamp,
-            digest,
-        ]
-        .concat();
+        let key = [addr, &[MESSAGE_NAMESPACE], &raw_timestamp, digest].concat();
 
         self.0.put(key, raw_message)?;
 
         // Create digest key
         let digest_key = [addr, &[DIGEST_NAMESPACE], &digest].concat();
 
-        // Create msg key pointer
-        let raw_digest_pointer = [&[box_type][..], &raw_timestamp].concat();
-
-        self.0.put(digest_key, raw_digest_pointer)?;
+        self.0.put(digest_key, raw_timestamp)?;
 
         Ok(())
     }
@@ -188,7 +154,14 @@ impl Database {
         Ok(MessagePage { messages })
     }
 
-    // TODO: Delete message range
+    // TODO: Delete range
+    // pub fn remove_messages_range(
+    //     &self,
+    //     start_prefix: &[u8],
+    //     opt_end_prefix: Option<&[u8]>,
+    // ) -> Result<(), RocksError> {
+    //     self.0.delete_range()
+    // }
 
     pub fn get_filters(&self, addr: &[u8]) -> Result<Option<Filters>, RocksError> {
         // Prefix key

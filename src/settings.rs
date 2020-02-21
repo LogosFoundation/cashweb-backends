@@ -1,8 +1,10 @@
+use std::net::SocketAddr;
+
 use clap::App;
 use config::{Config, ConfigError, File};
 use serde::Deserialize;
 
-use crate::bitcoin::Network;
+// use crate::bitcoin::Network;
 
 const FOLDER_DIR: &str = ".relay";
 const DEFAULT_BIND: &str = "127.0.0.1:8080";
@@ -14,14 +16,13 @@ const DEFAULT_MESSAGE_LIMIT: usize = 1024 * 5;
 
 #[derive(Debug, Deserialize)]
 pub struct Settings {
-    pub bind: String,
-    pub node_ip: String,
-    pub rpc_port: u16,
+    pub bind: SocketAddr,
+    pub rpc_addr: String,
     pub rpc_username: String,
     pub rpc_password: String,
     pub secret: String,
     pub db_path: String,
-    pub network: Network,
+    // pub network: Network,
     pub limits: Limits,
 }
 
@@ -69,8 +70,8 @@ impl Settings {
         }
 
         // Set node IP from cmd line
-        if let Some(node_ip) = matches.value_of("node-ip") {
-            s.set("node_ip", node_ip)?;
+        if let Some(node_ip) = matches.value_of("rpc-addr") {
+            s.set("rpc_addr", node_ip)?;
         }
 
         // Set rpc port from cmd line
