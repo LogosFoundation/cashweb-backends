@@ -24,6 +24,7 @@ pub enum ServerError {
     MessagesDecode(prost::DecodeError),
     PayloadDecode(prost::DecodeError),
     FilterDecode(prost::DecodeError),
+    DigestDecode(hex::FromHexError),
     NotFound,
     DestinationMalformed,
     MalformedStartDigest(FromHexError),
