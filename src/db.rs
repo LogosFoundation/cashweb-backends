@@ -11,21 +11,18 @@ use crate::models::{
 const DIGEST_LEN: usize = 4;
 
 const MESSAGE_NAMESPACE: u8 = b'm';
-const INBOX_NAMESPACE: u8 = b'i';
-const OUTBOX_NAMESPACE: u8 = b'o';
 const DIGEST_NAMESPACE: u8 = b'd';
 const FILTER_NAMESPACE: u8 = b'f';
 
-const NAMESPACE_LEN: usize = 20 + 1 + 1;
-const MSG_KEY_LEN: usize = NAMESPACE_LEN + 8 + DIGEST_LEN;
+const NAMESPACE_LEN: usize = 20 + 1;
 
 #[derive(Clone)]
 pub struct Database(Arc<DB>);
 
-pub fn msg_key(addr: &[u8], timestamp: u64, digest: &[u8]) -> Vec<u8> {
+pub fn msg_key(pubkey_hash: &[u8], timestamp: u64, digest: &[u8]) -> Vec<u8> {
     let raw_timestamp: [u8; 8] = timestamp.to_be_bytes();
     [
-        addr,
+        pubkey_hash,
         &[MESSAGE_NAMESPACE],
         &raw_timestamp,
         &digest[..DIGEST_LEN],
@@ -33,9 +30,9 @@ pub fn msg_key(addr: &[u8], timestamp: u64, digest: &[u8]) -> Vec<u8> {
     .concat()
 }
 
-pub fn msg_prefix(addr: &[u8], timestamp: u64) -> Vec<u8> {
+pub fn msg_prefix(pubkey_hash: &[u8], timestamp: u64) -> Vec<u8> {
     let raw_timestamp: [u8; 8] = timestamp.to_be_bytes();
-    [addr, &[MESSAGE_NAMESPACE], &raw_timestamp].concat()
+    [pubkey_hash, &[MESSAGE_NAMESPACE], &raw_timestamp].concat()
 }
 
 impl Database {
@@ -48,21 +45,21 @@ impl Database {
 
     pub fn get_msg_key_by_digest(
         &self,
-        addr: &[u8],
+        pubkey_hash: &[u8],
         digest: &[u8],
     ) -> Result<Option<Vec<u8>>, RocksError> {
-        let digest_key = [addr, &[DIGEST_NAMESPACE], &digest].concat();
+        let digest_key = [pubkey_hash, &[DIGEST_NAMESPACE], &digest].concat();
 
         let opt_key = self.0.get(digest_key)?;
-        Ok(opt_key.map(|key| [addr, &key, &digest[..DIGEST_LEN]].concat()))
+        Ok(opt_key.map(|key| [pubkey_hash, &key, &digest[..DIGEST_LEN]].concat()))
     }
 
     pub fn remove_message_by_digest(
         &self,
-        addr: &[u8],
+        pubkey_hash: &[u8],
         digest: &[u8],
     ) -> Result<Option<()>, RocksError> {
-        let digest_key = [addr, &[DIGEST_NAMESPACE], &digest].concat();
+        let digest_key = [pubkey_hash, &[DIGEST_NAMESPACE], &digest].concat();
         let opt_key = self.0.get(digest_key)?;
         let key = match opt_key {
             Some(some) => some,
@@ -74,19 +71,19 @@ impl Database {
 
     pub fn push_message(
         &self,
-        addr: &[u8],
+        pubkey_hash: &[u8],
         timestamp: u64,
         raw_message: &[u8],
         digest: &[u8],
     ) -> Result<(), RocksError> {
         // Create key
         let raw_timestamp: [u8; 8] = timestamp.to_be_bytes();
-        let key = [addr, &[MESSAGE_NAMESPACE], &raw_timestamp, digest].concat();
+        let key = [pubkey_hash, &[MESSAGE_NAMESPACE], &raw_timestamp, digest].concat();
 
         self.0.put(key, raw_message)?;
 
         // Create digest key
-        let digest_key = [addr, &[DIGEST_NAMESPACE], &digest].concat();
+        let digest_key = [pubkey_hash, &[DIGEST_NAMESPACE], &digest].concat();
 
         self.0.put(digest_key, raw_timestamp)?;
 
@@ -95,10 +92,10 @@ impl Database {
 
     pub fn get_message_by_digest(
         &self,
-        addr: &[u8],
+        pubkey_hash: &[u8],
         digest: &[u8],
     ) -> Result<Option<Message>, RocksError> {
-        match self.get_msg_key_by_digest(addr, digest)? {
+        match self.get_msg_key_by_digest(pubkey_hash, digest)? {
             Some(some) => self.get_message_by_key(&some),
             None => Ok(None),
         }
@@ -128,10 +125,10 @@ impl Database {
             .iterator(IteratorMode::From(&start_prefix, Direction::Forward));
 
         // Convert timestamp array to u64
-        let time_slice = |key: &[u8]| {
+        fn time_slice(key: &[u8]) -> u64 {
             let arr: [u8; 8] = key[NAMESPACE_LEN..NAMESPACE_LEN + 8].try_into().unwrap(); // This is safe
             u64::from_be_bytes(arr)
-        };
+        }
 
         let messages: Vec<TimedMessage> = if let Some(end_prefix) = opt_end_prefix {
             // Check whether key is before end time

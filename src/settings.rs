@@ -13,7 +13,7 @@ const DEFAULT_RPC_USER: &str = "user";
 const DEFAULT_RPC_PASSWORD: &str = "password";
 const DEFAULT_NETWORK: &str = "regnet";
 const DEFAULT_MESSAGE_LIMIT: usize = 1024 * 1024 * 20; // 20MB
-const DEFAULT_FILTER_LIMIT: usize = 1024 * 1024 * 1; // 1MB
+const DEFAULT_FILTER_LIMIT: usize = 1024 * 1024; // 1MB
 
 #[derive(Debug, Deserialize)]
 pub struct Settings {

@@ -9,8 +9,7 @@ use std::{
 use bitcoin::{util::psbt::serialize::Deserialize, Transaction};
 use bitcoin_hashes::{hash160, sha256, Hash};
 use bitcoincash_addr::Address;
-use bytes::{Bytes, BytesMut};
-use futures::prelude::*;
+use bytes::Bytes;
 use prost::Message as _;
 use secp256k1::{
     key::{PublicKey, SecretKey},

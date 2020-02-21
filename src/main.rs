@@ -12,7 +12,7 @@ use futures::TryFutureExt;
 use lazy_static::lazy_static;
 use warp::Filter;
 
-use crate::{db::Database, net::errors::*, settings::Settings};
+use crate::{db::Database, settings::Settings};
 
 lazy_static! {
     pub static ref SETTINGS: Settings = Settings::new().expect("couldn't load config");
