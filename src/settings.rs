@@ -12,7 +12,8 @@ const DEFAULT_RPC_ADDR: &str = "127.0.0.1:18443";
 const DEFAULT_RPC_USER: &str = "user";
 const DEFAULT_RPC_PASSWORD: &str = "password";
 const DEFAULT_NETWORK: &str = "regnet";
-const DEFAULT_MESSAGE_LIMIT: usize = 1024 * 5;
+const DEFAULT_MESSAGE_LIMIT: usize = 1024 * 1024 * 20; // 20MB
+const DEFAULT_FILTER_LIMIT: usize = 1024 * 1024 * 1; // 1MB
 
 #[derive(Debug, Deserialize)]
 pub struct Settings {
@@ -28,7 +29,8 @@ pub struct Settings {
 
 #[derive(Debug, Deserialize)]
 pub struct Limits {
-    message_size: usize,
+    pub message_size: u64,
+    pub filter_size: u64,
 }
 
 impl Settings {
@@ -56,6 +58,7 @@ impl Settings {
         s.set_default("db_path", default_db.to_str())?;
         s.set_default("network", DEFAULT_NETWORK)?;
         s.set_default("limits.message_size", DEFAULT_MESSAGE_LIMIT as i64)?;
+        s.set_default("limits.filter_size", DEFAULT_FILTER_LIMIT as i64)?;
 
         // Load config from file
         let mut default_config = home_dir;

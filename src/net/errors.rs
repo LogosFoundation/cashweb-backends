@@ -13,6 +13,7 @@ pub enum StampError {
     NotP2PKH,
     // TxReject(BitcoinError),
     UnexpectedAddress,
+    DegenerateCombination,
 }
 
 #[derive(Debug)]
@@ -25,7 +26,6 @@ pub enum ServerError {
     FilterDecode(prost::DecodeError),
     NotFound,
     DestinationMalformed,
-    DegenerateCombination,
     MalformedStartDigest(FromHexError),
     MalformedEndDigest(FromHexError),
     MissingStart,

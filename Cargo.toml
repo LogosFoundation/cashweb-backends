@@ -14,15 +14,11 @@ bytes = "0.5.3"
 clap = { version = "2.33.0", features = ["yaml"] }
 config = "0.10.1"
 dirs = "2.0.2"
-env_logger = "0.7.1"
 futures = "0.3.1"
 hex = "0.4.0"
-json-rpc = { package = "async-json-rpc", git = "https://github.com/hlb8122/async-json-rpc" }
 lazy_static = "1.4.0"
-log = "0.4.8"
 parking_lot = "0.10.0"
 prost = "0.6.1"
-reqwest = { git = "https://github.com/seanmonstar/reqwest", features = ["json"] }
 rocksdb = "0.13.0"
 secp256k1 = { version = "0.17.2", features = ["rand-std"] }
 serde = { version = "1.0.104", features = ["derive"] }
