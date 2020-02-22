@@ -1,12 +1,12 @@
 use std::sync::Arc;
 
 use bitcoincash_addr::Address;
-use dashmap::{mapref::entry::Entry, DashMap};
+use dashmap::DashMap;
 use futures::prelude::*;
 use tokio::sync::broadcast;
 use warp::{
     ws::{Message, WebSocket, Ws},
-    Error, Reply,
+    Reply,
 };
 
 use super::errors::*;
@@ -44,11 +44,12 @@ pub async fn connect_ws(pubkey_hash: Vec<u8>, ws: WebSocket, msg_bus: MessageBus
 
     let (user_ws_tx, _) = ws.split();
 
-    rx.forward(user_ws_tx.sink_map_err(WsError::SinkError))
-        .map(|result| {
-            // TODO: Handle
-        })
-        .await;
+    if let Err(err) = rx
+        .forward(user_ws_tx.sink_map_err(WsError::SinkError))
+        .await
+    {
+        // TODO: Log error
+    }
 
     // TODO: Disconnect using https://github.com/xacrimon/dashmap/issues/56
 }

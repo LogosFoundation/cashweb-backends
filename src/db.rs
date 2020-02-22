@@ -94,19 +94,15 @@ impl Database {
         &self,
         pubkey_hash: &[u8],
         digest: &[u8],
-    ) -> Result<Option<Message>, RocksError> {
+    ) -> Result<Option<Vec<u8>>, RocksError> {
         match self.get_msg_key_by_digest(pubkey_hash, digest)? {
             Some(some) => self.get_message_by_key(&some),
             None => Ok(None),
         }
     }
 
-    pub fn get_message_by_key(&self, key: &[u8]) -> Result<Option<Message>, RocksError> {
-        self.0.get(key).map(|res| {
-            res.map(|item| {
-                Message::decode(&item[..]).unwrap() // This panics if stored bytes are malformed
-            })
-        })
+    pub fn get_message_by_key(&self, key: &[u8]) -> Result<Option<Vec<u8>>, RocksError> {
+        self.0.get(key)
     }
 
     pub fn get_messages_range(

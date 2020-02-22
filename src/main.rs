@@ -8,16 +8,23 @@ pub mod models;
 pub mod net;
 pub mod settings;
 
-use std::sync::Arc;
+use std::{sync::Arc, time::Duration};
 
+use cashweb::process::preprocess_payment;
 use dashmap::DashMap;
-use futures::TryFutureExt;
+use futures::prelude::*;
 use lazy_static::lazy_static;
 use warp::Filter;
 
-use crate::{db::Database, settings::Settings};
+use db::Database;
+use net::errors::*;
+use settings::Settings;
 
 const DASHMAP_CAPACITY: usize = 2048;
+const FILTERS_PATH: &str = "filters";
+const WS_PATH: &str = "ws";
+const MESSAGES_PATH: &str = "messages";
+const PAYMENTS_PATH: &str = "payments";
 
 lazy_static! {
     pub static ref SETTINGS: Settings = Settings::new().expect("couldn't load config");
@@ -25,18 +32,20 @@ lazy_static! {
 
 #[tokio::main]
 async fn main() {
-    // Open DB
+    // Database state
     let db = Database::try_new(&SETTINGS.db_path).expect("failed to open database");
+    let db_state = warp::any().map(move || db.clone());
 
-    // Init message bus
+    // Message broadcast state
     let message_bus = Arc::new(DashMap::with_capacity(DASHMAP_CAPACITY));
     let msg_bus_state = warp::any().map(move || message_bus.clone());
 
-    // Database state
-    let db_state = warp::any().map(move || db.clone());
+    // Wallet state
+    let wallet = net::Wallet::new(Duration::from_millis(SETTINGS.wallet.timeout));
+    let wallet_state = warp::any().map(move || wallet.clone());
 
     // Message handlers
-    let messages = warp::path::param().and(warp::path("messages"));
+    let messages = warp::path::param().and(warp::path(MESSAGES_PATH));
     let messages_get = messages
         .and(warp::get())
         .and(warp::query())
@@ -59,7 +68,7 @@ async fn main() {
 
     // Websocket handler
     let websocket = warp::path::param()
-        .and(warp::path("ws"))
+        .and(warp::path(WS_PATH))
         .and(warp::ws())
         .and(msg_bus_state)
         .and_then(|addr, ws: warp::ws::Ws, msg_bus| {
@@ -67,7 +76,7 @@ async fn main() {
         });
 
     // Filter handlers
-    let filters = warp::path::param().and(warp::path("filters"));
+    let filters = warp::path::param().and(warp::path(FILTERS_PATH));
     let filters_get = filters
         .and(warp::get())
         .and(db_state.clone())
@@ -84,6 +93,20 @@ async fn main() {
         })
         .map(|_| vec![]);
 
+    // Payment handler
+    let payments = warp::path(PAYMENTS_PATH)
+        .and(warp::put())
+        .and(warp::header::headers_cloned())
+        .and(warp::body::content_length_limit(
+            SETTINGS.limits.filter_size,
+        ))
+        .and(warp::body::bytes())
+        .and_then(move |headers, body| {
+            preprocess_payment(headers, body)
+                .map_err(PaymentError::Preprocess)
+                .map_err(warp::reject::custom)
+        }).and(wallet_state.clone()).map(|payment| );
+
     // Root handler
     let root = warp::get()
         .and(warp::path::end())
@@ -96,6 +119,7 @@ async fn main() {
         .or(messages_put)
         .or(filters_get)
         .or(filters_put)
+        .or(payments)
         .recover(net::errors::handle_rejection);
     warp::serve(server).run(SETTINGS.bind).await;
 }

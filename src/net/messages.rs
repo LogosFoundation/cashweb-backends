@@ -49,6 +49,14 @@ pub async fn get_messages(
     let addr = Address::decode(&addr_str)?;
     let addr = addr.as_body();
 
+    if let Some(digest) = query.digest {
+        let raw_digest = hex::decode(digest).map_err(ServerError::DigestDecode)?;
+        let message = database
+            .get_message_by_digest(addr, &raw_digest[..])?
+            .ok_or(ServerError::NotFound)?;
+        return Ok(Response::builder().body(message).unwrap());
+    }
+
     // Get start prefix
     let start_prefix = match (query.start_time, query.start_digest) {
         (Some(start_time), None) => db::msg_prefix(addr, start_time),
