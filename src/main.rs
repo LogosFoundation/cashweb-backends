@@ -10,14 +10,14 @@ pub mod settings;
 
 use std::{sync::Arc, time::Duration};
 
-use cashweb::process::preprocess_payment;
+use cashweb::payments::{preprocess_payment, wallet::Wallet};
 use dashmap::DashMap;
 use futures::prelude::*;
 use lazy_static::lazy_static;
 use warp::Filter;
 
 use db::Database;
-use net::errors::*;
+use net::payments::*;
 use settings::Settings;
 
 const DASHMAP_CAPACITY: usize = 2048;
@@ -41,7 +41,7 @@ async fn main() {
     let msg_bus_state = warp::any().map(move || message_bus.clone());
 
     // Wallet state
-    let wallet = net::Wallet::new(Duration::from_millis(SETTINGS.wallet.timeout));
+    let wallet = Wallet::new(Duration::from_millis(SETTINGS.wallet.timeout));
     let wallet_state = warp::any().map(move || wallet.clone());
 
     // Message handlers
@@ -105,7 +105,13 @@ async fn main() {
             preprocess_payment(headers, body)
                 .map_err(PaymentError::Preprocess)
                 .map_err(warp::reject::custom)
-        }).and(wallet_state.clone()).map(|payment| );
+        })
+        .and(wallet_state.clone())
+        .and_then(move |payment, wallet| {
+            net::process_payment(payment, wallet)
+                .map_ok(|_| vec![])
+                .map_err(warp::reject::custom)
+        });
 
     // Root handler
     let root = warp::get()
