@@ -28,6 +28,7 @@ pub struct Settings {
     // pub network: Network,
     pub limits: Limits,
     pub wallet: Wallet,
+    pub hmac_key: String,
 }
 
 #[derive(Debug, Deserialize)]
@@ -70,6 +71,12 @@ impl Settings {
         s.set_default("limits.filter_size", DEFAULT_FILTER_LIMIT as i64)?;
         s.set_default("limits.payment_size", DEFAULT_PAYMENT_LIMIT as i64)?;
         s.set_default("wallet.timeout", DEFAULT_WALLET_TIMEOUT as i64)?;
+
+        // NOTE: Don't set HMAC key to a default during release for security reasons
+        #[cfg(debug_assertions)]
+        {
+            s.set_default("hmac_key", "1234")?;
+        }
 
         // Load config from file
         let mut default_config = home_dir;

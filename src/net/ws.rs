@@ -17,14 +17,12 @@ const BROADCAST_CHANNEL_CAPACITY: usize = 256;
 pub type MessageBus = Arc<DashMap<Vec<u8>, broadcast::Sender<Vec<u8>>>>;
 
 pub async fn upgrade_ws(
-    addr_str: String,
+    addr: Address,
     ws: Ws,
     msg_bus: MessageBus,
 ) -> Result<impl Reply, ServerError> {
     // Convert address
-    let addr = Address::decode(&addr_str)?;
     let pubkey_hash = addr.into_body();
-
     Ok(ws.on_upgrade(move |socket| connect_ws(pubkey_hash, socket, msg_bus)))
 }
 

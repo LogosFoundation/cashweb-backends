@@ -41,12 +41,11 @@ fn get_unix_now() -> u64 {
 }
 
 pub async fn get_messages(
-    addr_str: String,
+    addr: Address,
     query: Query,
     database: Database,
 ) -> Result<Response<Vec<u8>>, ServerError> {
     // Convert address
-    let addr = Address::decode(&addr_str)?;
     let addr = addr.as_body();
 
     if let Some(digest) = query.digest {
@@ -145,12 +144,11 @@ async fn verify_stamp(
 }
 
 pub async fn put_message(
-    addr_str: String,
+    addr: Address,
     messages_raw: Bytes,
     database: Database,
 ) -> Result<Response<()>, ServerError> {
-    // Convert path address
-    let addr = Address::decode(&addr_str)?;
+    // Decode message
     let message_set = MessageSet::decode(&messages_raw[..]).map_err(ServerError::MessagesDecode)?;
 
     // Verify

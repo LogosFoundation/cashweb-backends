@@ -1,3 +1,5 @@
+use std::fmt;
+
 use bitcoin::{
     consensus::encode::Error as BitcoinError, util::psbt::serialize::Deserialize, Transaction,
     TxOut,
@@ -18,7 +20,39 @@ pub enum PaymentError {
     MissingMerchantData,
 }
 
+impl fmt::Display for PaymentError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let printable = match self {
+            Self::Preprocess(err) => return err.fmt(f),
+            Self::Wallet(err) => return err.fmt(f),
+            Self::MalformedTx(err) => return err.fmt(f),
+            Self::MissingMerchantData => "missing merchant data",
+        };
+        f.write_str(printable)
+    }
+}
+
 impl Reject for PaymentError {}
+
+pub fn payment_error_recovery(err: &PaymentError) -> Response<String> {
+    let code = match err {
+        PaymentError::Preprocess(err) => match err {
+            PreprocessingError::MissingAcceptHeader => 406,
+            PreprocessingError::MissingContentTypeHeader => 415,
+            PreprocessingError::PaymentDecode(_) => 400,
+        },
+        PaymentError::Wallet(err) => match err {
+            WalletError::NotFound => 404,
+            WalletError::InvalidOutputs => 400,
+        },
+        PaymentError::MalformedTx(_) => 400,
+        PaymentError::MissingMerchantData => 400,
+    };
+    Response::builder()
+        .status(code)
+        .body(err.to_string())
+        .unwrap()
+}
 
 pub async fn process_payment(
     payment: Payment,

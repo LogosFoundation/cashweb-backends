@@ -10,14 +10,17 @@ pub mod settings;
 
 use std::{sync::Arc, time::Duration};
 
-use cashweb::payments::{preprocess_payment, wallet::Wallet};
+use cashweb::{
+    payments::{preprocess_payment, wallet::Wallet},
+    token::schemes::hmac_bearer::HmacTokenScheme,
+};
 use dashmap::DashMap;
 use futures::prelude::*;
 use lazy_static::lazy_static;
 use warp::Filter;
 
 use db::Database;
-use net::payments::*;
+use net::{payments, protection};
 use settings::Settings;
 
 const DASHMAP_CAPACITY: usize = 2048;
@@ -44,10 +47,28 @@ async fn main() {
     let wallet = Wallet::new(Duration::from_millis(SETTINGS.wallet.timeout));
     let wallet_state = warp::any().map(move || wallet.clone());
 
+    // Address string converter
+    let addr_base = warp::path::param().and_then(|addr_str: String| async move {
+        net::address_decode(&addr_str).map_err(warp::reject::custom)
+    });
+
+    // Token generator
+    let key = hex::decode(&SETTINGS.hmac_key).expect("unable to interpret hmac key as hex");
+    let token_scheme = Arc::new(HmacTokenScheme::new(&key));
+    let token_scheme_state = warp::any().map(move || token_scheme.clone());
+
+    // Payment generator
+    // let payment_gen =
+
     // Message handlers
-    let messages = warp::path::param().and(warp::path(MESSAGES_PATH));
+    let messages = addr_base.and(warp::path(MESSAGES_PATH));
     let messages_get = messages
         .and(warp::get())
+        .and(warp::header::headers_cloned())
+        .and(token_scheme_state.clone())
+        .and_then(|addr, headers, token_scheme: Arc<HmacTokenScheme>| {
+            protection::pop_protection(addr, headers, token_scheme).map_err(warp::reject::custom)
+        })
         .and(warp::query())
         .and(db_state.clone())
         .and_then(move |addr, query, db| {
@@ -67,7 +88,7 @@ async fn main() {
         });
 
     // Websocket handler
-    let websocket = warp::path::param()
+    let websocket = addr_base
         .and(warp::path(WS_PATH))
         .and(warp::ws())
         .and(msg_bus_state)
@@ -76,7 +97,7 @@ async fn main() {
         });
 
     // Filter handlers
-    let filters = warp::path::param().and(warp::path(FILTERS_PATH));
+    let filters = addr_base.and(warp::path(FILTERS_PATH));
     let filters_get = filters
         .and(warp::get())
         .and(db_state.clone())
@@ -103,7 +124,7 @@ async fn main() {
         .and(warp::body::bytes())
         .and_then(move |headers, body| {
             preprocess_payment(headers, body)
-                .map_err(PaymentError::Preprocess)
+                .map_err(payments::PaymentError::Preprocess)
                 .map_err(warp::reject::custom)
         })
         .and(wallet_state.clone())
@@ -126,6 +147,6 @@ async fn main() {
         .or(filters_get)
         .or(filters_put)
         .or(payments)
-        .recover(net::errors::handle_rejection);
+        .recover(net::handle_rejection);
     warp::serve(server).run(SETTINGS.bind).await;
 }

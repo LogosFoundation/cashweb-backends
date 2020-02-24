@@ -1,10 +1,13 @@
 use std::convert::Infallible;
 
 use bitcoin::consensus::encode::Error as TxDeserializeError;
-use bitcoincash_addr::{base58, cashaddr};
 use hex::FromHexError;
 use rocksdb::Error as RocksError;
-use warp::{http::StatusCode, reject::Reject, Rejection, Reply};
+use warp::{
+    http::{Response, StatusCode},
+    reject::Reject,
+    Rejection, Reply,
+};
 
 #[derive(Debug)]
 pub enum StampError {
@@ -18,12 +21,10 @@ pub enum StampError {
 
 #[derive(Debug)]
 pub enum ServerError {
-    Address(cashaddr::DecodingError, base58::DecodingError),
     DB(RocksError),
     Stamp(StampError),
     MessagesDecode(prost::DecodeError),
     PayloadDecode(prost::DecodeError),
-    FilterDecode(prost::DecodeError),
     DigestDecode(hex::FromHexError),
     NotFound,
     DestinationMalformed,
@@ -35,12 +36,6 @@ pub enum ServerError {
     StartBothGiven,
     EndBothGiven,
     InternalDatabaseError,
-}
-
-impl From<(cashaddr::DecodingError, base58::DecodingError)> for ServerError {
-    fn from(err: (cashaddr::DecodingError, base58::DecodingError)) -> Self {
-        ServerError::Address(err.0, err.1)
-    }
 }
 
 impl From<StampError> for ServerError {
@@ -56,7 +51,3 @@ impl From<RocksError> for ServerError {
 }
 
 impl Reject for ServerError {}
-
-pub async fn handle_rejection(err: Rejection) -> Result<impl Reply, Infallible> {
-    Ok(warp::reply::with_status("hello", StatusCode::NOT_FOUND))
-}

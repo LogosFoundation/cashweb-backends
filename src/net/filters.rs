@@ -1,24 +1,68 @@
-use crate::db::Database;
+use std::fmt;
 
 use bitcoincash_addr::Address;
 use bytes::Bytes;
 use prost::Message as _;
-use warp::http::Response;
+use rocksdb::Error as RocksError;
+use warp::{
+    http::Response,
+    reject::{Reject, Rejection},
+};
 
-use super::errors::*;
-use crate::models::filters::FilterApplication;
+use crate::{db::Database, models::filters::FilterApplication};
+
+#[derive(Debug)]
+pub enum FilterError {
+    NotFound,
+    Database(RocksError),
+    FilterDecode(prost::DecodeError),
+}
+
+impl From<RocksError> for FilterError {
+    fn from(err: RocksError) -> Self {
+        FilterError::Database(err)
+    }
+}
+
+impl fmt::Display for FilterError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let printable = match self {
+            Self::NotFound => "not found",
+            Self::Database(err) => return err.fmt(f),
+            Self::FilterDecode(err) => return err.fmt(f),
+        };
+        f.write_str(printable)
+    }
+}
+
+impl Reject for FilterError {}
+
+pub fn filter_error_recovery(err: &FilterError) -> Response<String> {
+    let code = match err {
+        FilterError::NotFound => 404,
+        FilterError::Database(_) => {
+            // Do not display internal errors
+            return Response::builder()
+                .status(500)
+                .body("internal database error".to_string())
+                .unwrap();
+        }
+        FilterError::FilterDecode(_) => 400,
+    };
+    Response::builder()
+        .status(code)
+        .body(err.to_string())
+        .unwrap()
+}
 
 pub async fn get_filters(
-    addr_str: String,
+    addr: Address,
     database: Database,
-) -> Result<Response<Vec<u8>>, ServerError> {
-    // Convert address
-    let addr = Address::decode(&addr_str)?;
-
+) -> Result<Response<Vec<u8>>, FilterError> {
     // Get filters
     let mut filters = database
         .get_filters(addr.as_body())?
-        .ok_or(ServerError::NotFound)?;
+        .ok_or(FilterError::NotFound)?;
 
     // Don't show private filters
     if let Some(price_filter) = &filters.price_filter {
@@ -36,16 +80,13 @@ pub async fn get_filters(
 }
 
 pub async fn put_filters(
-    addr_str: String,
+    addr: Address,
     filters_raw: Bytes,
     db_data: Database,
-) -> Result<Response<()>, ServerError> {
-    // Convert address
-    let addr = Address::decode(&addr_str)?;
-
+) -> Result<Response<()>, FilterError> {
     // TODO: Do validation
     let filter_application =
-        FilterApplication::decode(filters_raw).map_err(ServerError::FilterDecode)?;
+        FilterApplication::decode(filters_raw).map_err(FilterError::FilterDecode)?;
 
     db_data.put_filters(addr.as_body(), &filter_application.serialized_filters)?;
 
