@@ -16,6 +16,7 @@ use std::convert::Infallible;
 use bitcoincash_addr::Address;
 use warp::{
     http::Response,
+    hyper::Body,
     reject::{Reject, Rejection},
 };
 
@@ -32,11 +33,13 @@ pub fn address_decode(addr_str: &str) -> Result<Address, AddressDecode> {
     Address::decode(&addr_str).map_err(|(cash_err, base58_err)| AddressDecode(cash_err, base58_err))
 }
 
-pub fn address_recovery(err: &AddressDecode) -> Response<String> {
-    Response::builder().body("hello there".to_string()).unwrap()
+pub fn address_recovery(err: &AddressDecode) -> Response<Body> {
+    Response::builder()
+        .body(Body::from(format!("{}, {}", err.0, err.1)))
+        .unwrap()
 }
 
-pub async fn handle_rejection(err: Rejection) -> Result<Response<String>, Infallible> {
+pub async fn handle_rejection(err: Rejection) -> Result<Response<Body>, Infallible> {
     if let Some(err) = err.find::<AddressDecode>() {
         return Ok(address_recovery(err));
     }

@@ -6,6 +6,7 @@ use prost::Message as _;
 use rocksdb::Error as RocksError;
 use warp::{
     http::Response,
+    hyper::Body,
     reject::{Reject, Rejection},
 };
 
@@ -37,21 +38,21 @@ impl fmt::Display for FilterError {
 
 impl Reject for FilterError {}
 
-pub fn filter_error_recovery(err: &FilterError) -> Response<String> {
+pub fn filter_error_recovery(err: &FilterError) -> Response<Body> {
     let code = match err {
         FilterError::NotFound => 404,
         FilterError::Database(_) => {
             // Do not display internal errors
             return Response::builder()
                 .status(500)
-                .body("internal database error".to_string())
+                .body(Body::from("internal database error"))
                 .unwrap();
         }
         FilterError::FilterDecode(_) => 400,
     };
     Response::builder()
         .status(code)
-        .body(err.to_string())
+        .body(Body::from(err.to_string()))
         .unwrap()
 }
 

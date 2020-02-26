@@ -16,6 +16,7 @@ const DEFAULT_MESSAGE_LIMIT: usize = 1024 * 1024 * 20; // 20MB
 const DEFAULT_FILTER_LIMIT: usize = 1024 * 512; // 512KB
 const DEFAULT_PAYMENT_LIMIT: usize = 1024 * 3; // 3KB
 const DEFAULT_WALLET_TIMEOUT: usize = 1_000 * 60; // 60 seconds
+const DEFAULT_TOKEN_FEE: u64 = 100_000;
 
 #[derive(Debug, Deserialize)]
 pub struct Settings {
@@ -29,6 +30,7 @@ pub struct Settings {
     pub limits: Limits,
     pub wallet: Wallet,
     pub hmac_key: String,
+    pub token_fee: u64
 }
 
 #[derive(Debug, Deserialize)]
@@ -71,6 +73,7 @@ impl Settings {
         s.set_default("limits.filter_size", DEFAULT_FILTER_LIMIT as i64)?;
         s.set_default("limits.payment_size", DEFAULT_PAYMENT_LIMIT as i64)?;
         s.set_default("wallet.timeout", DEFAULT_WALLET_TIMEOUT as i64)?;
+        s.set_default("token_fee", DEFAULT_TOKEN_FEE as i64)?;
 
         // NOTE: Don't set HMAC key to a default during release for security reasons
         #[cfg(debug_assertions)]

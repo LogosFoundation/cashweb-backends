@@ -3,6 +3,7 @@ extern crate clap;
 #[macro_use]
 extern crate serde;
 
+pub mod bitcoin;
 pub mod db;
 pub mod models;
 pub mod net;
@@ -19,6 +20,7 @@ use futures::prelude::*;
 use lazy_static::lazy_static;
 use warp::Filter;
 
+use crate::bitcoin::BitcoinClient;
 use db::Database;
 use net::{payments, protection};
 use settings::Settings;
@@ -47,6 +49,14 @@ async fn main() {
     let wallet = Wallet::new(Duration::from_millis(SETTINGS.wallet.timeout));
     let wallet_state = warp::any().map(move || wallet.clone());
 
+    // Bitcoin client state
+    let bitcoin_client = BitcoinClient::new(
+        SETTINGS.rpc_addr.clone(),
+        SETTINGS.rpc_username.clone(),
+        SETTINGS.rpc_password.clone(),
+    );
+    let bitcoin_client_state = warp::any().map(move || bitcoin_client.clone());
+
     // Address string converter
     let addr_base = warp::path::param().and_then(|addr_str: String| async move {
         net::address_decode(&addr_str).map_err(warp::reject::custom)
@@ -57,24 +67,30 @@ async fn main() {
     let token_scheme = Arc::new(HmacTokenScheme::new(&key));
     let token_scheme_state = warp::any().map(move || token_scheme.clone());
 
-    // Payment generator
-    // let payment_gen =
-
-    // Message handlers
-    let messages = addr_base.and(warp::path(MESSAGES_PATH));
-    let messages_get = messages
-        .and(warp::get())
+    // Protection
+    let addr_protected = addr_base
+        .clone()
         .and(warp::header::headers_cloned())
         .and(token_scheme_state.clone())
-        .and_then(|addr, headers, token_scheme: Arc<HmacTokenScheme>| {
-            protection::pop_protection(addr, headers, token_scheme).map_err(warp::reject::custom)
-        })
+        .and(wallet_state.clone())
+        .and(bitcoin_client_state.clone())
+        .and_then(move |addr, headers, token_scheme, wallet, bitcoin| {
+            protection::pop_protection(addr, headers, token_scheme, wallet, bitcoin)
+                .map_err(warp::reject::custom)
+        });
+
+    // Message handlers
+    let messages_get = addr_protected
+        .clone()
+        .and(warp::path(MESSAGES_PATH))
+        .and(warp::get())
         .and(warp::query())
         .and(db_state.clone())
         .and_then(move |addr, query, db| {
             net::get_messages(addr, query, db).map_err(warp::reject::custom)
         });
-    let messages_put = messages
+    let messages_put = addr_base
+        .and(warp::path(MESSAGES_PATH))
         .and(warp::put())
         .and(warp::body::content_length_limit(
             SETTINGS.limits.message_size,
@@ -88,7 +104,8 @@ async fn main() {
         });
 
     // Websocket handler
-    let websocket = addr_base
+    let websocket = addr_protected
+        .clone()
         .and(warp::path(WS_PATH))
         .and(warp::ws())
         .and(msg_bus_state)

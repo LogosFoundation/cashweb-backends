@@ -1,13 +1,7 @@
-use std::convert::Infallible;
-
 use bitcoin::consensus::encode::Error as TxDeserializeError;
 use hex::FromHexError;
 use rocksdb::Error as RocksError;
-use warp::{
-    http::{Response, StatusCode},
-    reject::Reject,
-    Rejection, Reply,
-};
+use warp::{reject::Reject, Rejection, Reply};
 
 #[derive(Debug)]
 pub enum StampError {
