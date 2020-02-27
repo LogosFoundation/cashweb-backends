@@ -8,7 +8,7 @@ use crate::bitcoin::Network;
 
 const FOLDER_DIR: &str = ".relay";
 const DEFAULT_BIND: &str = "127.0.0.1:8080";
-const DEFAULT_RPC_ADDR: &str = "127.0.0.1:18443";
+const DEFAULT_RPC_ADDR: &str = "http://127.0.0.1:18443";
 const DEFAULT_RPC_USER: &str = "user";
 const DEFAULT_RPC_PASSWORD: &str = "password";
 const DEFAULT_NETWORK: &str = "regnet";
