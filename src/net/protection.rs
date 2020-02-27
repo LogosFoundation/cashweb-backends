@@ -1,28 +1,19 @@
-use std::{
-    fmt,
-    sync::Arc,
-    time::{Duration, SystemTime},
-};
+use std::{fmt, sync::Arc};
 
-use bitcoin::TxOut;
 use bitcoincash_addr::Address;
-use cashweb::{
-    payments::wallet::Wallet,
-    token::{extract_pop, schemes::hmac_bearer::*, TokenValidator},
-};
+use cashweb::token::{extract_pop, schemes::hmac_bearer::*, TokenValidator};
 use http::header::HeaderMap;
 use json_rpc::clients::http::HttpConnector;
 use warp::{http::Response, hyper::Body, reject::Reject};
 
-use crate::bitcoin::BitcoinClient;
+use crate::{
+    bitcoin::BitcoinClient,
+    net::payments::{generate_payment_request, Wallet},
+};
 
 #[derive(Debug)]
 pub enum ProtectionError {
-    MissingToken(
-        Arc<HmacTokenScheme>,
-        Wallet<Vec<u8>, TxOut>,
-        BitcoinClient<HttpConnector>,
-    ),
+    MissingToken(Address, Wallet, BitcoinClient<HttpConnector>),
     Validation(ValidationError),
 }
 
@@ -37,16 +28,25 @@ impl fmt::Display for ProtectionError {
 
 pub async fn protection_error_recovery(err: ProtectionError) -> Response<Body> {
     match err {
-        ProtectionError::Validation(_) => {
-            return Response::builder()
-                .status(400)
-                .body(Body::from(err.to_string()))
-                .unwrap()
-        }
-        ProtectionError::MissingToken(token_scheme, wallet, bitcoin_client) => {
-            // Valid interval
-            let current_time = SystemTime::now();
-            // let expiry_time = current_time + Duration::from_secs(VALID_DURATION);
+        ProtectionError::Validation(_) => Response::builder()
+            .status(400)
+            .body(Body::from(err.to_string()))
+            .unwrap(),
+        ProtectionError::MissingToken(addr, wallet, bitcoin_client) => {
+            match generate_payment_request(addr, wallet, bitcoin_client).await {
+                Ok(ok) => ok,
+                Err(err) => Response::builder()
+                    .status(400)
+                    .body(Body::from(err.to_string()))
+                    .unwrap(), // Err(err) => match err {
+                               //     PaymentRequestError::Address(err) => Response::builder()
+                               //         .status(400)
+                               //         .body(Body::from(format!("{}, {}", err.0, err.1)))
+                               //         .unwrap(),
+                               //     PaymentRequestError::MismatchedNetwork =>
+                               // }
+            }
+            // let response =
 
             // Get new addr and add to wallet
             // let wallet_state_inner = self.wallet_state.clone();
@@ -99,18 +99,6 @@ pub async fn protection_error_recovery(err: ProtectionError) -> Response<Body> {
             //         .encode(&mut serialized_payment_details)
             //         .unwrap();
 
-            //     // Generate payment invoice
-            //     let pki_type = Some("none".to_string());
-            //     let payment_invoice = PaymentRequest {
-            //         pki_type,
-            //         pki_data: None,
-            //         payment_details_version: Some(1),
-            //         serialized_payment_details,
-            //         signature: None,
-            //     };
-            //     let mut payment_invoice_raw = Vec::with_capacity(payment_invoice.encoded_len());
-            //     payment_invoice.encode(&mut payment_invoice_raw).unwrap();
-
             //     HttpResponse::PaymentRequired()
             //         .content_type("application/bitcoincash-paymentrequest")
             //         .header("Content-Transfer-Encoding", "binary")
@@ -119,7 +107,6 @@ pub async fn protection_error_recovery(err: ProtectionError) -> Response<Body> {
 
             // // Respond
             // return Box::pin(response.map_ok(move |resp| req.into_response(resp)));
-            unreachable!()
         }
     }
 }
@@ -130,17 +117,17 @@ pub async fn pop_protection(
     addr: Address,
     header_map: HeaderMap,
     token_scheme: Arc<HmacTokenScheme>,
-    wallet: Wallet<Vec<u8>, TxOut>,
+    wallet: Wallet,
     bitcoin_client: BitcoinClient<HttpConnector>,
 ) -> Result<Address, ProtectionError> {
-    let pop_token = extract_pop(&header_map).ok_or(ProtectionError::MissingToken(
-        token_scheme.clone(),
-        wallet,
-        bitcoin_client,
-    ))?;
-    token_scheme
-        .validate_token(addr.as_body().to_vec(), pop_token)
-        .await
-        .map_err(ProtectionError::Validation)?;
-    Ok(addr)
+    match extract_pop(&header_map) {
+        Some(pop_token) => {
+            token_scheme
+                .validate_token(addr.as_body().to_vec(), pop_token)
+                .await
+                .map_err(ProtectionError::Validation)?;
+            Ok(addr)
+        }
+        None => return Err(ProtectionError::MissingToken(addr, wallet, bitcoin_client)),
+    }
 }

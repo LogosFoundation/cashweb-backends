@@ -29,7 +29,7 @@ const DASHMAP_CAPACITY: usize = 2048;
 const FILTERS_PATH: &str = "filters";
 const WS_PATH: &str = "ws";
 const MESSAGES_PATH: &str = "messages";
-const PAYMENTS_PATH: &str = "payments";
+pub const PAYMENTS_PATH: &str = "payments";
 
 lazy_static! {
     pub static ref SETTINGS: Settings = Settings::new().expect("couldn't load config");
@@ -98,9 +98,7 @@ async fn main() {
         .and(warp::body::bytes())
         .and(db_state.clone())
         .and_then(move |addr, body, db| {
-            net::put_message(addr, body, db)
-                .map_ok(|_| vec![])
-                .map_err(warp::reject::custom)
+            net::put_message(addr, body, db).map_err(warp::reject::custom)
         });
 
     // Websocket handler
@@ -145,9 +143,10 @@ async fn main() {
                 .map_err(warp::reject::custom)
         })
         .and(wallet_state.clone())
-        .and_then(move |payment, wallet| {
-            net::process_payment(payment, wallet)
-                .map_ok(|_| vec![])
+        .and(bitcoin_client_state.clone())
+        .and_then(move |payment, wallet, bitcoin_client| async move {
+            net::process_payment(payment, wallet, bitcoin_client)
+                .await
                 .map_err(warp::reject::custom)
         });
 

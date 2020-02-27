@@ -1,7 +1,7 @@
 use bitcoin::consensus::encode::Error as TxDeserializeError;
 use hex::FromHexError;
 use rocksdb::Error as RocksError;
-use warp::{reject::Reject, Rejection, Reply};
+use warp::reject::Reject;
 
 #[derive(Debug)]
 pub enum StampError {

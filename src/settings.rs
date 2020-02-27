@@ -4,7 +4,7 @@ use clap::App;
 use config::{Config, ConfigError, File};
 use serde::Deserialize;
 
-// use crate::bitcoin::Network;
+use crate::bitcoin::Network;
 
 const FOLDER_DIR: &str = ".relay";
 const DEFAULT_BIND: &str = "127.0.0.1:8080";
@@ -17,6 +17,7 @@ const DEFAULT_FILTER_LIMIT: usize = 1024 * 512; // 512KB
 const DEFAULT_PAYMENT_LIMIT: usize = 1024 * 3; // 3KB
 const DEFAULT_WALLET_TIMEOUT: usize = 1_000 * 60; // 60 seconds
 const DEFAULT_TOKEN_FEE: u64 = 100_000;
+const DEFAULT_MEMO: &str = "Thanks for your custom!";
 
 #[derive(Debug, Deserialize)]
 pub struct Settings {
@@ -26,11 +27,11 @@ pub struct Settings {
     pub rpc_password: String,
     pub secret: String,
     pub db_path: String,
-    // pub network: Network,
+    pub network: Network,
     pub limits: Limits,
     pub wallet: Wallet,
     pub hmac_key: String,
-    pub token_fee: u64
+    pub payment: Payment,
 }
 
 #[derive(Debug, Deserialize)]
@@ -43,6 +44,12 @@ pub struct Limits {
     pub message_size: u64,
     pub filter_size: u64,
     pub payment_size: u64,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct Payment {
+    pub token_fee: u64,
+    pub memo: String,
 }
 
 impl Settings {
@@ -73,7 +80,8 @@ impl Settings {
         s.set_default("limits.filter_size", DEFAULT_FILTER_LIMIT as i64)?;
         s.set_default("limits.payment_size", DEFAULT_PAYMENT_LIMIT as i64)?;
         s.set_default("wallet.timeout", DEFAULT_WALLET_TIMEOUT as i64)?;
-        s.set_default("token_fee", DEFAULT_TOKEN_FEE as i64)?;
+        s.set_default("payment.token_fee", DEFAULT_TOKEN_FEE as i64)?;
+        s.set_default("payment.memo", DEFAULT_MEMO)?;
 
         // NOTE: Don't set HMAC key to a default during release for security reasons
         #[cfg(debug_assertions)]

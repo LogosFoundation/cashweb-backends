@@ -13,7 +13,7 @@ use secp256k1::{
     Secp256k1,
 };
 use sha2::{Digest, Sha256};
-use warp::http::Response;
+use warp::{http::Response, hyper::Body};
 
 use super::errors::*;
 use crate::{
@@ -147,7 +147,7 @@ pub async fn put_message(
     addr: Address,
     messages_raw: Bytes,
     database: Database,
-) -> Result<Response<()>, ServerError> {
+) -> Result<Response<Body>, ServerError> {
     // Decode message
     let message_set = MessageSet::decode(&messages_raw[..]).map_err(ServerError::MessagesDecode)?;
 
@@ -202,5 +202,5 @@ pub async fn put_message(
     // };
 
     // Respond
-    Ok(Response::builder().body(()).unwrap())
+    Ok(Response::builder().body(Body::empty()).unwrap())
 }

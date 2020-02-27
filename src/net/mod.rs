@@ -35,6 +35,7 @@ pub fn address_decode(addr_str: &str) -> Result<Address, AddressDecode> {
 
 pub fn address_recovery(err: &AddressDecode) -> Response<Body> {
     Response::builder()
+        .status(400)
         .body(Body::from(format!("{}, {}", err.0, err.1)))
         .unwrap()
 }

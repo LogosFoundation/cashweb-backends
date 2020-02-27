@@ -4,11 +4,7 @@ use bitcoincash_addr::Address;
 use bytes::Bytes;
 use prost::Message as _;
 use rocksdb::Error as RocksError;
-use warp::{
-    http::Response,
-    hyper::Body,
-    reject::{Reject, Rejection},
-};
+use warp::{http::Response, hyper::Body, reject::Reject};
 
 use crate::{db::Database, models::filters::FilterApplication};
 

@@ -1,3 +1,5 @@
+use std::fmt;
+
 use json_rpc::{clients::http::HttpConnector, prelude::*};
 
 use serde_json::Value;
@@ -58,48 +60,59 @@ impl<C> std::ops::Deref for BitcoinClient<C> {
 }
 
 #[derive(Debug)]
-pub enum BitcoinError {
+pub enum NodeError {
     Http(HttpError),
     Rpc(RpcError),
     Json(JsonError),
     EmptyResponse,
 }
 
+impl fmt::Display for NodeError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::Http(err) => return err.fmt(f),
+            Self::Json(err) => return err.fmt(f),
+            Self::Rpc(err) => f.write_str(&format!("{:#?}", err)),
+            Self::EmptyResponse => f.write_str("empty response"),
+        }
+    }
+}
+
 impl<C> BitcoinClient<C>
 where
     C: Connect + Clone + Send + Sync + 'static,
 {
-    pub async fn get_new_addr(&self) -> Result<String, BitcoinError> {
+    pub async fn get_new_addr(&self) -> Result<String, NodeError> {
         let request = self
             .build_request()
             .method("getnewaddress")
             .finish()
             .unwrap();
-        let response = self.send(request).await.map_err(BitcoinError::Http)?;
+        let response = self.send(request).await.map_err(NodeError::Http)?;
         if response.is_error() {
-            return Err(BitcoinError::Rpc(response.error().unwrap()));
+            return Err(NodeError::Rpc(response.error().unwrap()));
         }
         response
             .into_result()
-            .ok_or(BitcoinError::EmptyResponse)?
-            .map_err(BitcoinError::Json)
+            .ok_or(NodeError::EmptyResponse)?
+            .map_err(NodeError::Json)
     }
 
-    pub async fn send_tx(&self, raw_tx: &[u8]) -> Result<String, BitcoinError> {
+    pub async fn send_tx(&self, raw_tx: Vec<u8>) -> Result<String, NodeError> {
         let request = self
             .build_request()
             .method("sendrawtransaction")
             .params(vec![Value::String(hex::encode(raw_tx))])
             .finish()
             .unwrap();
-        let response = self.send(request).await.map_err(BitcoinError::Http)?;
+        let response = self.send(request).await.map_err(NodeError::Http)?;
         if response.is_error() {
             let err = response.error().unwrap();
-            return Err(BitcoinError::Rpc(err));
+            return Err(NodeError::Rpc(err));
         }
         response
             .into_result()
-            .ok_or(BitcoinError::EmptyResponse)?
-            .map_err(BitcoinError::Json)
+            .ok_or(NodeError::EmptyResponse)?
+            .map_err(NodeError::Json)
     }
 }

@@ -1,26 +1,32 @@
-use std::fmt;
+use std::{
+    fmt,
+    time::{Duration, SystemTime, UNIX_EPOCH},
+};
 
 use bitcoin::{
     consensus::encode::Error as BitcoinError, util::psbt::serialize::Deserialize, Transaction,
-    TxOut,
 };
 use bitcoincash_addr::{
     base58::DecodingError as Base58Error, cashaddr::DecodingError as CashAddrError, Address,
 };
-use cashweb::payments::{
-    wallet::{Wallet as WalletGeneric, WalletError},
-    PreprocessingError,
+use cashweb::{
+    payments::{
+        wallet::{Wallet as WalletGeneric, WalletError},
+        PreprocessingError,
+    },
+    protobuf::bip70::{PaymentAck, PaymentDetails, PaymentRequest},
 };
 use json_rpc::clients::http::HttpConnector;
+use prost::Message as _;
 use warp::{http::Response, hyper::Body, reject::Reject};
 
 use crate::{
-    bitcoin::{BitcoinClient, BitcoinError as NodeError},
-    models::bip70::{Payment, Output},
-    SETTINGS
+    bitcoin::{BitcoinClient, NodeError},
+    models::bip70::{Output, Payment},
+    PAYMENTS_PATH, SETTINGS,
 };
 
-pub type Wallet = WalletGeneric<Vec<u8>, TxOut>;
+pub type Wallet = WalletGeneric<Vec<u8>, Output>;
 
 #[derive(Debug)]
 pub enum PaymentError {
@@ -28,6 +34,7 @@ pub enum PaymentError {
     Wallet(WalletError),
     MalformedTx(BitcoinError),
     MissingMerchantData,
+    Node(NodeError),
 }
 
 impl fmt::Display for PaymentError {
@@ -37,6 +44,7 @@ impl fmt::Display for PaymentError {
             Self::Wallet(err) => return err.fmt(f),
             Self::MalformedTx(err) => return err.fmt(f),
             Self::MissingMerchantData => "missing merchant data",
+            Self::Node(err) => return err.fmt(f),
         };
         f.write_str(printable)
     }
@@ -57,6 +65,10 @@ pub fn payment_error_recovery(err: &PaymentError) -> Response<Body> {
         },
         PaymentError::MalformedTx(_) => 400,
         PaymentError::MissingMerchantData => 400,
+        PaymentError::Node(err) => match err {
+            NodeError::Rpc(_) => 400,
+            _ => 500,
+        },
     };
     Response::builder()
         .status(code)
@@ -67,6 +79,7 @@ pub fn payment_error_recovery(err: &PaymentError) -> Response<Body> {
 pub async fn process_payment(
     payment: Payment,
     wallet: Wallet,
+    bitcoin_client: BitcoinClient<HttpConnector>,
 ) -> Result<Response<Body>, PaymentError> {
     let txs_res: Result<Vec<Transaction>, BitcoinError> = payment
         .transactions
@@ -74,7 +87,15 @@ pub async fn process_payment(
         .map(|raw_tx| Transaction::deserialize(raw_tx))
         .collect();
     let txs = txs_res.map_err(PaymentError::MalformedTx)?;
-    let outputs: Vec<TxOut> = txs.into_iter().map(move |tx| tx.output).flatten().collect();
+    let outputs: Vec<Output> = txs
+        .into_iter()
+        .map(move |tx| tx.output)
+        .flatten()
+        .map(|output| Output {
+            amount: Some(output.value),
+            script: output.script_pubkey.to_bytes(),
+        })
+        .collect();
 
     let pubkey_hash = payment
         .merchant_data
@@ -85,39 +106,104 @@ pub async fn process_payment(
         .recv_outputs(pubkey_hash, &outputs)
         .map_err(PaymentError::Wallet)?;
 
-    // TODO: Submit to chain
-    Ok(Response::builder().body(Body::empty()).unwrap())
+    for tx in &payment.transactions {
+        bitcoin_client
+            .send_tx(tx.to_vec())
+            .await
+            .map_err(PaymentError::Node)?;
+    }
+
+    // Create PaymentAck
+    let memo = Some(SETTINGS.payment.memo.clone());
+    let payment_ack = PaymentAck { payment, memo };
+
+    // Encode payment ack
+    let mut raw_ack = Vec::with_capacity(payment_ack.encoded_len());
+    payment_ack.encode(&mut raw_ack).unwrap();
+
+    Ok(Response::builder().body(Body::from(raw_ack)).unwrap())
 }
 
 #[derive(Debug)]
 pub enum PaymentRequestError {
     Address(CashAddrError, Base58Error),
-    Bitcoin(NodeError),
-    MismatchedNetwork
+    Node(NodeError),
+    MismatchedNetwork,
+}
+
+impl fmt::Display for PaymentRequestError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            PaymentRequestError::Address(cash_err, base58_err) => {
+                f.write_str(&format!("{}, {}", cash_err, base58_err))
+            }
+            PaymentRequestError::Node(err) => err.fmt(f),
+            PaymentRequestError::MismatchedNetwork => f.write_str("mismatched network"),
+        }
+    }
 }
 
 pub async fn generate_payment_request(
-    addr: &Address,
+    addr: Address,
     wallet: Wallet,
     bitcoin_client: BitcoinClient<HttpConnector>,
 ) -> Result<Response<Body>, PaymentRequestError> {
     let output_addr_str = bitcoin_client
         .get_new_addr()
         .await
-        .map_err(PaymentRequestError::Bitcoin)?;
+        .map_err(PaymentRequestError::Node)?;
     let output_addr = Address::decode(&output_addr_str)
         .map_err(|(cash_err, base58_err)| PaymentRequestError::Address(cash_err, base58_err))?;
 
     // Generate output
     let p2pkh_script_pre: [u8; 3] = [118, 169, 20];
     let p2pkh_script_post: [u8; 2] = [136, 172];
-    let script = [&p2pkh_script_pre[..], output_addr.as_body(), &p2pkh_script_post[..]].concat();
+    let script = [
+        &p2pkh_script_pre[..],
+        output_addr.as_body(),
+        &p2pkh_script_post[..],
+    ]
+    .concat();
     let output = Output {
-        amount: Some(SETTINGS.token_fee),
-        script 
+        amount: Some(SETTINGS.payment.token_fee),
+        script,
     };
-    let cleanup = wallet.add_outputs(addr.as_body().to_vec(), vec![]);
+    let cleanup = wallet.add_outputs(addr.as_body().to_vec(), vec![output.clone()]);
     tokio::spawn(cleanup);
 
-    Ok(Response::builder().status(402).body(Body::empty()).unwrap())
+    // Valid interval
+    let current_time = SystemTime::now();
+    let expiry_time = current_time + Duration::from_millis(SETTINGS.wallet.timeout);
+
+    let payment_details = PaymentDetails {
+        network: Some(SETTINGS.network.to_string()),
+        time: current_time.duration_since(UNIX_EPOCH).unwrap().as_secs(),
+        expires: Some(expiry_time.duration_since(UNIX_EPOCH).unwrap().as_secs()),
+        memo: None,
+        merchant_data: Some(addr.into_body()),
+        outputs: vec![output],
+        payment_url: Some(format!("/{}", PAYMENTS_PATH)),
+    };
+    let mut serialized_payment_details = Vec::with_capacity(payment_details.encoded_len());
+    payment_details
+        .encode(&mut serialized_payment_details)
+        .unwrap();
+
+    // Generate payment invoice
+    // TODO: Signing
+    let pki_type = Some("none".to_string());
+    let payment_invoice = PaymentRequest {
+        pki_type,
+        pki_data: None,
+        payment_details_version: Some(1),
+        serialized_payment_details,
+        signature: None,
+    };
+    let mut payment_invoice_raw = Vec::with_capacity(payment_invoice.encoded_len());
+    payment_invoice.encode(&mut payment_invoice_raw).unwrap();
+
+    Ok(Response::builder()
+        .status(402)
+        .body(Body::from(payment_invoice_raw))
+        .unwrap())
 }

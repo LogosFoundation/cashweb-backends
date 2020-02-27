@@ -42,12 +42,13 @@ pub async fn connect_ws(pubkey_hash: Vec<u8>, ws: WebSocket, msg_bus: MessageBus
 
     let (user_ws_tx, _) = ws.split();
 
-    if let Err(err) = rx
+    if let Err(_) = rx
         .forward(user_ws_tx.sink_map_err(WsError::SinkError))
         .await
     {
         // TODO: Log error
     }
 
-    // TODO: Disconnect using https://github.com/xacrimon/dashmap/issues/56
+    // TODO: Double check this is atomic
+    msg_bus.remove_if(&pubkey_hash, |_, sender| sender.receiver_count() == 0);
 }
