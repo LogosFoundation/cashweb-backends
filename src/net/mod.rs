@@ -44,12 +44,14 @@ pub async fn handle_rejection(err: Rejection) -> Result<Response<Body>, Infallib
     if let Some(err) = err.find::<AddressDecode>() {
         return Ok(address_recovery(err));
     }
-
     if let Some(err) = err.find::<FilterError>() {
         return Ok(filter_error_recovery(err));
     }
     if let Some(err) = err.find::<PaymentError>() {
         return Ok(payment_error_recovery(err));
+    }
+    if let Some(err) = err.find::<ProtectionError>() {
+        return Ok(protection_error_recovery(err).await)
     }
     unreachable!()
 }

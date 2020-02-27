@@ -70,8 +70,8 @@ pub enum NodeError {
 impl fmt::Display for NodeError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            Self::Http(err) => return err.fmt(f),
-            Self::Json(err) => return err.fmt(f),
+            Self::Http(err) => err.fmt(f),
+            Self::Json(err) => err.fmt(f),
             Self::Rpc(err) => f.write_str(&format!("{:#?}", err)),
             Self::EmptyResponse => f.write_str("empty response"),
         }

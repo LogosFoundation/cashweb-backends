@@ -26,14 +26,15 @@ impl fmt::Display for ProtectionError {
     }
 }
 
-pub async fn protection_error_recovery(err: ProtectionError) -> Response<Body> {
+pub async fn protection_error_recovery(err: &ProtectionError) -> Response<Body> {
     match err {
         ProtectionError::Validation(_) => Response::builder()
             .status(400)
             .body(Body::from(err.to_string()))
             .unwrap(),
         ProtectionError::MissingToken(addr, wallet, bitcoin_client) => {
-            match generate_payment_request(addr, wallet, bitcoin_client).await {
+            // TODO: Remove clones here
+            match generate_payment_request(addr.clone(), wallet.clone(), bitcoin_client.clone()).await {
                 Ok(ok) => ok,
                 Err(err) => Response::builder()
                     .status(400)
@@ -128,6 +129,6 @@ pub async fn pop_protection(
                 .map_err(ProtectionError::Validation)?;
             Ok(addr)
         }
-        None => return Err(ProtectionError::MissingToken(addr, wallet, bitcoin_client)),
+        None => Err(ProtectionError::MissingToken(addr, wallet, bitcoin_client)),
     }
 }
