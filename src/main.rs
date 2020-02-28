@@ -135,7 +135,7 @@ async fn main() {
 
     // Payment handler
     let payments = warp::path(PAYMENTS_PATH)
-        .and(warp::put())
+        .and(warp::post())
         .and(warp::header::headers_cloned())
         .and(warp::body::content_length_limit(
             SETTINGS.limits.filter_size,
@@ -179,7 +179,7 @@ async fn main() {
         .or(filters_get)
         .or(filters_put)
         .or(payments)
-        .with(cors)
-        .recover(net::handle_rejection);
+        .recover(net::handle_rejection)
+        .with(cors);
     warp::serve(server).run(SETTINGS.bind).await;
 }
