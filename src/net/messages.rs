@@ -44,7 +44,7 @@ pub async fn get_messages(
     addr: Address,
     query: Query,
     database: Database,
-) -> Result<Response<Vec<u8>>, ServerError> {
+) -> Result<Response<Body>, ServerError> {
     // Convert address
     let addr = addr.as_body();
 
@@ -53,7 +53,7 @@ pub async fn get_messages(
         let message = database
             .get_message_by_digest(addr, &raw_digest[..])?
             .ok_or(ServerError::NotFound)?;
-        return Ok(Response::builder().body(message).unwrap());
+        return Ok(Response::builder().body(Body::from(message)).unwrap());
     }
 
     // Get start prefix
@@ -93,7 +93,7 @@ pub async fn get_messages(
     message_set.encode(&mut raw_payload).unwrap();
 
     // Respond
-    Ok(Response::builder().body(raw_payload).unwrap()) // TODO: Headers
+    Ok(Response::builder().body(Body::from(raw_payload)).unwrap()) // TODO: Headers
 }
 
 // pub async fn delete_messages_inbox(

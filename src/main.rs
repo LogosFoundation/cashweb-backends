@@ -130,8 +130,7 @@ async fn main() {
         .and(db_state)
         .and_then(move |addr, body, db| {
             net::put_filters(addr, body, db).map_err(warp::reject::custom)
-        })
-        .map(|_| vec![]);
+        });
 
     // Payment handler
     let payments = warp::path(PAYMENTS_PATH)
@@ -173,12 +172,12 @@ async fn main() {
 
     // Init REST API
     let server = root
+        .or(payments)
         .or(websocket)
         .or(messages_get)
         .or(messages_put)
         .or(filters_get)
         .or(filters_put)
-        .or(payments)
         .recover(net::handle_rejection)
         .with(cors);
     warp::serve(server).run(SETTINGS.bind).await;

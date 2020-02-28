@@ -52,10 +52,7 @@ pub fn filter_error_recovery(err: &FilterError) -> Response<Body> {
         .unwrap()
 }
 
-pub async fn get_filters(
-    addr: Address,
-    database: Database,
-) -> Result<Response<Vec<u8>>, FilterError> {
+pub async fn get_filters(addr: Address, database: Database) -> Result<Response<Body>, FilterError> {
     // Get filters
     let mut filters = database
         .get_filters(addr.as_body())?
@@ -73,14 +70,14 @@ pub async fn get_filters(
     filters.encode(&mut raw_payload).unwrap();
 
     // Respond
-    Ok(Response::builder().body(raw_payload).unwrap()) // TODO: Headers
+    Ok(Response::builder().body(Body::from(raw_payload)).unwrap()) // TODO: Headers
 }
 
 pub async fn put_filters(
     addr: Address,
     filters_raw: Bytes,
     db_data: Database,
-) -> Result<Response<()>, FilterError> {
+) -> Result<Response<Body>, FilterError> {
     // TODO: Do validation
     let filter_application =
         FilterApplication::decode(filters_raw).map_err(FilterError::FilterDecode)?;
@@ -88,5 +85,5 @@ pub async fn put_filters(
     db_data.put_filters(addr.as_body(), &filter_application.serialized_filters)?;
 
     // Respond
-    Ok(Response::builder().body(()).unwrap())
+    Ok(Response::builder().body(Body::empty()).unwrap())
 }
