@@ -18,7 +18,10 @@ use cashweb::{
 use dashmap::DashMap;
 use futures::prelude::*;
 use lazy_static::lazy_static;
-use warp::Filter;
+use warp::{
+    http::{header, Method},
+    Filter,
+};
 
 use crate::bitcoin::BitcoinClient;
 use db::Database;
@@ -156,6 +159,18 @@ async fn main() {
         .and(warp::path::end())
         .and(warp::fs::file("./static/index.html"));
 
+    // CORs
+    let cors = warp::cors()
+        .allow_any_origin()
+        .allow_methods(vec![Method::GET, Method::PUT, Method::POST, Method::DELETE])
+        .allow_headers(vec![header::AUTHORIZATION, header::CONTENT_TYPE])
+        .expose_headers(vec![
+            header::AUTHORIZATION,
+            header::ACCEPT,
+            header::LOCATION,
+        ])
+        .build();
+
     // Init REST API
     let server = root
         .or(websocket)
@@ -164,6 +179,7 @@ async fn main() {
         .or(filters_get)
         .or(filters_put)
         .or(payments)
+        .with(cors)
         .recover(net::handle_rejection);
     warp::serve(server).run(SETTINGS.bind).await;
 }
