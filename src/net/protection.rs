@@ -34,7 +34,9 @@ pub async fn protection_error_recovery(err: &ProtectionError) -> Response<Body> 
             .unwrap(),
         ProtectionError::MissingToken(addr, wallet, bitcoin_client) => {
             // TODO: Remove clones here
-            match generate_payment_request(addr.clone(), wallet.clone(), bitcoin_client.clone()).await {
+            match generate_payment_request(addr.clone(), wallet.clone(), bitcoin_client.clone())
+                .await
+            {
                 Ok(ok) => ok,
                 Err(err) => Response::builder()
                     .status(400)

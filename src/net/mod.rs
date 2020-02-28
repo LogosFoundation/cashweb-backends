@@ -51,7 +51,7 @@ pub async fn handle_rejection(err: Rejection) -> Result<Response<Body>, Infallib
         return Ok(payment_error_recovery(err));
     }
     if let Some(err) = err.find::<ProtectionError>() {
-        return Ok(protection_error_recovery(err).await)
+        return Ok(protection_error_recovery(err).await);
     }
     unreachable!()
 }
