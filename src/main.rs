@@ -63,7 +63,7 @@ async fn main() {
     });
 
     // Token generator
-    let key = hex::decode(&SETTINGS.hmac_key).expect("unable to interpret hmac key as hex");
+    let key = hex::decode(&SETTINGS.hmac_secret).expect("unable to interpret hmac key as hex");
     let token_scheme = Arc::new(HmacTokenScheme::new(&key));
     let token_scheme_state = warp::any().map(move || token_scheme.clone());
 

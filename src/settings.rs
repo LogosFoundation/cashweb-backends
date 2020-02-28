@@ -30,7 +30,7 @@ pub struct Settings {
     pub network: Network,
     pub limits: Limits,
     pub wallet: Wallet,
-    pub hmac_key: String,
+    pub hmac_secret: String,
     pub payment: Payment,
 }
 
@@ -106,11 +106,6 @@ impl Settings {
             s.set("rpc_addr", node_ip)?;
         }
 
-        // Set rpc port from cmd line
-        if let Ok(rpc_port) = value_t!(matches, "rpc-port", i64) {
-            s.set("rpc_port", rpc_port)?;
-        }
-
         // Set rpc username from cmd line
         if let Some(rpc_username) = matches.value_of("rpc-username") {
             s.set("rpc_username", rpc_username)?;
@@ -127,8 +122,8 @@ impl Settings {
         }
 
         // Set secret from cmd line
-        if let Some(secret) = matches.value_of("secret") {
-            s.set("secret", secret)?;
+        if let Some(hmac_secret) = matches.value_of("hmac-secret") {
+            s.set("hmac_secret", hmac_secret)?;
         }
 
         // Set db from cmd line
