@@ -112,12 +112,13 @@ async fn main() {
         });
 
     // Filter handlers
-    let filters = addr_base.and(warp::path(FILTERS_PATH));
-    let filters_get = filters
+    let filters_get = addr_base
+        .and(warp::path(FILTERS_PATH))
         .and(warp::get())
         .and(db_state.clone())
         .and_then(move |addr, db| net::get_filters(addr, db).map_err(warp::reject::custom));
-    let filters_put = filters
+    let filters_put = addr_protected
+        .and(warp::path(FILTERS_PATH))
         .and(warp::put())
         .and(warp::body::content_length_limit(
             SETTINGS.limits.filter_size,
