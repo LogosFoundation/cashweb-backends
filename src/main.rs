@@ -9,7 +9,7 @@ pub mod models;
 pub mod net;
 pub mod settings;
 
-use std::{sync::Arc, time::Duration, env};
+use std::{env, sync::Arc, time::Duration};
 
 use cashweb::{
     payments::{preprocess_payment, wallet::Wallet},
@@ -154,11 +154,14 @@ async fn main() {
         })
         .and(wallet_state.clone())
         .and(bitcoin_client_state.clone())
-        .and_then(move |payment, wallet, bitcoin_client| async move {
-            net::process_payment(payment, wallet, bitcoin_client)
-                .await
-                .map_err(warp::reject::custom)
-        });
+        .and(token_scheme_state)
+        .and_then(
+            move |payment, wallet, bitcoin_client, token_state| async move {
+                net::process_payment(payment, wallet, bitcoin_client, token_state)
+                    .await
+                    .map_err(warp::reject::custom)
+            },
+        );
 
     // Root handler
     let root = warp::get()

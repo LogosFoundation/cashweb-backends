@@ -126,7 +126,7 @@ pub async fn pop_protection(
     match extract_pop(&header_map) {
         Some(pop_token) => {
             token_scheme
-                .validate_token(addr.as_body().to_vec(), pop_token)
+                .validate_token(&addr.as_body().to_vec(), pop_token)
                 .await
                 .map_err(ProtectionError::Validation)?;
             Ok(addr)

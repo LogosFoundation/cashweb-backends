@@ -1,5 +1,6 @@
 use std::{
     fmt,
+    sync::Arc,
     time::{Duration, SystemTime, UNIX_EPOCH},
 };
 
@@ -15,10 +16,15 @@ use cashweb::{
         PreprocessingError,
     },
     protobuf::bip70::{PaymentAck, PaymentDetails, PaymentRequest},
+    token::{schemes::hmac_bearer::HmacTokenScheme, TokenGenerator},
 };
 use json_rpc::clients::http::HttpConnector;
 use prost::Message as _;
-use warp::{http::Response, hyper::Body, reject::Reject};
+use warp::{
+    http::{header::AUTHORIZATION, Response},
+    hyper::Body,
+    reject::Reject,
+};
 
 use crate::{
     bitcoin::{BitcoinClient, NodeError},
@@ -80,6 +86,7 @@ pub async fn process_payment(
     payment: Payment,
     wallet: Wallet,
     bitcoin_client: BitcoinClient<HttpConnector>,
+    token_state: Arc<HmacTokenScheme>,
 ) -> Result<Response<Body>, PaymentError> {
     let txs_res: Result<Vec<Transaction>, BitcoinError> = payment
         .transactions
@@ -113,6 +120,9 @@ pub async fn process_payment(
             .map_err(PaymentError::Node)?;
     }
 
+    // Construct token
+    let token = token_state.construct_token(pubkey_hash).unwrap(); // This is safe
+
     // Create PaymentAck
     let memo = Some(SETTINGS.payment.memo.clone());
     let payment_ack = PaymentAck { payment, memo };
@@ -121,7 +131,10 @@ pub async fn process_payment(
     let mut raw_ack = Vec::with_capacity(payment_ack.encoded_len());
     payment_ack.encode(&mut raw_ack).unwrap();
 
-    Ok(Response::builder().body(Body::from(raw_ack)).unwrap())
+    Ok(Response::builder()
+        .header(AUTHORIZATION, token)
+        .body(Body::from(raw_ack))
+        .unwrap())
 }
 
 #[derive(Debug)]
