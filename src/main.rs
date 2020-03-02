@@ -9,7 +9,7 @@ pub mod models;
 pub mod net;
 pub mod settings;
 
-use std::{sync::Arc, time::Duration};
+use std::{sync::Arc, time::Duration, env};
 
 use cashweb::{
     payments::{preprocess_payment, wallet::Wallet},
@@ -40,6 +40,13 @@ lazy_static! {
 
 #[tokio::main]
 async fn main() {
+    if env::var_os("RUST_LOG").is_none() {
+        // Set `RUST_LOG=todos=debug` to see debug logs,
+        // this only shows access logs.
+        env::set_var("RUST_LOG", "todos=info");
+    }
+    pretty_env_logger::init();
+
     // Database state
     let db = Database::try_new(&SETTINGS.db_path).expect("failed to open database");
     let db_state = warp::any().map(move || db.clone());
@@ -179,6 +186,7 @@ async fn main() {
         .or(filters_get)
         .or(filters_put)
         .recover(net::handle_rejection)
-        .with(cors);
+        .with(cors)
+        .with(warp::log("relay-server"));
     warp::serve(server).run(SETTINGS.bind).await;
 }

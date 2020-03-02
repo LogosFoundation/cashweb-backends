@@ -14,13 +14,15 @@ bytes = "0.5.4"
 cashweb = { git = "https://github.com/cashweb/cashweb-rs" }
 clap = { version = "2.33.0", features = ["yaml"] }
 config = "0.10.1"
+dashmap = "3.5.1"
 dirs = "2.0.2"
 futures = "0.3.4"
 hex = "0.4.2"
 http = "0.2.0"
 json-rpc = { package = "async-json-rpc", git = "https://github.com/hlb8122/async-json-rpc" }
 lazy_static = "1.4.0"
-dashmap = "3.5.0"
+log = "0.4"
+pretty_env_logger = "0.4.0"
 prost = "0.6.1"
 rocksdb = "0.13.0"
 secp256k1 = { version = "0.17.2", features = ["rand-std"] }
@@ -28,7 +30,7 @@ serde = { version = "1.0.104", features = ["derive"] }
 serde_json = "1.0.48"
 sha2 = "0.8.1"
 subtle = "2.2.2"
-tokio = { version = "0.2.11", features = ["blocking",  "macros", "rt-core", "rt-threaded", "sync", "time"] }
+tokio = { version = "0.2.12", features = ["blocking",  "macros", "rt-core", "rt-threaded", "sync", "time"] }
 url = "2.1.1"
 warp = "0.2.1"
 
