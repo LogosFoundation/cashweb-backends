@@ -25,7 +25,6 @@ pub struct Settings {
     pub rpc_addr: String,
     pub rpc_username: String,
     pub rpc_password: String,
-    pub secret: String,
     pub db_path: String,
     pub network: Network,
     pub limits: Limits,
@@ -71,7 +70,6 @@ impl Settings {
         s.set_default("rpc_addr", DEFAULT_RPC_ADDR)?;
         s.set_default("rpc_username", DEFAULT_RPC_USER)?;
         s.set_default("rpc_password", DEFAULT_RPC_PASSWORD)?;
-        s.set_default("secret", "secret")?; // TODO: Remove
         let mut default_db = home_dir.clone();
         default_db.push(format!("{}/db", FOLDER_DIR));
         s.set_default("db_path", default_db.to_str())?;
