@@ -90,17 +90,16 @@ async fn main() {
         });
 
     // Message handlers
-    let messages_get = addr_protected
-        .clone()
-        .and(warp::path(MESSAGES_PATH))
+    let messages_get = warp::path(MESSAGES_PATH)
         .and(warp::get())
+        .and(addr_protected.clone())
         .and(warp::query())
         .and(db_state.clone())
         .and_then(move |addr, query, db| {
             net::get_messages(addr, query, db).map_err(warp::reject::custom)
         });
-    let messages_put = addr_base
-        .and(warp::path(MESSAGES_PATH))
+    let messages_put = warp::path(MESSAGES_PATH)
+        .and(addr_base)
         .and(warp::put())
         .and(warp::body::content_length_limit(
             SETTINGS.limits.message_size,
@@ -112,9 +111,8 @@ async fn main() {
         });
 
     // Websocket handler
-    let websocket = addr_protected
-        .clone()
-        .and(warp::path(WS_PATH))
+    let websocket = warp::path(WS_PATH)
+        .and(addr_protected.clone())
         .and(warp::ws())
         .and(msg_bus_state)
         .and_then(|addr, ws: warp::ws::Ws, msg_bus| {
@@ -122,13 +120,13 @@ async fn main() {
         });
 
     // Filter handlers
-    let filters_get = addr_base
-        .and(warp::path(FILTERS_PATH))
+    let filters_get = warp::path(FILTERS_PATH)
         .and(warp::get())
+        .and(addr_base)
         .and(db_state.clone())
         .and_then(move |addr, db| net::get_filters(addr, db).map_err(warp::reject::custom));
-    let filters_put = addr_protected
-        .and(warp::path(FILTERS_PATH))
+    let filters_put = warp::path(FILTERS_PATH)
+        .and(addr_protected)
         .and(warp::put())
         .and(warp::body::content_length_limit(
             SETTINGS.limits.filter_size,
