@@ -50,8 +50,16 @@ impl Database {
     ) -> Result<Option<Vec<u8>>, RocksError> {
         let digest_key = [pubkey_hash, &[DIGEST_NAMESPACE], &digest].concat();
 
-        let opt_key = self.0.get(digest_key)?;
-        Ok(opt_key.map(|key| [pubkey_hash, &key, &digest[..DIGEST_LEN]].concat()))
+        let opt_timestamp = self.0.get(digest_key)?;
+        Ok(opt_timestamp.map(|timestamp| {
+            [
+                pubkey_hash,
+                &[MESSAGE_NAMESPACE],
+                &timestamp,
+                &digest[..DIGEST_LEN],
+            ]
+            .concat()
+        }))
     }
 
     pub fn remove_message_by_digest(
@@ -78,8 +86,13 @@ impl Database {
     ) -> Result<(), RocksError> {
         // Create key
         let raw_timestamp: [u8; 8] = timestamp.to_be_bytes();
-        let key = [pubkey_hash, &[MESSAGE_NAMESPACE], &raw_timestamp, digest].concat();
-
+        let key = [
+            pubkey_hash,
+            &[MESSAGE_NAMESPACE],
+            &raw_timestamp,
+            &digest[..DIGEST_LEN],
+        ]
+        .concat();
         self.0.put(key, raw_message)?;
 
         // Create digest key
@@ -110,7 +123,7 @@ impl Database {
         start_prefix: &[u8],
         opt_end_prefix: Option<&[u8]>,
     ) -> Result<MessagePage, RocksError> {
-        let namespace = &start_prefix[..NAMESPACE_LEN]; // addr || msg namespace byte || inbox namespace byte
+        let namespace = &start_prefix[..NAMESPACE_LEN]; // addr || msg namespace byte
 
         // Check whether key is within namespace
         let in_namespace = |key: &[u8]| key[..NAMESPACE_LEN] == namespace[..];
@@ -141,7 +154,17 @@ impl Database {
                 })
                 .collect()
         } else {
-            vec![]
+            // Take items inside namespace
+            iter.take_while(|(key, _)| in_namespace(key))
+                .map(|(key, item)| {
+                    log::info!("{:?}", key);
+                    let message = Some(Message::decode(&item[..]).unwrap()); // This panics if stored bytes are malformed
+                    TimedMessage {
+                        timestamp: time_slice(&key) as i64,
+                        message,
+                    }
+                })
+                .collect()
         };
 
         Ok(MessagePage { messages })
@@ -172,5 +195,103 @@ impl Database {
         let key = [addr, &[FILTER_NAMESPACE]].concat();
 
         self.0.put(key, raw_filters)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use bitcoincash_addr::Address;
+    use sha2::{Digest, Sha256};
+
+    #[test]
+    fn get_digest() {
+        let database = Database::try_new("./test_dbs/get_digest").unwrap();
+
+        let addr = Address::decode("bchtest:qz35wy0grm4tze4p5tvu0fc6kujsa5vnrcr7y5xl65").unwrap();
+        let pubkey_hash = addr.as_body();
+
+        let message = Message::default();
+        let mut raw_message = Vec::with_capacity(message.encoded_len());
+        message.encode(&mut raw_message).unwrap();
+        let digest = &Sha256::new().chain(&raw_message).result()[..];
+
+        let timestamp = 100;
+        database
+            .push_message(pubkey_hash, timestamp, &raw_message[..], digest)
+            .unwrap();
+
+        assert!(database
+            .get_msg_key_by_digest(pubkey_hash, digest)
+            .unwrap()
+            .is_some());
+
+        assert!(database
+            .get_message_by_digest(pubkey_hash, digest)
+            .unwrap()
+            .is_some())
+    }
+
+    #[test]
+    fn get_time_range() {
+        let database = Database::try_new("./test_dbs/get_time_range").unwrap();
+
+        let addr = Address::decode("bchtest:qz35wy0grm4tze4p5tvu0fc6kujsa5vnrcr7y5xl65").unwrap();
+        let pubkey_hash = addr.as_body();
+
+        let message = Message::default();
+        let mut raw_message = Vec::with_capacity(message.encoded_len());
+        message.encode(&mut raw_message).unwrap();
+        let digest = &Sha256::new().chain(&raw_message).result()[..];
+
+        // Put at 100 and 105
+        database
+            .push_message(pubkey_hash, 100, &raw_message[..], digest)
+            .unwrap();
+        database
+            .push_message(pubkey_hash, 105, &raw_message[..], digest)
+            .unwrap();
+
+        // Check out of range [106, inf)
+        let prefix = msg_prefix(pubkey_hash, 106);
+        assert_eq!(
+            database.get_messages_range(&prefix, None).unwrap().messages,
+            vec![]
+        );
+
+        // Check within range [100, inf)
+        let prefix = msg_prefix(pubkey_hash, 100);
+        assert_eq!(
+            database
+                .get_messages_range(&prefix, None)
+                .unwrap()
+                .messages
+                .len(),
+            2
+        );
+
+        // Check within range [100, 101)
+        let prefix = msg_prefix(pubkey_hash, 100);
+        let prefix_end = msg_prefix(pubkey_hash, 101);
+        assert_eq!(
+            database
+                .get_messages_range(&prefix, Some(&prefix_end))
+                .unwrap()
+                .messages
+                .len(),
+            1
+        );
+
+        // Check within range [101, 105)
+        let prefix = msg_prefix(pubkey_hash, 101);
+        let prefix_end = msg_prefix(pubkey_hash, 105);
+        assert_eq!(
+            database
+                .get_messages_range(&prefix, Some(&prefix_end))
+                .unwrap()
+                .messages
+                .len(),
+            0
+        )
     }
 }
