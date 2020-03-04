@@ -84,7 +84,7 @@ impl Settings {
         // NOTE: Don't set HMAC key to a default during release for security reasons
         #[cfg(debug_assertions)]
         {
-            s.set_default("hmac_key", "1234")?;
+            s.set_default("hmac_secret", "1234")?;
         }
 
         // Load config from file
@@ -112,11 +112,6 @@ impl Settings {
         // Set rpc password from cmd line
         if let Some(rpc_password) = matches.value_of("rpc-password") {
             s.set("rpc_password", rpc_password)?;
-        }
-
-        // Set zmq port from cmd line
-        if let Ok(node_zmq_port) = value_t!(matches, "zmq-port", i64) {
-            s.set("zmq_port", node_zmq_port)?;
         }
 
         // Set secret from cmd line

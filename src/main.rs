@@ -41,9 +41,7 @@ lazy_static! {
 #[tokio::main]
 async fn main() {
     if env::var_os("RUST_LOG").is_none() {
-        // Set `RUST_LOG=todos=debug` to see debug logs,
-        // this only shows access logs.
-        env::set_var("RUST_LOG", "todos=info");
+        env::set_var("RUST_LOG", "cash-relay=info");
     }
     pretty_env_logger::init();
 
