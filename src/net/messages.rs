@@ -3,25 +3,28 @@ use std::{
     time::{SystemTime, UNIX_EPOCH},
 };
 
-use bitcoin::{util::psbt::serialize::Deserialize, Transaction};
-use bitcoin_hashes::{hash160, sha256, Hash};
+use bitcoin_hashes::{hash160, Hash};
 use bitcoincash_addr::Address;
 use bytes::Bytes;
+use json_rpc::clients::http::HttpConnector;
 use prost::Message as _;
 use secp256k1::{
-    key::{PublicKey, SecretKey},
-    Secp256k1,
+    key::{PublicKey},
 };
+use hex::FromHexError;
+use rocksdb::Error as RocksError;
 use sha2::{Digest, Sha256};
-use warp::{http::Response, hyper::Body};
+use warp::{http::Response, hyper::Body, reject::Reject};
 
-use super::errors::*;
 use crate::{
+    bitcoin::BitcoinClient,
     db::{self, Database},
     models::messaging::{MessageSet, Payload, TimedMessageSet},
+    stamps::*,
 };
+use super::ws::MessageBus;
 
-#[derive(Deserialize)]
+#[derive(Debug, Deserialize)]
 pub struct Query {
     start_digest: Option<String>,
     end_digest: Option<String>,
@@ -29,6 +32,29 @@ pub struct Query {
     end_time: Option<u64>,
     digest: Option<String>,
 }
+
+#[derive(Debug)]
+pub enum GetMessageError {
+    DB(RocksError),
+    DigestDecode(FromHexError),
+    DestinationMalformed,
+    NotFound,
+    StartBothGiven,
+    StartDigestMalformed(FromHexError),
+    StartDigestNotFound,
+    MissingStart,
+    EndBothGiven,
+    EndDigestMalformed(FromHexError),
+    EndDigestNotFound
+}
+
+impl From<RocksError> for GetMessageError {
+    fn from(err: RocksError) -> Self {
+        Self::DB(err)
+    }
+}
+
+impl Reject for GetMessageError {}
 
 fn get_unix_now() -> u64 {
     u64::try_from(
@@ -44,15 +70,15 @@ pub async fn get_messages(
     addr: Address,
     query: Query,
     database: Database,
-) -> Result<Response<Body>, ServerError> {
+) -> Result<Response<Body>, GetMessageError> {
     // Convert address
     let addr = addr.as_body();
 
     if let Some(digest) = query.digest {
-        let raw_digest = hex::decode(digest).map_err(ServerError::DigestDecode)?;
+        let raw_digest = hex::decode(digest).map_err(GetMessageError::DigestDecode)?;
         let message = database
             .get_message_by_digest(addr, &raw_digest[..])?
-            .ok_or(ServerError::NotFound)?;
+            .ok_or(GetMessageError::NotFound)?;
         return Ok(Response::builder().body(Body::from(message)).unwrap());
     }
 
@@ -61,13 +87,13 @@ pub async fn get_messages(
         (Some(start_time), None) => db::msg_prefix(addr, start_time),
         (None, Some(start_digest_hex)) => {
             let start_digest =
-                hex::decode(start_digest_hex).map_err(ServerError::MalformedStartDigest)?;
+                hex::decode(start_digest_hex).map_err(GetMessageError::StartDigestMalformed)?;
             database
                 .get_msg_key_by_digest(addr, &start_digest)?
-                .ok_or(ServerError::StartDigestNotFound)?
+                .ok_or(GetMessageError::StartDigestNotFound)?
         }
-        (Some(_), Some(_)) => return Err(ServerError::StartBothGiven),
-        _ => return Err(ServerError::MissingStart),
+        (Some(_), Some(_)) => return Err(GetMessageError::StartBothGiven),
+        _ => return Err(GetMessageError::MissingStart),
     };
 
     // Get end prefix
@@ -75,13 +101,13 @@ pub async fn get_messages(
         (Some(end_time), None) => Some(db::msg_prefix(addr, end_time)),
         (None, Some(end_digest_hex)) => {
             let start_digest =
-                hex::decode(end_digest_hex).map_err(ServerError::MalformedEndDigest)?;
+                hex::decode(end_digest_hex).map_err(GetMessageError::EndDigestMalformed)?;
             let msg_key = database
                 .get_msg_key_by_digest(addr, &start_digest)?
-                .ok_or(ServerError::EndDigestNotFound)?;
+                .ok_or(GetMessageError::EndDigestNotFound)?;
             Some(msg_key)
         }
-        (Some(_), Some(_)) => return Err(ServerError::EndBothGiven),
+        (Some(_), Some(_)) => return Err(GetMessageError::EndBothGiven),
         _ => None,
     };
 
@@ -103,77 +129,59 @@ pub async fn get_messages(
 // ) -> Result<Response<()>, ServerError> {
 // }
 
-async fn verify_stamp(
-    stamp_tx: &[u8],
-    serialized_payload: &[u8],
-    destination_pubkey: PublicKey,
-) -> Result<(), StampError> {
-    // Get pubkey hash from stamp tx
-    let tx = Transaction::deserialize(stamp_tx).map_err(StampError::Decode)?;
-    let output = tx.output.get(0).ok_or(StampError::MissingOutput)?;
-    let script = &output.script_pubkey;
-    if !script.is_p2pkh() {
-        return Err(StampError::NotP2PKH);
-    }
-    let pubkey_hash = &script.as_bytes()[3..23]; // This is safe as we've checked it's a p2pkh
-
-    // Calculate payload pubkey hash
-    let payload_digest = sha256::Hash::hash(serialized_payload);
-    let payload_secret_key = SecretKey::from_slice(&payload_digest).unwrap(); // TODO: Check this is safe
-    let payload_public_key =
-        PublicKey::from_secret_key(&Secp256k1::signing_only(), &payload_secret_key);
-
-    // Combine keys
-    let combined_key = destination_pubkey
-        .combine(&payload_public_key)
-        .map_err(|_| StampError::DegenerateCombination)?;
-    let combine_key_raw = combined_key.serialize();
-    let combine_pubkey_hash = hash160::Hash::hash(&combine_key_raw[..]).into_inner();
-
-    // Check equivalence
-    if combine_pubkey_hash != pubkey_hash {
-        return Err(StampError::UnexpectedAddress);
-    }
-
-    Ok(())
-
-    // bitcoin_client
-    //     .send_tx(stamp_tx)
-    //     .await
-    //     .map_err(StampError::TxReject)?;
+#[derive(Debug)]
+pub enum PutMessageError {
+    DB(RocksError),
+    DestinationMalformed,
+    MessagesDecode(prost::DecodeError),
+    PayloadDecode(prost::DecodeError),
+    Stamp(StampError)
 }
+
+impl From<RocksError> for PutMessageError {
+    fn from(err: RocksError) -> Self {
+        Self::DB(err)
+    }
+}
+
+impl Reject for PutMessageError {}
 
 pub async fn put_message(
     addr: Address,
     messages_raw: Bytes,
     database: Database,
-) -> Result<Response<Body>, ServerError> {
+    bitcoin_client: BitcoinClient<HttpConnector>,
+    msg_bus: MessageBus
+) -> Result<Response<Body>, PutMessageError> {
     // Decode message
-    let message_set = MessageSet::decode(&messages_raw[..]).map_err(ServerError::MessagesDecode)?;
+    let message_set = MessageSet::decode(&messages_raw[..]).map_err(PutMessageError::MessagesDecode)?;
 
     // Verify
     for message in &message_set.messages {
         // Get sender public key
         let sender_pubkey = &message.sender_pub_key;
         let sender_pubkey_hash = hash160::Hash::hash(&sender_pubkey[..]).into_inner();
-
+        
         // If sender is not self then check stamp
         if addr.as_body() != sender_pubkey_hash {
             let stamp_tx = &message.stamp_tx;
             let serialized_payload = &message.serialized_payload[..];
 
+            // TODO: Check destination matches?
+
             // Get destination public key
             let payload =
-                Payload::decode(serialized_payload).map_err(ServerError::PayloadDecode)?;
+                Payload::decode(serialized_payload).map_err(PutMessageError::PayloadDecode)?;
             let destination_public_key = PublicKey::from_slice(&payload.destination[..])
-                .map_err(|_| ServerError::DestinationMalformed)?;
+                .map_err(|_| PutMessageError::DestinationMalformed)?;
 
-            verify_stamp(stamp_tx, serialized_payload, destination_public_key)
+            verify_stamp(stamp_tx, serialized_payload, destination_public_key, bitcoin_client.clone())
                 .await
-                .map_err(ServerError::Stamp)?;
+                .map_err(PutMessageError::Stamp)?;
         }
     }
 
+    // Put to database and 
     let timestamp = get_unix_now();
     for message in &message_set.messages {
         let mut raw_message = Vec::with_capacity(message.encoded_len());
@@ -191,15 +199,9 @@ pub async fn put_message(
     timed_message_set.encode(&mut timed_msg_set_raw).unwrap(); // This is safe
 
     // Send over WS
-    // let send_ws = async move {
-    //     let send_message = ws::bus::SendMessage {
-    //         addr: addr.into_body(),
-    //         timed_msg_set_raw,
-    //     };
-    //     if let Err(err) = msg_bus.as_ref().send(send_message).await {
-    //         error!("{:#?}", err);
-    //     }
-    // };
+    if let Some(sender) =  msg_bus.get(addr.as_body()) {
+        sender.value().send(timed_msg_set_raw);
+    }
 
     // Respond
     Ok(Response::builder().body(Body::empty()).unwrap())

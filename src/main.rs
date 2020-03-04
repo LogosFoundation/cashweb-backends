@@ -8,6 +8,7 @@ pub mod db;
 pub mod models;
 pub mod net;
 pub mod settings;
+pub mod stamps;
 
 use std::{env, sync::Arc, time::Duration};
 
@@ -104,8 +105,10 @@ async fn main() {
         ))
         .and(warp::body::bytes())
         .and(db_state.clone())
-        .and_then(move |addr, body, db| {
-            net::put_message(addr, body, db).map_err(warp::reject::custom)
+        .and(bitcoin_client_state.clone())
+        .and(msg_bus_state.clone())
+        .and_then(move |addr, body, db, bitcoin_client, msg_bus| {
+            net::put_message(addr, body, db, bitcoin_client, msg_bus).map_err(warp::reject::custom)
         });
 
     // Websocket handler
@@ -113,9 +116,7 @@ async fn main() {
         .and(addr_protected.clone())
         .and(warp::ws())
         .and(msg_bus_state)
-        .and_then(|addr, ws: warp::ws::Ws, msg_bus| {
-            net::upgrade_ws(addr, ws, msg_bus).map_err(warp::reject::custom)
-        });
+        .map(|addr, ws: warp::ws::Ws, msg_bus| net::upgrade_ws(addr, ws, msg_bus));
 
     // Filter handlers
     let filters_get = warp::path(FILTERS_PATH)

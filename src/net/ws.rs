@@ -9,21 +9,17 @@ use warp::{
     Reply,
 };
 
-use super::errors::*;
-
 const BROADCAST_CHANNEL_CAPACITY: usize = 256;
 
 // pubkey hash:serialized timed message
 pub type MessageBus = Arc<DashMap<Vec<u8>, broadcast::Sender<Vec<u8>>>>;
 
-pub async fn upgrade_ws(
-    addr: Address,
-    ws: Ws,
-    msg_bus: MessageBus,
-) -> Result<impl Reply, ServerError> {
+pub fn upgrade_ws(addr: Address, ws: Ws, msg_bus: MessageBus) -> impl Reply {
     // Convert address
     let pubkey_hash = addr.into_body();
-    Ok(ws.on_upgrade(move |socket| connect_ws(pubkey_hash, socket, msg_bus)))
+
+    // Upgrade socket
+    ws.on_upgrade(move |socket| connect_ws(pubkey_hash, socket, msg_bus))
 }
 
 #[derive(Debug)]
@@ -41,6 +37,8 @@ pub async fn connect_ws(pubkey_hash: Vec<u8>, ws: WebSocket, msg_bus: MessageBus
         .map_err(WsError::BusError);
 
     let (user_ws_tx, _) = ws.split();
+
+    // TODO: Ping every 10 seconds
 
     if let Err(_) = rx
         .forward(user_ws_tx.sink_map_err(WsError::SinkError))

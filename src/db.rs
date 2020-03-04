@@ -157,7 +157,6 @@ impl Database {
             // Take items inside namespace
             iter.take_while(|(key, _)| in_namespace(key))
                 .map(|(key, item)| {
-                    log::info!("{:?}", key);
                     let message = Some(Message::decode(&item[..]).unwrap()); // This panics if stored bytes are malformed
                     TimedMessage {
                         timestamp: time_slice(&key) as i64,

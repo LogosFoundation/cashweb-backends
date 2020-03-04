@@ -1,6 +1,7 @@
 use std::fmt;
 
-use json_rpc::{clients::http::HttpConnector, prelude::*};
+pub use json_rpc::clients::http::HttpConnector;
+use json_rpc::prelude::*;
 
 use serde_json::Value;
 

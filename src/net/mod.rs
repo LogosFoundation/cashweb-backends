@@ -1,4 +1,3 @@
-pub mod errors;
 pub mod filters;
 pub mod messages;
 pub mod payments;
@@ -42,15 +41,19 @@ pub fn address_recovery(err: &AddressDecode) -> Response<Body> {
 
 pub async fn handle_rejection(err: Rejection) -> Result<Response<Body>, Infallible> {
     if let Some(err) = err.find::<AddressDecode>() {
+        log::error!("{:#?}", err);
         return Ok(address_recovery(err));
     }
     if let Some(err) = err.find::<FilterError>() {
+        log::error!("{:#?}", err);
         return Ok(filter_error_recovery(err));
     }
     if let Some(err) = err.find::<PaymentError>() {
+        log::error!("{:#?}", err);
         return Ok(payment_error_recovery(err));
     }
     if let Some(err) = err.find::<ProtectionError>() {
+        log::error!("{:#?}", err);
         return Ok(protection_error_recovery(err).await);
     }
     unreachable!()
