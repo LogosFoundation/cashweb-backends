@@ -6,6 +6,7 @@ use prost::Message as _;
 use rocksdb::Error as RocksError;
 use warp::{http::Response, hyper::Body, reject::Reject};
 
+use super::IntoResponse;
 use crate::{db::Database, models::filters::FilterApplication};
 
 #[derive(Debug)]
@@ -34,22 +35,14 @@ impl fmt::Display for FilterError {
 
 impl Reject for FilterError {}
 
-pub fn filter_error_recovery(err: &FilterError) -> Response<Body> {
-    let code = match err {
-        FilterError::NotFound => 404,
-        FilterError::Database(_) => {
-            // Do not display internal errors
-            return Response::builder()
-                .status(500)
-                .body(Body::from("internal database error"))
-                .unwrap();
+impl IntoResponse for FilterError {
+    fn to_status(&self) -> u16 {
+        match self {
+            Self::NotFound => 404,
+            Self::Database(_) => 500,
+            Self::FilterDecode(_) => 400,
         }
-        FilterError::FilterDecode(_) => 400,
-    };
-    Response::builder()
-        .status(code)
-        .body(Body::from(err.to_string()))
-        .unwrap()
+    }
 }
 
 pub async fn get_filters(addr: Address, database: Database) -> Result<Response<Body>, FilterError> {

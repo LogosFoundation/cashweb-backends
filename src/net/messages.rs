@@ -1,28 +1,27 @@
 use std::{
     convert::TryFrom,
+    fmt,
     time::{SystemTime, UNIX_EPOCH},
 };
 
 use bitcoin_hashes::{hash160, Hash};
 use bitcoincash_addr::Address;
 use bytes::Bytes;
+use hex::FromHexError;
 use json_rpc::clients::http::HttpConnector;
 use prost::Message as _;
-use secp256k1::{
-    key::{PublicKey},
-};
-use hex::FromHexError;
 use rocksdb::Error as RocksError;
+use secp256k1::key::PublicKey;
 use sha2::{Digest, Sha256};
 use warp::{http::Response, hyper::Body, reject::Reject};
 
+use super::{ws::MessageBus, IntoResponse};
 use crate::{
-    bitcoin::BitcoinClient,
+    bitcoin::{BitcoinClient, NodeError},
     db::{self, Database},
     models::messaging::{MessageSet, Payload, TimedMessageSet},
     stamps::*,
 };
-use super::ws::MessageBus;
 
 #[derive(Debug, Deserialize)]
 pub struct Query {
@@ -45,7 +44,7 @@ pub enum GetMessageError {
     MissingStart,
     EndBothGiven,
     EndDigestMalformed(FromHexError),
-    EndDigestNotFound
+    EndDigestNotFound,
 }
 
 impl From<RocksError> for GetMessageError {
@@ -55,6 +54,35 @@ impl From<RocksError> for GetMessageError {
 }
 
 impl Reject for GetMessageError {}
+
+impl fmt::Display for GetMessageError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let printable = match self {
+            Self::DB(err) => return err.fmt(f),
+            Self::DigestDecode(err) => return err.fmt(f),
+            Self::DestinationMalformed => "destination malformed",
+            Self::NotFound => "not found",
+            Self::StartBothGiven => "both start time and digest given",
+            Self::StartDigestMalformed(err) => return err.fmt(f),
+            Self::StartDigestNotFound => "start digest not found",
+            Self::MissingStart => "missing start",
+            Self::EndBothGiven => "both end time and digest given",
+            Self::EndDigestMalformed(err) => return err.fmt(f),
+            Self::EndDigestNotFound => "end digest not found",
+        };
+        f.write_str(printable)
+    }
+}
+
+impl IntoResponse for GetMessageError {
+    fn to_status(&self) -> u16 {
+        match self {
+            Self::DB(_) => 500,
+            Self::NotFound => 404,
+            _ => 400,
+        }
+    }
+}
 
 fn get_unix_now() -> u64 {
     u64::try_from(
@@ -135,7 +163,7 @@ pub enum PutMessageError {
     DestinationMalformed,
     MessagesDecode(prost::DecodeError),
     PayloadDecode(prost::DecodeError),
-    Stamp(StampError)
+    Stamp(StampError),
 }
 
 impl From<RocksError> for PutMessageError {
@@ -146,25 +174,54 @@ impl From<RocksError> for PutMessageError {
 
 impl Reject for PutMessageError {}
 
+impl fmt::Display for PutMessageError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let printable = match self {
+            Self::DB(err) => return err.fmt(f),
+            Self::DestinationMalformed => "destination malformed",
+            Self::MessagesDecode(err) => return err.fmt(f),
+            Self::PayloadDecode(err) => return err.fmt(f),
+            Self::Stamp(err) => return err.fmt(f),
+        };
+        f.write_str(printable)
+    }
+}
+
+impl IntoResponse for PutMessageError {
+    fn to_status(&self) -> u16 {
+        match self {
+            Self::DB(_) => 500,
+            Self::Stamp(err) => match err {
+                StampError::TxReject(err) => match err {
+                    NodeError::Rpc(_) => 400,
+                    _ => 500,
+                },
+                _ => 400,
+            },
+            _ => 400,
+        }
+    }
+}
+
 pub async fn put_message(
     addr: Address,
     messages_raw: Bytes,
     database: Database,
     bitcoin_client: BitcoinClient<HttpConnector>,
-    msg_bus: MessageBus
+    msg_bus: MessageBus,
 ) -> Result<Response<Body>, PutMessageError> {
     // Decode message
-    let message_set = MessageSet::decode(&messages_raw[..]).map_err(PutMessageError::MessagesDecode)?;
+    let message_set =
+        MessageSet::decode(&messages_raw[..]).map_err(PutMessageError::MessagesDecode)?;
 
     // Verify
     for message in &message_set.messages {
         // Get sender public key
         let sender_pubkey = &message.sender_pub_key;
         let sender_pubkey_hash = hash160::Hash::hash(&sender_pubkey[..]).into_inner();
-        
+
         // If sender is not self then check stamp
         if addr.as_body() != sender_pubkey_hash {
-            let stamp_tx = &message.stamp_tx;
             let serialized_payload = &message.serialized_payload[..];
 
             // TODO: Check destination matches?
@@ -174,14 +231,23 @@ pub async fn put_message(
                 Payload::decode(serialized_payload).map_err(PutMessageError::PayloadDecode)?;
             let destination_public_key = PublicKey::from_slice(&payload.destination[..])
                 .map_err(|_| PutMessageError::DestinationMalformed)?;
-
-            verify_stamp(stamp_tx, serialized_payload, destination_public_key, bitcoin_client.clone())
+            
+            for (n, outpoint) in message.stamp_outpoints.iter().enumerate() {
+                verify_stamp(
+                    &outpoint.stamp_tx,
+                    n as u32,
+                    &outpoint.vouts,
+                    serialized_payload,
+                    destination_public_key,
+                    bitcoin_client.clone(),
+                )
                 .await
                 .map_err(PutMessageError::Stamp)?;
+            }
         }
     }
 
-    // Put to database and 
+    // Put to database
     let timestamp = get_unix_now();
     for message in &message_set.messages {
         let mut raw_message = Vec::with_capacity(message.encoded_len());
@@ -199,7 +265,7 @@ pub async fn put_message(
     timed_message_set.encode(&mut timed_msg_set_raw).unwrap(); // This is safe
 
     // Send over WS
-    if let Some(sender) =  msg_bus.get(addr.as_body()) {
+    if let Some(sender) = msg_bus.get(addr.as_body()) {
         sender.value().send(timed_msg_set_raw);
     }
 

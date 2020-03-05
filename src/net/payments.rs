@@ -26,6 +26,7 @@ use warp::{
     reject::Reject,
 };
 
+use super::IntoResponse;
 use crate::{
     bitcoin::{BitcoinClient, NodeError},
     models::bip70::{Output, Payment},
@@ -58,28 +59,26 @@ impl fmt::Display for PaymentError {
 
 impl Reject for PaymentError {}
 
-pub fn payment_error_recovery(err: &PaymentError) -> Response<Body> {
-    let code = match err {
-        PaymentError::Preprocess(err) => match err {
-            PreprocessingError::MissingAcceptHeader => 406,
-            PreprocessingError::MissingContentTypeHeader => 415,
-            PreprocessingError::PaymentDecode(_) => 400,
-        },
-        PaymentError::Wallet(err) => match err {
-            WalletError::NotFound => 404,
-            WalletError::InvalidOutputs => 400,
-        },
-        PaymentError::MalformedTx(_) => 400,
-        PaymentError::MissingMerchantData => 400,
-        PaymentError::Node(err) => match err {
-            NodeError::Rpc(_) => 400,
-            _ => 500,
-        },
-    };
-    Response::builder()
-        .status(code)
-        .body(Body::from(err.to_string()))
-        .unwrap()
+impl IntoResponse for PaymentError {
+    fn to_status(&self) -> u16 {
+        match self {
+            PaymentError::Preprocess(err) => match err {
+                PreprocessingError::MissingAcceptHeader => 406,
+                PreprocessingError::MissingContentTypeHeader => 415,
+                PreprocessingError::PaymentDecode(_) => 400,
+            },
+            PaymentError::Wallet(err) => match err {
+                WalletError::NotFound => 404,
+                WalletError::InvalidOutputs => 400,
+            },
+            PaymentError::MalformedTx(_) => 400,
+            PaymentError::MissingMerchantData => 400,
+            PaymentError::Node(err) => match err {
+                NodeError::Rpc(_) => 400,
+                _ => 500,
+            },
+        }
+    }
 }
 
 pub async fn process_payment(
