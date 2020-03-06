@@ -19,7 +19,7 @@ use super::{ws::MessageBus, IntoResponse};
 use crate::{
     bitcoin::{BitcoinClient, NodeError},
     db::{self, Database},
-    models::messaging::{MessageSet, Payload, TimedMessageSet},
+    models::relay::messaging::{MessageSet, Payload, TimedMessageSet},
     stamps::*,
 };
 

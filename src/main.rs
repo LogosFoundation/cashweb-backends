@@ -30,7 +30,7 @@ use net::{payments, protection};
 use settings::Settings;
 
 const DASHMAP_CAPACITY: usize = 2048;
-const FILTERS_PATH: &str = "filters";
+const PROFILE_PATH: &str = "profile";
 const WS_PATH: &str = "ws";
 const MESSAGES_PATH: &str = "messages";
 pub const PAYMENTS_PATH: &str = "payments";
@@ -118,13 +118,13 @@ async fn main() {
         .and(msg_bus_state)
         .map(|addr, ws: warp::ws::Ws, msg_bus| net::upgrade_ws(addr, ws, msg_bus));
 
-    // Filter handlers
-    let filters_get = warp::path(FILTERS_PATH)
+    // Profile handlers
+    let profile_get = warp::path(PROFILE_PATH)
         .and(warp::get())
         .and(addr_base)
         .and(db_state.clone())
-        .and_then(move |addr, db| net::get_filters(addr, db).map_err(warp::reject::custom));
-    let filters_put = warp::path(FILTERS_PATH)
+        .and_then(move |addr, db| net::get_profile(addr, db).map_err(warp::reject::custom));
+    let profile_put = warp::path(PROFILE_PATH)
         .and(addr_protected)
         .and(warp::put())
         .and(warp::body::content_length_limit(
@@ -133,7 +133,7 @@ async fn main() {
         .and(warp::body::bytes())
         .and(db_state)
         .and_then(move |addr, body, db| {
-            net::put_filters(addr, body, db).map_err(warp::reject::custom)
+            net::put_profile(addr, body, db).map_err(warp::reject::custom)
         });
 
     // Payment handler
@@ -183,8 +183,8 @@ async fn main() {
         .or(websocket)
         .or(messages_get)
         .or(messages_put)
-        .or(filters_get)
-        .or(filters_put)
+        .or(profile_get)
+        .or(profile_put)
         .recover(net::handle_rejection)
         .with(cors)
         .with(warp::log("relay-server"));

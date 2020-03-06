@@ -4,15 +4,15 @@ use prost::Message as PMessage;
 use rocksdb::{Direction, Error as RocksError, IteratorMode, Options, DB};
 
 use crate::models::{
-    filters::Filters,
-    messaging::{Message, MessagePage, TimedMessage},
+    wrapper::AuthWrapper,
+    relay::messaging::{Message, MessagePage, TimedMessage},
 };
 
 const DIGEST_LEN: usize = 4;
 
 const MESSAGE_NAMESPACE: u8 = b'm';
 const DIGEST_NAMESPACE: u8 = b'd';
-const FILTER_NAMESPACE: u8 = b'f';
+const PROFILE_NAMESPACE: u8 = b'p';
 
 const NAMESPACE_LEN: usize = 20 + 1;
 
@@ -178,22 +178,22 @@ impl Database {
     //     self.0.delete_range()
     // }
 
-    pub fn get_filters(&self, addr: &[u8]) -> Result<Option<Filters>, RocksError> {
+    pub fn get_profile(&self, addr: &[u8]) -> Result<Option<AuthWrapper>, RocksError> {
         // Prefix key
-        let key = [addr, &[FILTER_NAMESPACE]].concat();
+        let key = [addr, &[PROFILE_NAMESPACE]].concat();
 
-        self.0.get(key).map(|raw_filter_opt| {
-            raw_filter_opt.map(|raw_filter| {
-                Filters::decode(&raw_filter[..]).unwrap() // This panics if stored bytes are malformed
+        self.0.get(key).map(|raw_profile_opt| {
+            raw_profile_opt.map(|raw_profile| {
+                AuthWrapper::decode(&raw_profile[..]).unwrap() // This panics if stored bytes are malformed
             })
         })
     }
 
-    pub fn put_filters(&self, addr: &[u8], raw_filters: &[u8]) -> Result<(), RocksError> {
+    pub fn put_profile(&self, addr: &[u8], raw_profile: &[u8]) -> Result<(), RocksError> {
         // Prefix key
-        let key = [addr, &[FILTER_NAMESPACE]].concat();
+        let key = [addr, &[PROFILE_NAMESPACE]].concat();
 
-        self.0.put(key, raw_filters)
+        self.0.put(key, raw_profile)
     }
 }
 

@@ -1,10 +1,10 @@
-pub mod filters;
+pub mod profiles;
 pub mod messages;
 pub mod payments;
 pub mod protection;
 pub mod ws;
 
-pub use filters::*;
+pub use profiles::*;
 pub use messages::*;
 pub use payments::*;
 pub use protection::*;
@@ -69,7 +69,7 @@ pub async fn handle_rejection(err: Rejection) -> Result<Response<Body>, Infallib
         log::error!("{:#?}", err);
         return Ok(err.into_response());
     }
-    if let Some(err) = err.find::<FilterError>() {
+    if let Some(err) = err.find::<ProfileError>() {
         log::error!("{:#?}", err);
         return Ok(err.into_response());
     }
