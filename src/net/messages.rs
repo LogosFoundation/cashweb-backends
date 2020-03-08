@@ -231,7 +231,7 @@ pub async fn put_message(
                 Payload::decode(serialized_payload).map_err(PutMessageError::PayloadDecode)?;
             let destination_public_key = PublicKey::from_slice(&payload.destination[..])
                 .map_err(|_| PutMessageError::DestinationMalformed)?;
-            
+
             for (n, outpoint) in message.stamp_outpoints.iter().enumerate() {
                 verify_stamp(
                     &outpoint.stamp_tx,

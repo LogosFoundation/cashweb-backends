@@ -4,8 +4,8 @@ use prost::Message as PMessage;
 use rocksdb::{Direction, Error as RocksError, IteratorMode, Options, DB};
 
 use crate::models::{
-    wrapper::AuthWrapper,
     relay::messaging::{Message, MessagePage, TimedMessage},
+    wrapper::AuthWrapper,
 };
 
 const DIGEST_LEN: usize = 4;

@@ -1,12 +1,12 @@
-pub mod profiles;
 pub mod messages;
 pub mod payments;
+pub mod profiles;
 pub mod protection;
 pub mod ws;
 
-pub use profiles::*;
 pub use messages::*;
 pub use payments::*;
+pub use profiles::*;
 pub use protection::*;
 pub use ws::*;
 
