@@ -81,7 +81,7 @@ pub async fn put_profile(
     db_data: Database,
 ) -> Result<Response<Body>, ProfileError> {
     // Decode profile
-    let profile = AuthWrapper::decode(profile_raw).map_err(ProfileError::ProfileDecode)?;
+    let profile = AuthWrapper::decode(profile_raw.clone()).map_err(ProfileError::ProfileDecode)?;
 
     // Verify signatures
     let pubkey = PublicKey::from_slice(&profile.pub_key).map_err(ProfileError::PublicKey)?;
@@ -97,7 +97,7 @@ pub async fn put_profile(
         .map_err(ProfileError::InvalidSignature)?;
 
     // Put to database
-    db_data.put_profile(addr.as_body(), &profile.serialized_payload)?;
+    db_data.put_profile(addr.as_body(), &profile_raw)?;
 
     // Respond
     Ok(Response::builder().body(Body::empty()).unwrap())
