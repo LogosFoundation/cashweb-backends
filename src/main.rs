@@ -185,8 +185,8 @@ async fn main() {
         .or(messages_put)
         .or(profile_get)
         .or(profile_put)
+        .recover(net::handle_rejection)
         .with(cors)
-        .with(warp::log("cash-relay"))
-        .recover(net::handle_rejection);
+        .with(warp::log("cash-relay"));
     warp::serve(server).run(SETTINGS.bind).await;
 }
