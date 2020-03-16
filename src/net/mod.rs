@@ -89,5 +89,11 @@ pub async fn handle_rejection(err: Rejection) -> Result<Response<Body>, Infallib
         log::error!("{:#?}", err);
         return Ok(protection_error_recovery(err).await);
     }
+
+    if err.is_not_found() {
+        log::error!("{:#?}", err);
+        return Ok(Response::builder().status(404).body(Body::empty()).unwrap());
+    }
+
     unreachable!()
 }

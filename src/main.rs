@@ -90,8 +90,8 @@ async fn main() {
 
     // Message handlers
     let messages_get = warp::path(MESSAGES_PATH)
-        .and(warp::get())
         .and(addr_protected.clone())
+        .and(warp::get())
         .and(warp::query())
         .and(db_state.clone())
         .and_then(move |addr, query, db| {
@@ -120,8 +120,8 @@ async fn main() {
 
     // Profile handlers
     let profile_get = warp::path(PROFILE_PATH)
-        .and(warp::get())
         .and(addr_base)
+        .and(warp::get())
         .and(db_state.clone())
         .and_then(move |addr, db| net::get_profile(addr, db).map_err(warp::reject::custom));
     let profile_put = warp::path(PROFILE_PATH)
@@ -161,8 +161,8 @@ async fn main() {
         );
 
     // Root handler
-    let root = warp::get()
-        .and(warp::path::end())
+    let root = warp::path::end()
+        .and(warp::get())
         .and(warp::fs::file("./static/index.html"));
 
     // CORs
@@ -185,8 +185,8 @@ async fn main() {
         .or(messages_put)
         .or(profile_get)
         .or(profile_put)
-        .recover(net::handle_rejection)
         .with(cors)
-        .with(warp::log("relay-server"));
+        .with(warp::log("cash-relay"))
+        .recover(net::handle_rejection);
     warp::serve(server).run(SETTINGS.bind).await;
 }
