@@ -3,11 +3,13 @@ use std::sync::Arc;
 use bitcoincash_addr::Address;
 use dashmap::DashMap;
 use futures::prelude::*;
-use tokio::sync::broadcast;
+use tokio::{sync::broadcast, time::{interval, Duration}};
 use warp::{
     ws::{Message, WebSocket, Ws},
     Reply,
 };
+
+use crate::SETTINGS;
 
 const BROADCAST_CHANNEL_CAPACITY: usize = 256;
 
@@ -38,13 +40,17 @@ pub async fn connect_ws(pubkey_hash: Vec<u8>, ws: WebSocket, msg_bus: MessageBus
 
     let (user_ws_tx, _) = ws.split();
 
-    // TODO: Ping every 10 seconds
+    // Setup periodic ping
+    let periodic_ping = interval(Duration::from_millis(SETTINGS.ping_interval)).map(move |_| {
+        Ok(Message::ping(vec![]))
+    });
+    let merged = stream::select(rx, periodic_ping);
 
-    if let Err(_) = rx
+    if let Err(err) = merged
         .forward(user_ws_tx.sink_map_err(WsError::SinkError))
         .await
     {
-        // TODO: Log error
+        log::error!("{:#?}", err);
     }
 
     // TODO: Double check this is atomic

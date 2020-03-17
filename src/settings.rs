@@ -12,6 +12,7 @@ const DEFAULT_RPC_ADDR: &str = "http://127.0.0.1:18443";
 const DEFAULT_RPC_USER: &str = "user";
 const DEFAULT_RPC_PASSWORD: &str = "password";
 const DEFAULT_NETWORK: &str = "regnet";
+const DEFAULT_PING_INTERVAL: u64 = 10;
 const DEFAULT_MESSAGE_LIMIT: usize = 1024 * 1024 * 20; // 20MB
 const DEFAULT_FILTER_LIMIT: usize = 1024 * 512; // 512KB
 const DEFAULT_PAYMENT_LIMIT: usize = 1024 * 3; // 3KB
@@ -31,6 +32,7 @@ pub struct Settings {
     pub wallet: Wallet,
     pub hmac_secret: String,
     pub payment: Payment,
+    pub ping_interval: u64
 }
 
 #[derive(Debug, Deserialize)]
@@ -74,6 +76,7 @@ impl Settings {
         default_db.push(format!("{}/db", FOLDER_DIR));
         s.set_default("db_path", default_db.to_str())?;
         s.set_default("network", DEFAULT_NETWORK)?;
+        s.set_default("ping_interval", DEFAULT_PING_INTERVAL as i64)?;
         s.set_default("limits.message_size", DEFAULT_MESSAGE_LIMIT as i64)?;
         s.set_default("limits.filter_size", DEFAULT_FILTER_LIMIT as i64)?;
         s.set_default("limits.payment_size", DEFAULT_PAYMENT_LIMIT as i64)?;
