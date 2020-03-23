@@ -65,7 +65,7 @@ pub async fn verify_stamp(
             ]
             .concat(),
         );
-        let payload_secret_key = SecretKey::from_slice(&payload_digest).unwrap(); // TODO: Check this is safe
+        let payload_secret_key = SecretKey::from_slice(&digest).unwrap(); // TODO: Check this is safe
         let payload_public_key =
             PublicKey::from_secret_key(&Secp256k1::signing_only(), &payload_secret_key);
 
