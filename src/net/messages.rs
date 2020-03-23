@@ -2,6 +2,7 @@ use std::{
     convert::TryFrom,
     fmt,
     time::{SystemTime, UNIX_EPOCH},
+    collections::HashMap
 };
 
 use bitcoin_hashes::{hash160, Hash};
@@ -214,7 +215,9 @@ pub async fn put_message(
     let message_set =
         MessageSet::decode(&messages_raw[..]).map_err(PutMessageError::MessagesDecode)?;
 
-    // Verify
+    // Verify and collect
+    let n_messages = message_set.messages.len();
+    let mut pubkey_hashes = Vec::with_capacity(n_messages); // Collect pubkey hashes
     for message in &message_set.messages {
         // Get sender public key
         let sender_pubkey = &message.sender_pub_key;
@@ -245,15 +248,19 @@ pub async fn put_message(
                 .map_err(PutMessageError::Stamp)?;
             }
         }
+
+        pubkey_hashes.push(sender_pubkey_hash);
     }
 
     // Put to database
     let timestamp = get_unix_now();
-    for message in &message_set.messages {
+    let mut sender_map = HashMap::with_capacity(n_messages);
+    for (i, message) in message_set.messages.iter().enumerate() {
         let mut raw_message = Vec::with_capacity(message.encoded_len());
         message.encode(&mut raw_message).unwrap(); // This is safe
         let digest = Sha256::new().chain(&raw_message).result();
         database.push_message(addr.as_body(), timestamp, &raw_message[..], &digest[..])?;
+        sender_map.insert(pubkey_hashes[i].to_vec(), raw_message);
     }
 
     // Create WS message
@@ -264,9 +271,16 @@ pub async fn put_message(
     let mut timed_msg_set_raw = Vec::with_capacity(timed_message_set.encoded_len());
     timed_message_set.encode(&mut timed_msg_set_raw).unwrap(); // This is safe
 
-    // Send over WS
+    // Send over WS to receiver
     if let Some(sender) = msg_bus.get(addr.as_body()) {
         sender.value().send(timed_msg_set_raw);
+    }
+
+    // Send over WS to senders
+    for (sender_pubkey_hash, message) in sender_map {
+        if let Some(sender) = msg_bus.get(&sender_pubkey_hash) {
+            sender.value().send(message);
+        }
     }
 
     // Respond
