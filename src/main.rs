@@ -42,7 +42,7 @@ lazy_static! {
 #[tokio::main]
 async fn main() {
     if env::var_os("RUST_LOG").is_none() {
-        env::set_var("RUST_LOG", "cash-relay=info");
+        env::set_var("RUST_LOG", "info");
     }
     pretty_env_logger::init();
 
