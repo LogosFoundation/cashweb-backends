@@ -217,7 +217,7 @@ pub async fn put_message(
 
     // Verify and collect
     let n_messages = message_set.messages.len();
-    let mut digest_hash = Vec::with_capacity(n_messages); // Collect pubkey hashes
+    let mut digest_pubkey = Vec::with_capacity(n_messages); // Collect pubkey hashes
     for message in &message_set.messages {
         // Get sender public key
         let sender_pubkey = &message.sender_pub_key;
@@ -227,7 +227,7 @@ pub async fn put_message(
         let serialized_payload = &message.serialized_payload[..];
         let payload_digest = Sha256::new().chain(&serialized_payload).result();
 
-        digest_hash.push((payload_digest, sender_pubkey_hash));
+        digest_pubkey.push((payload_digest, sender_pubkey_hash));
 
         // If sender is not self then check stamp
         if addr.as_body() != sender_pubkey_hash {
@@ -260,7 +260,7 @@ pub async fn put_message(
     let timestamp = get_unix_now();
     let mut sender_map = HashMap::<_, Vec<Message>>::with_capacity(n_messages);
     for (i, message) in message_set.messages.iter().enumerate() {
-        let (payload_digest, pubkey_hash) = digest_hash[i];
+        let (payload_digest, pubkey_hash) = digest_pubkey[i];
         let mut raw_message = Vec::with_capacity(message.encoded_len());
         message.encode(&mut raw_message).unwrap(); // This is safe
         database.push_message(addr.as_body(), timestamp, &raw_message[..], &payload_digest[..])?;
