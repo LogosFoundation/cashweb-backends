@@ -20,7 +20,7 @@ use super::{ws::MessageBus, IntoResponse};
 use crate::{
     bitcoin::{BitcoinClient, NodeError},
     db::{self, Database},
-    models::relay::messaging::{MessageSet, Payload, TimedMessageSet},
+    models::relay::messaging::{MessageSet, Payload, TimedMessageSet, Message},
     stamps::*,
 };
 
@@ -217,15 +217,20 @@ pub async fn put_message(
 
     // Verify and collect
     let n_messages = message_set.messages.len();
-    let mut pubkey_hashes = Vec::with_capacity(n_messages); // Collect pubkey hashes
+    let mut digest_hash = Vec::with_capacity(n_messages); // Collect pubkey hashes
     for message in &message_set.messages {
         // Get sender public key
         let sender_pubkey = &message.sender_pub_key;
         let sender_pubkey_hash = hash160::Hash::hash(&sender_pubkey[..]).into_inner();
 
+        // Calculate payload hash
+        let serialized_payload = &message.serialized_payload[..];
+        let payload_digest = Sha256::new().chain(&serialized_payload).result();
+
+        digest_hash.push((payload_digest, sender_pubkey_hash));
+
         // If sender is not self then check stamp
         if addr.as_body() != sender_pubkey_hash {
-            let serialized_payload = &message.serialized_payload[..];
 
             // TODO: Check destination matches?
 
@@ -249,18 +254,27 @@ pub async fn put_message(
             }
         }
 
-        pubkey_hashes.push(sender_pubkey_hash);
     }
 
-    // Put to database
+    // Put to database and construct sender map
     let timestamp = get_unix_now();
-    let mut sender_map = HashMap::with_capacity(n_messages);
+    let mut sender_map = HashMap::<_, Vec<Message>>::with_capacity(n_messages);
     for (i, message) in message_set.messages.iter().enumerate() {
+        let (payload_digest, pubkey_hash) = digest_hash[i];
         let mut raw_message = Vec::with_capacity(message.encoded_len());
         message.encode(&mut raw_message).unwrap(); // This is safe
-        let digest = Sha256::new().chain(&raw_message).result();
-        database.push_message(addr.as_body(), timestamp, &raw_message[..], &digest[..])?;
-        sender_map.insert(pubkey_hashes[i].to_vec(), raw_message);
+        database.push_message(addr.as_body(), timestamp, &raw_message[..], &payload_digest[..])?;
+
+        // Add to sender map
+        let vec_pubkey_hash = pubkey_hash.to_vec();
+        if let Some(messages) = sender_map.get_mut(&vec_pubkey_hash) {
+            messages.push(message.clone());
+        } else {
+            let mut messages = Vec::with_capacity(n_messages);
+            messages.push(message.clone());
+            sender_map.insert(pubkey_hash.to_vec(), messages);
+        }
+        // sender_map.insert(pubkey_hash.to_vec(), raw_message);
     }
 
     // Create WS message
@@ -277,9 +291,15 @@ pub async fn put_message(
     }
 
     // Send over WS to senders
-    for (sender_pubkey_hash, message) in sender_map {
+    for (sender_pubkey_hash, messages) in sender_map {
         if let Some(sender) = msg_bus.get(&sender_pubkey_hash) {
-            sender.value().send(message);
+            let timed_message_set = TimedMessageSet {
+                timestamp: timestamp as i64,
+                messages,
+            };
+            let mut timed_msg_set_raw = Vec::with_capacity(timed_message_set.encoded_len());
+            timed_message_set.encode(&mut timed_msg_set_raw).unwrap(); // This is safe
+            sender.value().send(timed_msg_set_raw);
         }
     }
 
