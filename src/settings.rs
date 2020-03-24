@@ -17,6 +17,7 @@ const DEFAULT_MESSAGE_LIMIT: usize = 1024 * 1024 * 20; // 20MB
 const DEFAULT_FILTER_LIMIT: usize = 1024 * 512; // 512KB
 const DEFAULT_PAYMENT_LIMIT: usize = 1024 * 3; // 3KB
 const DEFAULT_WALLET_TIMEOUT: usize = 1_000 * 60; // 60 seconds
+const DEFAULT_TRUNCATION_LENGTH: usize = 500;
 const DEFAULT_TOKEN_FEE: u64 = 100_000;
 const DEFAULT_MEMO: &str = "Thanks for your custom!";
 
@@ -32,7 +33,8 @@ pub struct Settings {
     pub wallet: Wallet,
     pub hmac_secret: String,
     pub payment: Payment,
-    pub ping_interval: u64
+    pub ping_interval: u64,
+    pub websocket: Websocket,
 }
 
 #[derive(Debug, Deserialize)]
@@ -51,6 +53,11 @@ pub struct Limits {
 pub struct Payment {
     pub token_fee: u64,
     pub memo: String,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct Websocket {
+    pub truncation_length: u64,
 }
 
 impl Settings {
@@ -80,9 +87,13 @@ impl Settings {
         s.set_default("limits.message_size", DEFAULT_MESSAGE_LIMIT as i64)?;
         s.set_default("limits.filter_size", DEFAULT_FILTER_LIMIT as i64)?;
         s.set_default("limits.payment_size", DEFAULT_PAYMENT_LIMIT as i64)?;
-        s.set_default("wallet.timeout", DEFAULT_WALLET_TIMEOUT as i64)?;
         s.set_default("payment.token_fee", DEFAULT_TOKEN_FEE as i64)?;
         s.set_default("payment.memo", DEFAULT_MEMO)?;
+        s.set_default("wallet.timeout", DEFAULT_WALLET_TIMEOUT as i64)?;
+        s.set_default(
+            "websocket.truncation_length",
+            DEFAULT_TRUNCATION_LENGTH as i64,
+        )?;
 
         // NOTE: Don't set HMAC key to a default during release for security reasons
         #[cfg(debug_assertions)]

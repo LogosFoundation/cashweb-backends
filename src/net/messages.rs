@@ -1,8 +1,8 @@
 use std::{
+    collections::HashMap,
     convert::TryFrom,
     fmt,
     time::{SystemTime, UNIX_EPOCH},
-    collections::HashMap
 };
 
 use bitcoin_hashes::{hash160, Hash};
@@ -20,8 +20,9 @@ use super::{ws::MessageBus, IntoResponse};
 use crate::{
     bitcoin::{BitcoinClient, NodeError},
     db::{self, Database},
-    models::relay::messaging::{MessageSet, Payload, TimedMessageSet, Message},
+    models::relay::messaging::{Message, MessageSet, Payload, TimedMessageSet},
     stamps::*,
+    SETTINGS,
 };
 
 #[derive(Debug, Deserialize)]
@@ -212,26 +213,23 @@ pub async fn put_message(
     msg_bus: MessageBus,
 ) -> Result<Response<Body>, PutMessageError> {
     // Decode message
-    let message_set =
+    let mut message_set =
         MessageSet::decode(&messages_raw[..]).map_err(PutMessageError::MessagesDecode)?;
 
-    // Verify and collect
+    // Verify, collect and truncate
     let n_messages = message_set.messages.len();
     let mut digest_pubkey = Vec::with_capacity(n_messages); // Collect pubkey hashes
-    for message in &message_set.messages {
+    for message in message_set.messages.iter_mut() {
         // Get sender public key
         let sender_pubkey = &message.sender_pub_key;
         let sender_pubkey_hash = hash160::Hash::hash(&sender_pubkey[..]).into_inner();
 
         // Calculate payload hash
         let serialized_payload = &message.serialized_payload[..];
-        let payload_digest = Sha256::new().chain(&serialized_payload).result();
-
-        digest_pubkey.push((payload_digest, sender_pubkey_hash));
+        let payload_digest = Sha256::new().chain(&serialized_payload).result().to_vec();
 
         // If sender is not self then check stamp
         if addr.as_body() != sender_pubkey_hash {
-
             // TODO: Check destination matches?
 
             // Get destination public key
@@ -254,16 +252,31 @@ pub async fn put_message(
             }
         }
 
+        // Add payload digest to message
+        message.payload_digest = payload_digest.clone();
+
+        // Collect digest and pubkey hash
+        digest_pubkey.push((payload_digest, sender_pubkey_hash));
+
+        // If serialized payload too long then remove it
+        if serialized_payload.len() > SETTINGS.websocket.truncation_length as usize {
+            message.serialized_payload = Vec::new();
+        }
     }
 
     // Put to database and construct sender map
     let timestamp = get_unix_now();
     let mut sender_map = HashMap::<_, Vec<Message>>::with_capacity(n_messages);
     for (i, message) in message_set.messages.iter().enumerate() {
-        let (payload_digest, pubkey_hash) = digest_pubkey[i];
+        let (payload_digest, pubkey_hash) = &digest_pubkey[i];
         let mut raw_message = Vec::with_capacity(message.encoded_len());
         message.encode(&mut raw_message).unwrap(); // This is safe
-        database.push_message(addr.as_body(), timestamp, &raw_message[..], &payload_digest[..])?;
+        database.push_message(
+            addr.as_body(),
+            timestamp,
+            &raw_message[..],
+            &payload_digest[..],
+        )?;
 
         // Add to sender map
         let vec_pubkey_hash = pubkey_hash.to_vec();
@@ -279,7 +292,7 @@ pub async fn put_message(
 
     // Create WS message
     let timed_message_set = TimedMessageSet {
-        timestamp: timestamp as i64,
+        server_time: timestamp as i64,
         messages: message_set.messages,
     };
     let mut timed_msg_set_raw = Vec::with_capacity(timed_message_set.encoded_len());
@@ -294,7 +307,7 @@ pub async fn put_message(
     for (sender_pubkey_hash, messages) in sender_map {
         if let Some(sender) = msg_bus.get(&sender_pubkey_hash) {
             let timed_message_set = TimedMessageSet {
-                timestamp: timestamp as i64,
+                server_time: timestamp as i64,
                 messages,
             };
             let mut timed_msg_set_raw = Vec::with_capacity(timed_message_set.encoded_len());

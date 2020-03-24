@@ -148,7 +148,7 @@ impl Database {
                 .map(|(key, item)| {
                     let message = Some(Message::decode(&item[..]).unwrap()); // This panics if stored bytes are malformed
                     TimedMessage {
-                        timestamp: time_slice(&key) as i64,
+                        server_time: time_slice(&key) as i64,
                         message,
                     }
                 })
@@ -159,7 +159,7 @@ impl Database {
                 .map(|(key, item)| {
                     let message = Some(Message::decode(&item[..]).unwrap()); // This panics if stored bytes are malformed
                     TimedMessage {
-                        timestamp: time_slice(&key) as i64,
+                        server_time: time_slice(&key) as i64,
                         message,
                     }
                 })

@@ -3,7 +3,10 @@ use std::sync::Arc;
 use bitcoincash_addr::Address;
 use dashmap::DashMap;
 use futures::prelude::*;
-use tokio::{sync::broadcast, time::{interval, Duration}};
+use tokio::{
+    sync::broadcast,
+    time::{interval, Duration},
+};
 use warp::{
     ws::{Message, WebSocket, Ws},
     Reply,
@@ -41,9 +44,8 @@ pub async fn connect_ws(pubkey_hash: Vec<u8>, ws: WebSocket, msg_bus: MessageBus
     let (user_ws_tx, _) = ws.split();
 
     // Setup periodic ping
-    let periodic_ping = interval(Duration::from_millis(SETTINGS.ping_interval)).map(move |_| {
-        Ok(Message::ping(vec![]))
-    });
+    let periodic_ping = interval(Duration::from_millis(SETTINGS.ping_interval))
+        .map(move |_| Ok(Message::ping(vec![])));
     let merged = stream::select(rx, periodic_ping);
 
     if let Err(err) = merged
