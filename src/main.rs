@@ -30,6 +30,7 @@ use net::{payments, protection};
 use settings::Settings;
 
 const DASHMAP_CAPACITY: usize = 2048;
+
 const PROFILE_PATH: &str = "profile";
 const WS_PATH: &str = "ws";
 const MESSAGES_PATH: &str = "messages";

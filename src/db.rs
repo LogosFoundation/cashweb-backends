@@ -9,12 +9,11 @@ use crate::models::{
 };
 
 const DIGEST_LEN: usize = 4;
-
-const MESSAGE_NAMESPACE: u8 = b'm';
-const DIGEST_NAMESPACE: u8 = b'd';
-const PROFILE_NAMESPACE: u8 = b'p';
-
 const NAMESPACE_LEN: usize = 20 + 1;
+
+const DIGEST_NAMESPACE: u8 = b'd';
+const MESSAGE_NAMESPACE: u8 = b'm';
+const PROFILE_NAMESPACE: u8 = b'p';
 
 #[derive(Clone)]
 pub struct Database(Arc<DB>);
