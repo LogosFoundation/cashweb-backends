@@ -33,6 +33,7 @@ const DASHMAP_CAPACITY: usize = 2048;
 const PROFILE_PATH: &str = "profile";
 const WS_PATH: &str = "ws";
 const MESSAGES_PATH: &str = "messages";
+const PAYLOADS_PATH: &str = "payloads";
 pub const PAYMENTS_PATH: &str = "payments";
 
 lazy_static! {
@@ -111,6 +112,16 @@ async fn main() {
             net::put_message(addr, body, db, bitcoin_client, msg_bus).map_err(warp::reject::custom)
         });
 
+    // Payload handlers
+    let payloads_get = warp::path(PAYLOADS_PATH)
+        .and(addr_protected.clone())
+        .and(warp::get())
+        .and(warp::query())
+        .and(db_state.clone())
+        .and_then(move |addr, query, db| {
+            net::get_payloads(addr, query, db).map_err(warp::reject::custom)
+        });
+
     // Websocket handler
     let websocket = warp::path(WS_PATH)
         .and(addr_protected.clone())
@@ -183,6 +194,7 @@ async fn main() {
         .or(websocket)
         .or(messages_get)
         .or(messages_put)
+        .or(payloads_get)
         .or(profile_get)
         .or(profile_put)
         .recover(net::handle_rejection)
