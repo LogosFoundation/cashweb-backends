@@ -322,11 +322,20 @@ pub async fn put_message(
     let timestamp = get_unix_now();
     let mut sender_map = HashMap::<_, Vec<Message>>::with_capacity(n_messages);
     for (i, message) in message_set.messages.iter().enumerate() {
+        // Push to destination key
         let (payload_digest, pubkey_hash) = &digest_pubkey[i];
         let mut raw_message = Vec::with_capacity(message.encoded_len());
         message.encode(&mut raw_message).unwrap(); // This is safe
         database.push_message(
             addr.as_body(),
+            timestamp,
+            &raw_message[..],
+            &payload_digest[..],
+        )?;
+
+        // Push to source key
+        database.push_message(
+            pubkey_hash,
             timestamp,
             &raw_message[..],
             &payload_digest[..],
