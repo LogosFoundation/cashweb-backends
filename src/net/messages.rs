@@ -310,18 +310,12 @@ pub async fn put_message(
 
         // Collect digest and pubkey hash
         digest_pubkey.push((payload_digest, sender_pubkey_hash));
-
-        // If serialized payload too long then remove it
-        if serialized_payload.len() > SETTINGS.websocket.truncation_length as usize {
-            message.serialized_payload = Vec::new();
-            log::info!("truncated message");
-        }
     }
 
     // Put to database and construct sender map
     let timestamp = get_unix_now();
     let mut sender_map = HashMap::<_, Vec<Message>>::with_capacity(n_messages);
-    for (i, message) in message_set.messages.iter().enumerate() {
+    for (i, mut message) in message_set.messages.iter_mut().enumerate() {
         // Push to destination key
         let (payload_digest, pubkey_hash) = &digest_pubkey[i];
         let mut raw_message = Vec::with_capacity(message.encoded_len());
@@ -341,6 +335,11 @@ pub async fn put_message(
             &payload_digest[..],
         )?;
 
+        // If serialized payload too long then remove it
+        if message.serialized_payload.len() > SETTINGS.websocket.truncation_length as usize {
+            message.serialized_payload = Vec::new();
+        }
+
         // Add to sender map
         let vec_pubkey_hash = pubkey_hash.to_vec();
         if let Some(messages) = sender_map.get_mut(&vec_pubkey_hash) {
@@ -350,7 +349,6 @@ pub async fn put_message(
             messages.push(message.clone());
             sender_map.insert(pubkey_hash.to_vec(), messages);
         }
-        // sender_map.insert(pubkey_hash.to_vec(), raw_message);
     }
 
     // Create WS message
@@ -373,6 +371,7 @@ pub async fn put_message(
                 server_time: timestamp as i64,
                 messages,
             };
+
             let mut timed_msg_set_raw = Vec::with_capacity(timed_message_set.encoded_len());
             timed_message_set.encode(&mut timed_msg_set_raw).unwrap(); // This is safe
             sender.value().send(timed_msg_set_raw);
