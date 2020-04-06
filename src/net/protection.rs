@@ -41,75 +41,8 @@ pub async fn protection_error_recovery(err: &ProtectionError) -> Response<Body> 
                 Err(err) => Response::builder()
                     .status(400)
                     .body(Body::from(err.to_string()))
-                    .unwrap(), // Err(err) => match err {
-                               //     PaymentRequestError::Address(err) => Response::builder()
-                               //         .status(400)
-                               //         .body(Body::from(format!("{}, {}", err.0, err.1)))
-                               //         .unwrap(),
-                               //     PaymentRequestError::MismatchedNetwork =>
-                               // }
+                    .unwrap(),
             }
-            // let response =
-
-            // Get new addr and add to wallet
-            // let wallet_state_inner = self.wallet_state.clone();
-            // let client_inner = self.client.clone();
-
-            // let new_addr = async move {
-            //     let addr_opt = client_inner.get_new_addr().await;
-            //     match addr_opt {
-            //         Ok(addr_str) => {
-            //             let addr =
-            //                 Address::decode(&addr_str).map_err(|(cash_err, base58_err)| {
-            //                     ServerError::Address(cash_err, base58_err)
-            //                 })?;
-            //             let network: Network = addr.network.clone().into();
-            //             if network != SETTINGS.network || addr.hash_type != HashType::Key {
-            //                 return Err(
-            //                     ServerError::Payment(PaymentError::MismatchedNetwork).into()
-            //                 );
-            //                 // TODO: Finer grained error here
-            //             }
-            //             let addr_raw = addr.into_body();
-            //             wallet_state_inner.add(addr_raw.clone());
-            //             Ok(addr_raw)
-            //         }
-            //         Err(_e) => Err(ServerError::Payment(PaymentError::AddrFetchFailed).into()),
-            //     }
-            // };
-
-            // // Generate merchant data
-            // let base_url = format!("{}://{}", scheme, host);
-
-            // let response = new_addr.and_then(move |addr_raw| {
-            //     // Generate outputs
-            //     let outputs = generate_outputs(&addr_raw);
-
-            //     // Collect payment details
-            //     let payment_url = Some(format!("{}{}", base_url, PAYMENT_PATH));
-            //     let payment_details = PaymentDetails {
-            //         network: Some(SETTINGS.network.to_string()),
-            //         time: current_time.duration_since(UNIX_EPOCH).unwrap().as_secs(),
-            //         expires: Some(expiry_time.duration_since(UNIX_EPOCH).unwrap().as_secs()),
-            //         memo: None,
-            //         merchant_data: Some(put_addr.into_body()),
-            //         outputs,
-            //         payment_url,
-            //     };
-            //     let mut serialized_payment_details =
-            //         Vec::with_capacity(payment_details.encoded_len());
-            //     payment_details
-            //         .encode(&mut serialized_payment_details)
-            //         .unwrap();
-
-            //     HttpResponse::PaymentRequired()
-            //         .content_type("application/bitcoincash-paymentrequest")
-            //         .header("Content-Transfer-Encoding", "binary")
-            //         .body(payment_invoice_raw)
-            // });
-
-            // // Respond
-            // return Box::pin(response.map_ok(move |resp| req.into_response(resp)));
         }
     }
 }
