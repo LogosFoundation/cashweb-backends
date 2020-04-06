@@ -140,7 +140,7 @@ async fn main() {
         .and(addr_protected)
         .and(warp::put())
         .and(warp::body::content_length_limit(
-            SETTINGS.limits.filter_size,
+            SETTINGS.limits.profile_size,
         ))
         .and(warp::body::bytes())
         .and(db_state)
@@ -153,7 +153,7 @@ async fn main() {
         .and(warp::post())
         .and(warp::header::headers_cloned())
         .and(warp::body::content_length_limit(
-            SETTINGS.limits.filter_size,
+            SETTINGS.limits.profile_size,
         ))
         .and(warp::body::bytes())
         .and_then(move |headers, body| {

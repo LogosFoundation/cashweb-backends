@@ -14,7 +14,7 @@ const DEFAULT_RPC_PASSWORD: &str = "password";
 const DEFAULT_NETWORK: &str = "regnet";
 const DEFAULT_PING_INTERVAL: u64 = 10_000;
 const DEFAULT_MESSAGE_LIMIT: usize = 1024 * 1024 * 20; // 20MB
-const DEFAULT_FILTER_LIMIT: usize = 1024 * 512; // 512KB
+const DEFAULT_PROFILE_LIMIT: usize = 1024 * 512; // 512KB
 const DEFAULT_PAYMENT_LIMIT: usize = 1024 * 3; // 3KB
 const DEFAULT_WALLET_TIMEOUT: usize = 1_000 * 60; // 60 seconds
 const DEFAULT_TRUNCATION_LENGTH: usize = 500;
@@ -45,7 +45,7 @@ pub struct Wallet {
 #[derive(Debug, Deserialize)]
 pub struct Limits {
     pub message_size: u64,
-    pub filter_size: u64,
+    pub profile_size: u64,
     pub payment_size: u64,
 }
 
@@ -85,7 +85,7 @@ impl Settings {
         s.set_default("network", DEFAULT_NETWORK)?;
         s.set_default("ping_interval", DEFAULT_PING_INTERVAL as i64)?;
         s.set_default("limits.message_size", DEFAULT_MESSAGE_LIMIT as i64)?;
-        s.set_default("limits.filter_size", DEFAULT_FILTER_LIMIT as i64)?;
+        s.set_default("limits.profile_size", DEFAULT_PROFILE_LIMIT as i64)?;
         s.set_default("limits.payment_size", DEFAULT_PAYMENT_LIMIT as i64)?;
         s.set_default("payment.token_fee", DEFAULT_TOKEN_FEE as i64)?;
         s.set_default("payment.memo", DEFAULT_MEMO)?;
