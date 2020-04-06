@@ -5,7 +5,7 @@ use bitcoin::{
     util::{
         psbt::serialize::Deserialize,
         {
-            bip32::{ChainCode, ChildNumber, Error as Bip32Error, ExtendedPubKey},
+            bip32::{ChainCode, ChildNumber, ExtendedPubKey},
             key,
         },
     },
@@ -19,6 +19,7 @@ use secp256k1::{
 
 use crate::{
     bitcoin::{BitcoinClient, HttpConnector, NodeError},
+    models::relay::messaging::StampOutpoints,
     SETTINGS,
 };
 
@@ -30,6 +31,7 @@ pub enum StampError {
     TxReject(NodeError),
     UnexpectedAddress,
     DegenerateCombination,
+    ChildNumberOverflow,
 }
 
 impl fmt::Display for StampError {
@@ -41,31 +43,18 @@ impl fmt::Display for StampError {
             Self::TxReject(err) => return err.fmt(f),
             Self::UnexpectedAddress => "unexpected address",
             Self::DegenerateCombination => "degenerate pubkey combination",
+            Self::ChildNumberOverflow => "child number is too large",
         };
         f.write_str(printable)
     }
 }
 
-fn calculate_path(i: u32, j: u32) -> [ChildNumber; 4] {
-    [
-        ChildNumber::from_hardened_idx(44).unwrap(),
-        ChildNumber::from_hardened_idx(145).unwrap(),
-        ChildNumber::from_hardened_idx(i).unwrap(),
-        ChildNumber::from_hardened_idx(j).unwrap(),
-    ]
-}
-
-pub async fn verify_stamp(
-    stamp_tx: &[u8],
-    stamp_num: u32,
-    vouts: &[u32],
+pub async fn verify_stamps(
+    stamp_outpoints: &[StampOutpoints],
     serialized_payload: &[u8],
     destination_pubkey: PublicKey,
     bitcoin_client: BitcoinClient<HttpConnector>,
 ) -> Result<(), StampError> {
-    // Get pubkey hash from stamp tx
-    let tx = Transaction::deserialize(stamp_tx).map_err(StampError::Decode)?;
-
     // Calculate master pubkey
     let payload_digest = sha256::Hash::hash(serialized_payload);
     let payload_secret_key = SecretKey::from_slice(&payload_digest).unwrap(); // TODO: Double check this is safe
@@ -87,35 +76,55 @@ pub async fn verify_stamp(
         chain_code: ChainCode::from(&payload_digest[..]),
     };
 
-    for vout in vouts {
-        let output = tx
-            .output
-            .get(*vout as usize)
-            .ok_or(StampError::MissingOutput)?;
-        let script = &output.script_pubkey;
-        if !script.is_p2pkh() {
-            return Err(StampError::NotP2PKH);
-        }
-        let pubkey_hash = &script.as_bytes()[3..23]; // This is safe as we've checked it's a p2pkh
+    // Calculate intermediate child
+    let intermediate_child = master_pk
+        .derive_pub(
+            &Secp256k1::verification_only(),
+            &[
+                ChildNumber::from_hardened_idx(44).unwrap(),
+                ChildNumber::from_hardened_idx(145).unwrap(),
+            ],
+        )
+        .unwrap(); // This is safe
 
-        // Derive child key
-        let path = calculate_path(stamp_num, *vout);
-        let child_key = master_pk
-            .derive_pub(&Secp256k1::verification_only(), &path)
-            .unwrap(); // TODO: Double check this is safe
-        let raw_child_key = child_key.public_key.to_bytes();
-        let raw_child_hash = hash160::Hash::hash(&raw_child_key);
+    let context = Secp256k1::verification_only();
+    for (tx_num, outpoint) in stamp_outpoints.iter().enumerate() {
+        let tx = Transaction::deserialize(&outpoint.stamp_tx).map_err(StampError::Decode)?;
 
-        // Check equivalence
-        if &raw_child_hash[..] != pubkey_hash {
-            return Err(StampError::UnexpectedAddress);
+        // Calculate intermediate child
+        let child_number = ChildNumber::from_normal_idx(tx_num as u32)
+            .map_err(|_| StampError::ChildNumberOverflow)?;
+        let tx_child = intermediate_child.ckd_pub(&context, child_number).unwrap(); // TODO: Double check this is safe
+
+        for vout in &outpoint.vouts {
+            let output = tx
+                .output
+                .get(*vout as usize)
+                .ok_or(StampError::MissingOutput)?;
+            let script = &output.script_pubkey;
+            if !script.is_p2pkh() {
+                return Err(StampError::NotP2PKH);
+            }
+            let pubkey_hash = &script.as_bytes()[3..23]; // This is safe as we've checked it's a p2pkh
+
+            // Derive child key
+            let child_number =
+                ChildNumber::from_normal_idx(*vout).map_err(|_| StampError::ChildNumberOverflow)?;
+            let child_key = tx_child.ckd_pub(&context, child_number).unwrap(); // TODO: Double check this is safe
+            let raw_child_key = child_key.public_key.to_bytes();
+            let raw_child_hash = hash160::Hash::hash(&raw_child_key);
+
+            // Check equivalence
+            if &raw_child_hash[..] != pubkey_hash {
+                return Err(StampError::UnexpectedAddress);
+            }
         }
+
+        bitcoin_client
+            .send_tx(&outpoint.stamp_tx)
+            .await
+            .map_err(StampError::TxReject)?;
     }
-
-    bitcoin_client
-        .send_tx(stamp_tx.to_vec())
-        .await
-        .map_err(StampError::TxReject)?;
 
     Ok(())
 }

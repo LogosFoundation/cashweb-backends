@@ -114,7 +114,7 @@ pub async fn process_payment(
 
     for tx in &payment.transactions {
         bitcoin_client
-            .send_tx(tx.to_vec())
+            .send_tx(tx)
             .await
             .map_err(PaymentError::Node)?;
     }

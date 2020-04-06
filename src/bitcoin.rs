@@ -110,7 +110,7 @@ where
             .map_err(NodeError::Json)
     }
 
-    pub async fn send_tx(&self, raw_tx: Vec<u8>) -> Result<String, NodeError> {
+    pub async fn send_tx(&self, raw_tx: &[u8]) -> Result<String, NodeError> {
         let request = self
             .build_request()
             .method("sendrawtransaction")
