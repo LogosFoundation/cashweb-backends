@@ -1,16 +1,17 @@
 use std::fmt;
 
+use bitcoin::network::constants;
 pub use json_rpc::clients::http::HttpConnector;
 use json_rpc::prelude::*;
 
 use serde_json::Value;
 
-#[derive(Clone, Debug, Deserialize, PartialEq)]
+#[derive(Copy, Clone, Debug, Deserialize, PartialEq)]
 #[serde(rename_all = "lowercase")]
 pub enum Network {
     Mainnet = 0,
     Testnet = 1,
-    Regnet = 2,
+    Regtest = 2,
 }
 
 impl From<bitcoincash_addr::Network> for Network {
@@ -18,7 +19,7 @@ impl From<bitcoincash_addr::Network> for Network {
         match network {
             bitcoincash_addr::Network::Main => Network::Mainnet,
             bitcoincash_addr::Network::Test => Network::Testnet,
-            bitcoincash_addr::Network::Regtest => Network::Regnet,
+            bitcoincash_addr::Network::Regtest => Network::Regtest,
         }
     }
 }
@@ -28,7 +29,17 @@ impl Into<bitcoincash_addr::Network> for Network {
         match self {
             Network::Mainnet => bitcoincash_addr::Network::Main,
             Network::Testnet => bitcoincash_addr::Network::Test,
-            Network::Regnet => bitcoincash_addr::Network::Regtest,
+            Network::Regtest => bitcoincash_addr::Network::Regtest,
+        }
+    }
+}
+
+impl Into<bitcoin::network::constants::Network> for Network {
+    fn into(self) -> bitcoin::network::constants::Network {
+        match self {
+            Network::Mainnet => constants::Network::Bitcoin,
+            Network::Testnet => constants::Network::Testnet,
+            Network::Regtest => constants::Network::Regtest,
         }
     }
 }
@@ -38,7 +49,7 @@ impl ToString for Network {
         match self {
             Network::Mainnet => "mainnet".to_string(),
             Network::Testnet => "testnet".to_string(),
-            Network::Regnet => "regnet".to_string(),
+            Network::Regtest => "regtest".to_string(),
         }
     }
 }
@@ -99,7 +110,7 @@ where
             .map_err(NodeError::Json)
     }
 
-    pub async fn send_tx(&self, raw_tx: Vec<u8>) -> Result<String, NodeError> {
+    pub async fn send_tx(&self, raw_tx: &[u8]) -> Result<String, NodeError> {
         let request = self
             .build_request()
             .method("sendrawtransaction")

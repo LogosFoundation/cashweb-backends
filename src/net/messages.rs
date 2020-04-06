@@ -297,18 +297,14 @@ pub async fn put_message(
             let destination_public_key = PublicKey::from_slice(&payload.destination[..])
                 .map_err(|_| PutMessageError::DestinationMalformed)?;
 
-            for (n, outpoint) in message.stamp_outpoints.iter().enumerate() {
-                verify_stamp(
-                    &outpoint.stamp_tx,
-                    n as u32,
-                    &outpoint.vouts,
-                    serialized_payload,
-                    destination_public_key,
-                    bitcoin_client.clone(),
-                )
-                .await
-                .map_err(PutMessageError::Stamp)?;
-            }
+            verify_stamps(
+                &message.stamp_outpoints,
+                serialized_payload,
+                destination_public_key,
+                bitcoin_client.clone(),
+            )
+            .await
+            .map_err(PutMessageError::Stamp)?;
         }
 
         // Add payload digest to message

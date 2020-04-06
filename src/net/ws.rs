@@ -38,7 +38,7 @@ pub async fn connect_ws(pubkey_hash: Vec<u8>, ws: WebSocket, msg_bus: MessageBus
         .entry(pubkey_hash.clone())
         .or_insert(broadcast::channel(BROADCAST_CHANNEL_CAPACITY).0)
         .subscribe()
-        .map_ok(|res| Message::binary(res))
+        .map_ok(Message::binary)
         .map_err(WsError::BusError);
 
     let (user_ws_tx, _) = ws.split();

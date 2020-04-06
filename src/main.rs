@@ -128,7 +128,7 @@ async fn main() {
         .and(addr_protected.clone())
         .and(warp::ws())
         .and(msg_bus_state)
-        .map(|addr, ws: warp::ws::Ws, msg_bus| net::upgrade_ws(addr, ws, msg_bus));
+        .map(net::upgrade_ws);
 
     // Profile handlers
     let profile_get = warp::path(PROFILE_PATH)
