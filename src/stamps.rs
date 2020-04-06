@@ -1,14 +1,26 @@
 use std::fmt;
 
 use bitcoin::consensus::encode::Error as TxDeserializeError;
-use bitcoin::{util::psbt::serialize::Deserialize, Transaction};
+use bitcoin::{
+    util::{
+        psbt::serialize::Deserialize,
+        {
+            bip32::{ChainCode, ChildNumber, Error as Bip32Error, ExtendedPubKey},
+            key,
+        },
+    },
+    Transaction,
+};
 use bitcoin_hashes::{hash160, sha256, Hash};
 use secp256k1::{
     key::{PublicKey, SecretKey},
     Secp256k1,
 };
 
-use crate::bitcoin::{BitcoinClient, HttpConnector, NodeError};
+use crate::{
+    bitcoin::{BitcoinClient, HttpConnector, NodeError},
+    SETTINGS,
+};
 
 #[derive(Debug)]
 pub enum StampError {
@@ -34,6 +46,15 @@ impl fmt::Display for StampError {
     }
 }
 
+fn calculate_path(i: u32, j: u32) -> [ChildNumber; 4] {
+    [
+        ChildNumber::from_hardened_idx(44).unwrap(),
+        ChildNumber::from_hardened_idx(145).unwrap(),
+        ChildNumber::from_hardened_idx(i).unwrap(),
+        ChildNumber::from_hardened_idx(j).unwrap(),
+    ]
+}
+
 pub async fn verify_stamp(
     stamp_tx: &[u8],
     stamp_num: u32,
@@ -44,6 +65,28 @@ pub async fn verify_stamp(
 ) -> Result<(), StampError> {
     // Get pubkey hash from stamp tx
     let tx = Transaction::deserialize(stamp_tx).map_err(StampError::Decode)?;
+
+    // Calculate master pubkey
+    let payload_digest = sha256::Hash::hash(serialized_payload);
+    let payload_secret_key = SecretKey::from_slice(&payload_digest).unwrap(); // TODO: Double check this is safe
+    let payload_public_key =
+        PublicKey::from_secret_key(&Secp256k1::signing_only(), &payload_secret_key);
+    let combined_key = destination_pubkey
+        .combine(&payload_public_key)
+        .map_err(|_| StampError::DegenerateCombination)?;
+    let public_key = key::PublicKey {
+        compressed: true,
+        key: combined_key,
+    };
+    let master_pk = ExtendedPubKey {
+        public_key,
+        network: SETTINGS.network.into(),
+        depth: 0,
+        parent_fingerprint: Default::default(),
+        child_number: ChildNumber::from(0),
+        chain_code: ChainCode::from(&payload_digest[..]),
+    };
+
     for vout in vouts {
         let output = tx
             .output
@@ -55,29 +98,16 @@ pub async fn verify_stamp(
         }
         let pubkey_hash = &script.as_bytes()[3..23]; // This is safe as we've checked it's a p2pkh
 
-        // Calculate payload pubkey hash
-        let payload_digest = sha256::Hash::hash(serialized_payload);
-        let digest = sha256::Hash::hash(
-            &[
-                &stamp_num.to_be_bytes()[..],
-                &vout.to_be_bytes()[..],
-                &payload_digest[..],
-            ]
-            .concat(),
-        );
-        let payload_secret_key = SecretKey::from_slice(&digest).unwrap(); // TODO: Check this is safe
-        let payload_public_key =
-            PublicKey::from_secret_key(&Secp256k1::signing_only(), &payload_secret_key);
-
-        // Combine keys
-        let combined_key = destination_pubkey
-            .combine(&payload_public_key)
-            .map_err(|_| StampError::DegenerateCombination)?;
-        let combine_key_raw = combined_key.serialize();
-        let combine_pubkey_hash = hash160::Hash::hash(&combine_key_raw[..]).into_inner();
+        // Derive child key
+        let path = calculate_path(stamp_num, *vout);
+        let child_key = master_pk
+            .derive_pub(&Secp256k1::verification_only(), &path)
+            .unwrap(); // TODO: Double check this is safe
+        let raw_child_key = child_key.public_key.to_bytes();
+        let raw_child_hash = hash160::Hash::hash(&raw_child_key);
 
         // Check equivalence
-        if combine_pubkey_hash != pubkey_hash {
+        if &raw_child_hash[..] != pubkey_hash {
             return Err(StampError::UnexpectedAddress);
         }
     }
