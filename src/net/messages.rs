@@ -96,7 +96,11 @@ fn get_unix_now() -> u64 {
     .expect("we're in the distant future")
 }
 
-fn construct_prefixes(addr: &[u8], query: Query, database: &Database) -> Result<(Vec<u8>, Option<Vec<u8>>), GetMessageError> {
+fn construct_prefixes(
+    addr: &[u8],
+    query: Query,
+    database: &Database,
+) -> Result<(Vec<u8>, Option<Vec<u8>>), GetMessageError> {
     // Get start prefix
     let start_prefix = match (query.start_time, query.start_digest) {
         (Some(start_time), None) => db::msg_prefix(addr, start_time),
@@ -144,7 +148,9 @@ pub async fn get_payloads(
             .get_message_by_digest(addr, &raw_digest[..])?
             .ok_or(GetMessageError::NotFound)?;
         let message = Message::decode(&raw_message[..]).unwrap(); // This is safe
-        return Ok(Response::builder().body(Body::from(message.serialized_payload)).unwrap());
+        return Ok(Response::builder()
+            .body(Body::from(message.serialized_payload))
+            .unwrap());
     }
 
     let (start_prefix, end_prefix) = construct_prefixes(addr, query, &database)?;
