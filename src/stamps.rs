@@ -81,8 +81,8 @@ pub async fn verify_stamps(
         .derive_pub(
             &Secp256k1::verification_only(),
             &[
-                ChildNumber::from_hardened_idx(44).unwrap(),
-                ChildNumber::from_hardened_idx(145).unwrap(),
+                ChildNumber::from_normal_idx(44).unwrap(),
+                ChildNumber::from_normal_idx(145).unwrap(),
             ],
         )
         .unwrap(); // This is safe
