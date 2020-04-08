@@ -16,7 +16,7 @@ use bitcoincash_addr::Address;
 use warp::{
     http::Response,
     hyper::Body,
-    reject::{Reject, Rejection},
+    reject::{PayloadTooLarge, Reject, Rejection},
 };
 
 #[derive(Debug)]
@@ -88,6 +88,11 @@ pub async fn handle_rejection(err: Rejection) -> Result<Response<Body>, Infallib
     if let Some(err) = err.find::<ProtectionError>() {
         log::error!("{:#?}", err);
         return Ok(protection_error_recovery(err).await);
+    }
+
+    if let Some(err) = err.find::<PayloadTooLarge>() {
+        log::error!("{:#?}", err);
+        return Ok(Response::builder().status(413).body(Body::empty()).unwrap());
     }
 
     if err.is_not_found() {
