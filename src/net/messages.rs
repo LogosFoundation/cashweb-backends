@@ -211,12 +211,31 @@ pub async fn get_messages(
         .unwrap()) // TODO: Headers
 }
 
-// pub async fn delete_messages_inbox(
-//     addr_str: String,
-//     database: Database,
-//     query: GetQuery,
-// ) -> Result<Response<()>, ServerError> {
-// }
+pub async fn remove_messages(
+    addr: Address,
+    query: Query,
+    database: Database,
+) -> Result<Response<Body>, GetMessageError> {
+    // Convert address
+    let addr = addr.as_body();
+
+    // If digest query then get single message
+    if let Some(digest) = query.digest {
+        let raw_digest = hex::decode(digest).map_err(GetMessageError::DigestDecode)?;
+        let message = database
+            .get_message_by_digest(addr, &raw_digest[..])?
+            .ok_or(GetMessageError::NotFound)?;
+        return Ok(Response::builder().body(Body::from(message)).unwrap());
+    }
+
+    let (start_prefix, end_prefix) = construct_prefixes(addr, query, &database)?;
+    database.remove_messages_range(&start_prefix, end_prefix.as_ref().map(|v| &v[..]))?;
+
+    // Respond
+    Ok(Response::builder()
+        .body(Body::empty())
+        .unwrap()) // TODO: Headers
+}
 
 #[derive(Debug)]
 pub enum PutMessageError {
