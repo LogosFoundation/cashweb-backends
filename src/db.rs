@@ -34,6 +34,12 @@ pub fn msg_prefix(pubkey_hash: &[u8], timestamp: u64) -> Vec<u8> {
     [pubkey_hash, &[MESSAGE_NAMESPACE], &raw_timestamp].concat()
 }
 
+/// Convert timestamp array to u64
+fn time_slice(key: &[u8]) -> u64 {
+    let arr: [u8; 8] = key[NAMESPACE_LEN..NAMESPACE_LEN + 8].try_into().unwrap(); // This is safe
+    u64::from_be_bytes(arr)
+}
+
 impl Database {
     pub fn try_new(path: &str) -> Result<Self, RocksError> {
         let mut opts = Options::default();
@@ -132,12 +138,6 @@ impl Database {
             .0
             .iterator(IteratorMode::From(&start_prefix, Direction::Forward));
 
-        // Convert timestamp array to u64
-        fn time_slice(key: &[u8]) -> u64 {
-            let arr: [u8; 8] = key[NAMESPACE_LEN..NAMESPACE_LEN + 8].try_into().unwrap(); // This is safe
-            u64::from_be_bytes(arr)
-        }
-
         let messages: Vec<TimedMessage> = if let Some(end_prefix) = opt_end_prefix {
             // Check whether key is before end time
             let before_end_key = |key: &[u8]| key[NAMESPACE_LEN..] < end_prefix[NAMESPACE_LEN..];
@@ -168,14 +168,42 @@ impl Database {
         Ok(MessagePage { messages })
     }
 
-    // TODO: Delete range
-    // pub fn remove_messages_range(
-    //     &self,
-    //     start_prefix: &[u8],
-    //     opt_end_prefix: Option<&[u8]>,
-    // ) -> Result<(), RocksError> {
-    //     self.0.delete_range()
-    // }
+    pub fn remove_messages_range(
+        &self,
+        start_prefix: &[u8],
+        opt_end_prefix: Option<&[u8]>,
+    ) -> Result<(), RocksError> {
+        let namespace = &start_prefix[..NAMESPACE_LEN]; // addr || msg namespace byte
+
+        // Check whether key is within namespace
+        let in_namespace = |key: &[u8]| key[..NAMESPACE_LEN] == namespace[..];
+
+        // Init iterator
+        let iter = self
+            .0
+            .iterator(IteratorMode::From(&start_prefix, Direction::Forward));
+
+        if let Some(end_prefix) = opt_end_prefix {
+            // Check whether key is before end time
+            let before_end_key = |key: &[u8]| key[NAMESPACE_LEN..] < end_prefix[NAMESPACE_LEN..];
+
+            // Take items inside namespace and before end time
+            let iter = iter.take_while(|(key, _)| in_namespace(key) && before_end_key(key));
+
+            for (key, _) in iter {
+                self.0.delete(key)?;
+            }
+        } else {
+            // Take items inside namespace
+            let iter = iter.take_while(|(key, _)| in_namespace(key));
+
+            for (key, _) in iter {
+                self.0.delete(key)?;
+            }
+        };
+
+        Ok(())
+    }
 
     pub fn get_profile(&self, addr: &[u8]) -> Result<Option<AuthWrapper>, RocksError> {
         // Prefix key
