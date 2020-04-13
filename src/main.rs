@@ -112,6 +112,14 @@ async fn main() {
         .and_then(move |addr, body, db, bitcoin_client, msg_bus| {
             net::put_message(addr, body, db, bitcoin_client, msg_bus).map_err(warp::reject::custom)
         });
+    let messages_delete = warp::path(MESSAGES_PATH)
+        .and(addr_protected.clone())
+        .and(warp::delete())
+        .and(warp::query())
+        .and(db_state.clone())
+        .and_then(move |addr, query, db| {
+            net::remove_messages(addr, query, db).map_err(warp::reject::custom)
+        });
 
     // Payload handlers
     let payloads_get = warp::path(PAYLOADS_PATH)
@@ -194,6 +202,7 @@ async fn main() {
         .or(payments)
         .or(websocket)
         .or(messages_get)
+        .or(messages_delete)
         .or(messages_put)
         .or(payloads_get)
         .or(profile_get)
