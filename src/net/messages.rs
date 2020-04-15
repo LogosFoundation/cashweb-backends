@@ -232,9 +232,7 @@ pub async fn remove_messages(
     database.remove_messages_range(&start_prefix, end_prefix.as_ref().map(|v| &v[..]))?;
 
     // Respond
-    Ok(Response::builder()
-        .body(Body::empty())
-        .unwrap()) // TODO: Headers
+    Ok(Response::builder().body(Body::empty()).unwrap()) // TODO: Headers
 }
 
 #[derive(Debug)]

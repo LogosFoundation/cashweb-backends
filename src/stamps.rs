@@ -12,11 +12,11 @@ use bitcoin::{
     Transaction,
 };
 use bitcoin_hashes::{hash160, Hash};
-use sha2::{Digest, Sha256};
 use secp256k1::{
     key::{PublicKey, SecretKey},
     Secp256k1,
 };
+use sha2::{Digest, Sha256};
 
 use crate::{
     bitcoin::{BitcoinClient, HttpConnector, NodeError},
