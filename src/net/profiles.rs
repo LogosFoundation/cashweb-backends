@@ -91,7 +91,7 @@ pub async fn put_profile(
     }
     let signature = Signature::from_compact(&profile.signature).map_err(ProfileError::Signature)?;
     let secp = Secp256k1::verification_only();
-    let payload_digest = Sha256::new().chain(&profile.serialized_payload).result();
+    let payload_digest = Sha256::digest(&profile.serialized_payload);
     let msg = Message::from_slice(&payload_digest).map_err(ProfileError::Message)?;
     secp.verify(&msg, &signature, &pubkey)
         .map_err(ProfileError::InvalidSignature)?;

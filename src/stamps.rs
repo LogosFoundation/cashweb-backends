@@ -11,7 +11,8 @@ use bitcoin::{
     },
     Transaction,
 };
-use bitcoin_hashes::{hash160, sha256, Hash};
+use bitcoin_hashes::{hash160, Hash};
+use sha2::{Digest, Sha256};
 use secp256k1::{
     key::{PublicKey, SecretKey},
     Secp256k1,
@@ -56,7 +57,7 @@ pub async fn verify_stamps(
     bitcoin_client: BitcoinClient<HttpConnector>,
 ) -> Result<(), StampError> {
     // Calculate master pubkey
-    let payload_digest = sha256::Hash::hash(serialized_payload);
+    let payload_digest = Sha256::digest(serialized_payload);
     let payload_secret_key = SecretKey::from_slice(&payload_digest).unwrap(); // TODO: Double check this is safe
     let payload_public_key =
         PublicKey::from_secret_key(&Secp256k1::signing_only(), &payload_secret_key);

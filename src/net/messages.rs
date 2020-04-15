@@ -304,7 +304,7 @@ pub async fn put_message(
 
         // Calculate payload hash
         let serialized_payload = &message.serialized_payload[..];
-        let payload_digest = Sha256::new().chain(&serialized_payload).result().to_vec();
+        let payload_digest = Sha256::digest(&serialized_payload).to_vec();
 
         // If sender is not self then check stamp
         if addr.as_body() != sender_pubkey_hash {

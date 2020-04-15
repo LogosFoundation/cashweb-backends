@@ -240,7 +240,7 @@ mod tests {
         let message = Message::default();
         let mut raw_message = Vec::with_capacity(message.encoded_len());
         message.encode(&mut raw_message).unwrap();
-        let digest = &Sha256::new().chain(&raw_message).result()[..];
+        let digest = &Sha256::digest(&raw_message)[..];
 
         let timestamp = 100;
         database
@@ -268,7 +268,7 @@ mod tests {
         let message = Message::default();
         let mut raw_message = Vec::with_capacity(message.encoded_len());
         message.encode(&mut raw_message).unwrap();
-        let digest = &Sha256::new().chain(&raw_message).result()[..];
+        let digest = &Sha256::digest(&raw_message)[..];
 
         // Put at 100 and 105
         database
