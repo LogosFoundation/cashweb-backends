@@ -1,3 +1,5 @@
+use std::net::SocketAddr;
+
 use clap::App;
 use config::{Config, ConfigError, File};
 use serde::Deserialize;
@@ -5,17 +7,57 @@ use serde::Deserialize;
 use crate::bitcoin::Network;
 
 const FOLDER_DIR: &str = ".relay";
+const DEFAULT_BIND: &str = "127.0.0.1:8080";
+const DEFAULT_RPC_ADDR: &str = "http://127.0.0.1:18443";
+const DEFAULT_RPC_USER: &str = "user";
+const DEFAULT_RPC_PASSWORD: &str = "password";
+const DEFAULT_NETWORK: &str = "regtest";
+const DEFAULT_PING_INTERVAL: u64 = 10_000;
+const DEFAULT_MESSAGE_LIMIT: usize = 1024 * 1024 * 20; // 20MB
+const DEFAULT_PROFILE_LIMIT: usize = 1024 * 512; // 512KB
+const DEFAULT_PAYMENT_LIMIT: usize = 1024 * 3; // 3KB
+const DEFAULT_WALLET_TIMEOUT: usize = 1_000 * 60; // 60 seconds
+const DEFAULT_TRUNCATION_LENGTH: usize = 500;
+const DEFAULT_TOKEN_FEE: u64 = 100_000;
+const DEFAULT_MEMO: &str = "Thanks for your custom!";
 
 #[derive(Debug, Deserialize)]
 pub struct Settings {
-    pub bind: String,
-    pub node_ip: String,
-    pub rpc_port: u16,
+    pub bind: SocketAddr,
+    pub rpc_addr: String,
     pub rpc_username: String,
     pub rpc_password: String,
-    pub secret: String,
     pub db_path: String,
     pub network: Network,
+    pub limits: Limits,
+    pub wallet: Wallet,
+    pub hmac_secret: String,
+    pub payment: Payment,
+    pub ping_interval: u64,
+    pub websocket: Websocket,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct Wallet {
+    pub timeout: u64,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct Limits {
+    pub message_size: u64,
+    pub profile_size: u64,
+    pub payment_size: u64,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct Payment {
+    pub token_fee: u64,
+    pub memo: String,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct Websocket {
+    pub truncation_length: u64,
 }
 
 impl Settings {
@@ -33,16 +75,31 @@ impl Settings {
             Some(some) => some,
             None => return Err(ConfigError::Message("no home directory".to_string())),
         };
-        s.set_default("bind", "127.0.0.1:8080")?;
-        s.set_default("node_ip", "127.0.0.1")?;
-        s.set_default("rpc_port", "18443")?;
-        s.set_default("rpc_username", "username")?;
-        s.set_default("rpc_password", "password")?;
-        s.set_default("secret", "secret")?;
+        s.set_default("bind", DEFAULT_BIND)?;
+        s.set_default("rpc_addr", DEFAULT_RPC_ADDR)?;
+        s.set_default("rpc_username", DEFAULT_RPC_USER)?;
+        s.set_default("rpc_password", DEFAULT_RPC_PASSWORD)?;
         let mut default_db = home_dir.clone();
         default_db.push(format!("{}/db", FOLDER_DIR));
         s.set_default("db_path", default_db.to_str())?;
-        s.set_default("network", "regnet")?;
+        s.set_default("network", DEFAULT_NETWORK)?;
+        s.set_default("ping_interval", DEFAULT_PING_INTERVAL as i64)?;
+        s.set_default("limits.message_size", DEFAULT_MESSAGE_LIMIT as i64)?;
+        s.set_default("limits.profile_size", DEFAULT_PROFILE_LIMIT as i64)?;
+        s.set_default("limits.payment_size", DEFAULT_PAYMENT_LIMIT as i64)?;
+        s.set_default("payment.token_fee", DEFAULT_TOKEN_FEE as i64)?;
+        s.set_default("payment.memo", DEFAULT_MEMO)?;
+        s.set_default("wallet.timeout", DEFAULT_WALLET_TIMEOUT as i64)?;
+        s.set_default(
+            "websocket.truncation_length",
+            DEFAULT_TRUNCATION_LENGTH as i64,
+        )?;
+
+        // NOTE: Don't set HMAC key to a default during release for security reasons
+        #[cfg(debug_assertions)]
+        {
+            s.set_default("hmac_secret", "1234")?;
+        }
 
         // Load config from file
         let mut default_config = home_dir;
@@ -57,13 +114,8 @@ impl Settings {
         }
 
         // Set node IP from cmd line
-        if let Some(node_ip) = matches.value_of("node-ip") {
-            s.set("node_ip", node_ip)?;
-        }
-
-        // Set rpc port from cmd line
-        if let Ok(rpc_port) = value_t!(matches, "rpc-port", i64) {
-            s.set("rpc_port", rpc_port)?;
+        if let Some(node_ip) = matches.value_of("rpc-addr") {
+            s.set("rpc_addr", node_ip)?;
         }
 
         // Set rpc username from cmd line
@@ -76,14 +128,9 @@ impl Settings {
             s.set("rpc_password", rpc_password)?;
         }
 
-        // Set zmq port from cmd line
-        if let Ok(node_zmq_port) = value_t!(matches, "zmq-port", i64) {
-            s.set("zmq_port", node_zmq_port)?;
-        }
-
         // Set secret from cmd line
-        if let Some(secret) = matches.value_of("secret") {
-            s.set("secret", secret)?;
+        if let Some(hmac_secret) = matches.value_of("hmac-secret") {
+            s.set("hmac_secret", hmac_secret)?;
         }
 
         // Set db from cmd line
