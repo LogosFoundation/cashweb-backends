@@ -72,14 +72,13 @@ impl Database {
         pubkey_hash: &[u8],
         digest: &[u8],
     ) -> Result<Option<()>, RocksError> {
-        let digest_key = [pubkey_hash, &[DIGEST_NAMESPACE], &digest].concat();
-        let opt_key = self.0.get(digest_key)?;
-        let key = match opt_key {
-            Some(some) => some,
-            None => return Ok(None),
-        };
-
-        self.0.delete(key).map(|_| Some(()))
+        match self.get_msg_key_by_digest(pubkey_hash, digest)? {
+            Some(some) => {
+                self.0.delete(&some)?;
+                Ok(Some(()))
+            }
+            None => Ok(None),
+        }
     }
 
     pub fn push_message(
