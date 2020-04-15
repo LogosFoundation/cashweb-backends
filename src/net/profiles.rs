@@ -23,6 +23,11 @@ pub enum ProfileError {
     UnsupportedScheme,
 }
 
+#[derive(Debug, Deserialize)]
+pub struct Query {
+    digest: Option<bool>,
+}
+
 impl From<RocksError> for ProfileError {
     fn from(err: RocksError) -> Self {
         ProfileError::Database(err)
@@ -60,6 +65,7 @@ impl IntoResponse for ProfileError {
 
 pub async fn get_profile(
     addr: Address,
+    query: Query,
     database: Database,
 ) -> Result<Response<Body>, ProfileError> {
     // Get profile
@@ -72,7 +78,15 @@ pub async fn get_profile(
     profile.encode(&mut raw_profile).unwrap();
 
     // Respond
-    Ok(Response::builder().body(Body::from(raw_profile)).unwrap()) // TODO: Headers
+    match query.digest {
+        Some(true) => {
+            let digest = Sha256::digest(&raw_profile).to_vec();
+            Ok(Response::builder().body(Body::from(digest)).unwrap()) // TODO: Headers
+        }
+        _ => {
+            Ok(Response::builder().body(Body::from(raw_profile)).unwrap()) // TODO: Headers
+        }
+    }
 }
 
 pub async fn put_profile(

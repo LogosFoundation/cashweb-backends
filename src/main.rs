@@ -142,8 +142,11 @@ async fn main() {
     let profile_get = warp::path(PROFILE_PATH)
         .and(addr_base)
         .and(warp::get())
+        .and(warp::query())
         .and(db_state.clone())
-        .and_then(move |addr, db| net::get_profile(addr, db).map_err(warp::reject::custom));
+        .and_then(move |addr, query, db| {
+            net::get_profile(addr, query, db).map_err(warp::reject::custom)
+        });
     let profile_put = warp::path(PROFILE_PATH)
         .and(addr_protected)
         .and(warp::put())
