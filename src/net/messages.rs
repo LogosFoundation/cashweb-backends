@@ -222,10 +222,10 @@ pub async fn remove_messages(
     // If digest query then get single message
     if let Some(digest) = query.digest {
         let raw_digest = hex::decode(digest).map_err(GetMessageError::DigestDecode)?;
-        let message = database
-            .get_message_by_digest(addr, &raw_digest[..])?
+        database
+            .remove_message_by_digest(addr, &raw_digest[..])?
             .ok_or(GetMessageError::NotFound)?;
-        return Ok(Response::builder().body(Body::from(message)).unwrap());
+        return Ok(Response::builder().body(Body::empty()).unwrap());
     }
 
     let (start_prefix, end_prefix) = construct_prefixes(addr, query, &database)?;
