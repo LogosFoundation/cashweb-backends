@@ -258,6 +258,39 @@ mod tests {
     }
 
     #[test]
+    fn delete_digest() {
+        let database = Database::try_new("./test_dbs/delete_digest").unwrap();
+
+        let addr = Address::decode("bchtest:qz35wy0grm4tze4p5tvu0fc6kujsa5vnrcr7y5xl65").unwrap();
+        let pubkey_hash = addr.as_body();
+
+        let message = Message::default();
+        let mut raw_message = Vec::with_capacity(message.encoded_len());
+        message.encode(&mut raw_message).unwrap();
+        let digest = &Sha256::digest(&raw_message)[..];
+
+        let timestamp = 100;
+        database
+            .push_message(pubkey_hash, timestamp, &raw_message[..], digest)
+            .unwrap();
+
+        assert!(database
+            .get_msg_key_by_digest(pubkey_hash, digest)
+            .unwrap()
+            .is_some());
+
+        assert!(database
+            .remove_message_by_digest(pubkey_hash, digest)
+            .unwrap()
+            .is_some());
+
+        assert!(database
+            .get_message_by_digest(pubkey_hash, digest)
+            .unwrap()
+            .is_none())
+    }
+
+    #[test]
     fn get_time_range() {
         let database = Database::try_new("./test_dbs/get_time_range").unwrap();
 
