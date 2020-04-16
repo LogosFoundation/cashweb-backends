@@ -7,6 +7,7 @@ pub mod bitcoin;
 pub mod db;
 pub mod models;
 pub mod net;
+pub mod observations;
 pub mod settings;
 pub mod stamps;
 
@@ -19,6 +20,7 @@ use cashweb::{
 use dashmap::DashMap;
 use futures::prelude::*;
 use lazy_static::lazy_static;
+use prometheus::{Encoder, TextEncoder};
 use warp::{
     http::{header, Method},
     Filter,
@@ -38,6 +40,7 @@ const PAYLOADS_PATH: &str = "payloads";
 pub const PAYMENTS_PATH: &str = "payments";
 
 lazy_static! {
+    // Static settings
     pub static ref SETTINGS: Settings = Settings::new().expect("couldn't load config");
 }
 
@@ -201,7 +204,7 @@ async fn main() {
         .build();
 
     // Init REST API
-    let server = root
+    let http_server = root
         .or(payments)
         .or(websocket)
         .or(messages_get)
@@ -212,6 +215,22 @@ async fn main() {
         .or(profile_put)
         .recover(net::handle_rejection)
         .with(cors)
-        .with(warp::log("cash-relay"));
-    warp::serve(server).run(SETTINGS.bind).await;
+        .with(warp::log("cash-relay"))
+        .with(warp::log::custom(observations::measure));
+    let http_task = warp::serve(http_server).run(SETTINGS.bind);
+
+    let prometheus_server = warp::path("metrics").map(|| {
+        let metric_families = prometheus::gather();
+
+        let mut buffer = Vec::new();
+        let encoder = TextEncoder::new();
+        encoder.encode(&metric_families, &mut buffer).unwrap();
+        buffer
+    });
+
+    let addr: std::net::SocketAddr = "0.0.0.0:9091".parse().unwrap();
+    let prometheus_task = warp::serve(prometheus_server).run(addr);
+
+    tokio::spawn(prometheus_task);
+    tokio::spawn(http_task).await;
 }
