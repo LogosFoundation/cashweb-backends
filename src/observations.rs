@@ -4,20 +4,24 @@ use warp::filters::log::Info;
 
 use prometheus_static_metric::make_static_metric;
 
+use crate::*;
+
 make_static_metric! {
     pub label_enum Method {
-        post,
-        get,
-        put,
         delete,
+        get,
+        post,
+        put,
         other
     }
 
     pub label_enum Route {
+        index,
         messages,
+        payloads,
+        payments,
         profiles,
         ws,
-        index,
         other
     }
 
@@ -47,11 +51,15 @@ impl From<&http::Method> for Method {
 impl From<&str> for Route {
     fn from(path: &str) -> Self {
         let path_len = path.len();
-        if path_len >= 9 && &path[1..9] == "messages" {
+        if path_len >= MESSAGES_PATH.len() && &path[1..MESSAGES_PATH.len() + 1] == MESSAGES_PATH {
             Route::messages
-        } else if path_len >= 9 && &path[1..9] == "profiles" {
+        } else if path_len >= PROFILE_PATH.len() && &path[1..PROFILE_PATH.len() + 1] == PROFILE_PATH {
             Route::profiles
-        } else if path_len == 3 && &path[1..3] == "ws" {
+        } else if path_len >= PAYMENTS_PATH.len() && &path[1..PAYMENTS_PATH.len() + 1] == PAYMENTS_PATH {
+            Route::payloads
+        } else if path_len >= PAYLOADS_PATH.len() && &path[1..PAYLOADS_PATH.len() + 1] == PAYLOADS_PATH {
+            Route::payloads
+        } else if path_len == WS_PATH.len() && &path[1..WS_PATH.len() + 1] == WS_PATH {
             Route::ws
         } else if path == "/" {
             Route::index
