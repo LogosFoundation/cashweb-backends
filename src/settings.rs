@@ -21,9 +21,12 @@ const DEFAULT_TRUNCATION_LENGTH: usize = 500;
 const DEFAULT_TOKEN_FEE: u64 = 100_000;
 const DEFAULT_MEMO: &str = "Thanks for your custom!";
 
+const DEFAULT_BIND_PROM: &str = "127.0.0.1:9095";
+
 #[derive(Debug, Deserialize)]
 pub struct Settings {
     pub bind: SocketAddr,
+    pub bind_prom: SocketAddr,
     pub rpc_addr: String,
     pub rpc_username: String,
     pub rpc_password: String,
@@ -94,6 +97,8 @@ impl Settings {
             "websocket.truncation_length",
             DEFAULT_TRUNCATION_LENGTH as i64,
         )?;
+
+        s.set_default("bind_prom", DEFAULT_BIND_PROM)?;
 
         // NOTE: Don't set HMAC key to a default during release for security reasons
         #[cfg(debug_assertions)]

@@ -1,6 +1,6 @@
 use lazy_static::lazy_static;
-use prometheus::{CounterVec, HistogramVec, Opts, Registry};
-use warp::filters::log::{Info, Log};
+use prometheus::{CounterVec, HistogramVec};
+use warp::filters::log::Info;
 
 use prometheus_static_metric::make_static_metric;
 

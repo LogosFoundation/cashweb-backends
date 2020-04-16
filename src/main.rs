@@ -228,8 +228,7 @@ async fn main() {
         buffer
     });
 
-    let addr: std::net::SocketAddr = "0.0.0.0:9091".parse().unwrap();
-    let prometheus_task = warp::serve(prometheus_server).run(addr);
+    let prometheus_task = warp::serve(prometheus_server).run(SETTINGS.bind_prom);
 
     tokio::spawn(prometheus_task);
     tokio::spawn(http_task).await;
