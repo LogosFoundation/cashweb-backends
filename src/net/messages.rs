@@ -380,7 +380,9 @@ pub async fn put_message(
 
     // Send over WS to receiver
     if let Some(sender) = msg_bus.get(addr.as_body()) {
-        sender.value().send(timed_msg_set_raw);
+        if let Err(_err) = sender.value().send(timed_msg_set_raw) {
+            // TODO: Log error
+        }
     }
 
     // Send over WS to senders
@@ -393,7 +395,9 @@ pub async fn put_message(
 
             let mut timed_msg_set_raw = Vec::with_capacity(timed_message_set.encoded_len());
             timed_message_set.encode(&mut timed_msg_set_raw).unwrap(); // This is safe
-            sender.value().send(timed_msg_set_raw);
+            if let Err(_err) = sender.value().send(timed_msg_set_raw) {
+                // TODO: Log error
+            }
         }
     }
 

@@ -240,7 +240,7 @@ async fn main() {
 
         // Spawn servers
         tokio::spawn(prometheus_task);
-        tokio::spawn(http_task).await;
+        tokio::spawn(http_task).await.unwrap(); // Unrecoverable
     }
 
     // If monitoring is disabled
@@ -261,6 +261,6 @@ async fn main() {
             .with(cors)
             .with(warp::log("cash-relay"));
         let http_task = warp::serve(http_server).run(SETTINGS.bind);
-        tokio::spawn(http_task).await;
+        tokio::spawn(http_task).await.unwrap(); // Unrecoverable
     }
 }

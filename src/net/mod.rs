@@ -100,5 +100,5 @@ pub async fn handle_rejection(err: Rejection) -> Result<Response<Body>, Infallib
         return Ok(Response::builder().status(404).body(Body::empty()).unwrap());
     }
 
-    return Ok(Response::builder().status(500).body(Body::empty()).unwrap());
+    Ok(Response::builder().status(500).body(Body::empty()).unwrap())
 }

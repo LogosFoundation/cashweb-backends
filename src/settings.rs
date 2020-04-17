@@ -71,6 +71,7 @@ impl Settings {
 
         // Set defaults
         let yaml = load_yaml!("cli.yml");
+        #[allow(deprecated)]
         let matches = App::from_yaml(yaml)
             .about(crate_description!())
             .author(crate_authors!("\n"))
