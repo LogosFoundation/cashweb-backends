@@ -53,11 +53,16 @@ impl From<&str> for Route {
         let path_len = path.len();
         if path_len >= MESSAGES_PATH.len() && &path[1..MESSAGES_PATH.len() + 1] == MESSAGES_PATH {
             Route::messages
-        } else if path_len >= PROFILE_PATH.len() && &path[1..PROFILE_PATH.len() + 1] == PROFILE_PATH {
+        } else if path_len >= PROFILE_PATH.len() && &path[1..PROFILE_PATH.len() + 1] == PROFILE_PATH
+        {
             Route::profiles
-        } else if path_len >= PAYMENTS_PATH.len() && &path[1..PAYMENTS_PATH.len() + 1] == PAYMENTS_PATH {
+        } else if path_len >= PAYMENTS_PATH.len()
+            && &path[1..PAYMENTS_PATH.len() + 1] == PAYMENTS_PATH
+        {
             Route::payloads
-        } else if path_len >= PAYLOADS_PATH.len() && &path[1..PAYLOADS_PATH.len() + 1] == PAYLOADS_PATH {
+        } else if path_len >= PAYLOADS_PATH.len()
+            && &path[1..PAYLOADS_PATH.len() + 1] == PAYLOADS_PATH
+        {
             Route::payloads
         } else if path_len == WS_PATH.len() && &path[1..WS_PATH.len() + 1] == WS_PATH {
             Route::ws

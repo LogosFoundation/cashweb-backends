@@ -7,9 +7,11 @@ pub mod bitcoin;
 pub mod db;
 pub mod models;
 pub mod net;
-pub mod observations;
 pub mod settings;
 pub mod stamps;
+
+#[cfg(monitor)]
+pub mod observations;
 
 use std::{env, sync::Arc, time::Duration};
 
@@ -20,11 +22,13 @@ use cashweb::{
 use dashmap::DashMap;
 use futures::prelude::*;
 use lazy_static::lazy_static;
-use prometheus::{Encoder, TextEncoder};
 use warp::{
     http::{header, Method},
     Filter,
 };
+
+#[cfg(monitor)]
+use prometheus::{Encoder, TextEncoder};
 
 use crate::bitcoin::BitcoinClient;
 use db::Database;
@@ -203,33 +207,57 @@ async fn main() {
         ])
         .build();
 
-    // Init REST API
-    let http_server = root
-        .or(payments)
-        .or(websocket)
-        .or(messages_get)
-        .or(messages_delete)
-        .or(messages_put)
-        .or(payloads_get)
-        .or(profile_get)
-        .or(profile_put)
-        .recover(net::handle_rejection)
-        .with(cors)
-        .with(warp::log("cash-relay"))
-        .with(warp::log::custom(observations::measure));
-    let http_task = warp::serve(http_server).run(SETTINGS.bind);
+    // If monitoring is enabled
+    #[cfg(monitor)]
+    {
+        // Init REST API
+        let http_server = root
+            .or(payments)
+            .or(websocket)
+            .or(messages_get)
+            .or(messages_delete)
+            .or(messages_put)
+            .or(payloads_get)
+            .or(profile_get)
+            .or(profile_put)
+            .recover(net::handle_rejection)
+            .with(cors)
+            .with(warp::log("cash-relay"))
+            .with(warp::log::custom(observations::measure));
+        let http_task = warp::serve(http_server).run(SETTINGS.bind);
 
-    let prometheus_server = warp::path("metrics").map(|| {
-        let metric_families = prometheus::gather();
+        let prometheus_server = warp::path("metrics").map(|| {
+            let metric_families = prometheus::gather();
 
-        let mut buffer = Vec::new();
-        let encoder = TextEncoder::new();
-        encoder.encode(&metric_families, &mut buffer).unwrap();
-        buffer
-    });
+            let mut buffer = Vec::new();
+            let encoder = TextEncoder::new();
+            encoder.encode(&metric_families, &mut buffer).unwrap();
+            buffer
+        });
+        let prometheus_task = warp::serve(prometheus_server).run(SETTINGS.bind_prom);
 
-    let prometheus_task = warp::serve(prometheus_server).run(SETTINGS.bind_prom);
+        // Spawn servers
+        tokio::spawn(prometheus_task);
+        tokio::spawn(http_task).await;
+    }
 
-    tokio::spawn(prometheus_task);
-    tokio::spawn(http_task).await;
+    // If monitoring is disabled
+    #[cfg(not(monitor))]
+    {
+        // Init REST API
+        let http_server = root
+            .or(payments)
+            .or(websocket)
+            .or(messages_get)
+            .or(messages_delete)
+            .or(messages_put)
+            .or(payloads_get)
+            .or(profile_get)
+            .or(profile_put)
+            .recover(net::handle_rejection)
+            .with(cors)
+            .with(warp::log("cash-relay"));
+        let http_task = warp::serve(http_server).run(SETTINGS.bind);
+        tokio::spawn(http_task).await;
+    }
 }
