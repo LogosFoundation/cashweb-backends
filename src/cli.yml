@@ -8,7 +8,7 @@ args:
     - bind:
         short: b
         long: bind
-        help: Bind address for keyserver
+        help: Bind address for the server
         takes_value: true
     - rpc-addr:
         long: rpc-addr

@@ -83,7 +83,7 @@ lazy_static! {
     // Request duration
     pub static ref HTTP_ELAPSED_VEC: HistogramVec = prometheus::register_histogram_vec!(
         "http_request_duration_seconds",
-        "Total number of HTTP requests.",
+        "Histogram of elapsed times.",
         &["method", "route"]
     )
     .unwrap();
