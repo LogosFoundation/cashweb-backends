@@ -44,7 +44,7 @@ pub async fn connect_ws(pubkey_hash: Vec<u8>, ws: WebSocket, msg_bus: MessageBus
     let (user_ws_tx, _) = ws.split();
 
     // Setup periodic ping
-    let periodic_ping = interval(Duration::from_millis(SETTINGS.ping_interval))
+    let periodic_ping = interval(Duration::from_millis(SETTINGS.websocket.ping_interval))
         .map(move |_| Ok(Message::ping(vec![])));
     let merged = stream::select(rx, periodic_ping);
 

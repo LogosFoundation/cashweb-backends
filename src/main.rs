@@ -64,14 +64,14 @@ async fn main() {
     let msg_bus_state = warp::any().map(move || message_bus.clone());
 
     // Wallet state
-    let wallet = Wallet::new(Duration::from_millis(SETTINGS.wallet.timeout));
+    let wallet = Wallet::new(Duration::from_millis(SETTINGS.payments.timeout));
     let wallet_state = warp::any().map(move || wallet.clone());
 
     // Bitcoin client state
     let bitcoin_client = BitcoinClient::new(
-        SETTINGS.rpc_addr.clone(),
-        SETTINGS.rpc_username.clone(),
-        SETTINGS.rpc_password.clone(),
+        SETTINGS.bitcoin_rpc.address.clone(),
+        SETTINGS.bitcoin_rpc.username.clone(),
+        SETTINGS.bitcoin_rpc.password.clone(),
     );
     let bitcoin_client_state = warp::any().map(move || bitcoin_client.clone());
 
@@ -81,7 +81,8 @@ async fn main() {
     });
 
     // Token generator
-    let key = hex::decode(&SETTINGS.hmac_secret).expect("unable to interpret hmac key as hex");
+    let key =
+        hex::decode(&SETTINGS.payments.hmac_secret).expect("unable to interpret hmac key as hex");
     let token_scheme = Arc::new(HmacTokenScheme::new(&key));
     let token_scheme_state = warp::any().map(move || token_scheme.clone());
 
@@ -210,6 +211,7 @@ async fn main() {
     // If monitoring is enabled
     #[cfg(monitor)]
     {
+        println!("monitoring");
         // Init REST API
         let http_server = root
             .or(payments)
@@ -244,6 +246,7 @@ async fn main() {
     // If monitoring is disabled
     #[cfg(not(monitor))]
     {
+        println!("not monitoring");
         // Init REST API
         let http_server = root
             .or(payments)

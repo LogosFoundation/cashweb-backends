@@ -123,7 +123,7 @@ pub async fn process_payment(
     let token = token_state.construct_token(pubkey_hash).unwrap(); // This is safe
 
     // Create PaymentAck
-    let memo = Some(SETTINGS.payment.memo.clone());
+    let memo = Some(SETTINGS.payments.memo.clone());
     let payment_ack = PaymentAck { payment, memo };
 
     // Encode payment ack
@@ -177,7 +177,7 @@ pub async fn generate_payment_request(
     ]
     .concat();
     let output = Output {
-        amount: Some(SETTINGS.payment.token_fee),
+        amount: Some(SETTINGS.payments.token_fee),
         script,
     };
     let cleanup = wallet.add_outputs(addr.as_body().to_vec(), vec![output.clone()]);
@@ -185,7 +185,7 @@ pub async fn generate_payment_request(
 
     // Valid interval
     let current_time = SystemTime::now();
-    let expiry_time = current_time + Duration::from_millis(SETTINGS.wallet.timeout);
+    let expiry_time = current_time + Duration::from_millis(SETTINGS.payments.timeout);
 
     let payment_details = PaymentDetails {
         network: Some(SETTINGS.network.to_string()),

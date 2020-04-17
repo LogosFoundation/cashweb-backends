@@ -13,36 +13,22 @@ const DEFAULT_RPC_USER: &str = "user";
 const DEFAULT_RPC_PASSWORD: &str = "password";
 const DEFAULT_NETWORK: &str = "regtest";
 const DEFAULT_PING_INTERVAL: u64 = 10_000;
-const DEFAULT_MESSAGE_LIMIT: usize = 1024 * 1024 * 20; // 20MB
-const DEFAULT_PROFILE_LIMIT: usize = 1024 * 512; // 512KB
-const DEFAULT_PAYMENT_LIMIT: usize = 1024 * 3; // 3KB
-const DEFAULT_WALLET_TIMEOUT: usize = 1_000 * 60; // 60 seconds
+const DEFAULT_MESSAGE_LIMIT: usize = 1024 * 1024 * 20; // 20Mb
+const DEFAULT_PROFILE_LIMIT: usize = 1024 * 512; // 512Kb
+const DEFAULT_PAYMENT_LIMIT: usize = 1024 * 3; // 3Kb
+const DEFAULT_PAYMENT_TIMEOUT: usize = 1_000 * 60; // 60 seconds
 const DEFAULT_TRUNCATION_LENGTH: usize = 500;
 const DEFAULT_TOKEN_FEE: u64 = 100_000;
 const DEFAULT_MEMO: &str = "Thanks for your custom!";
 
+#[cfg(monitor)]
 const DEFAULT_BIND_PROM: &str = "127.0.0.1:9095";
 
 #[derive(Debug, Deserialize)]
-pub struct Settings {
-    pub bind: SocketAddr,
-    pub bind_prom: SocketAddr,
-    pub rpc_addr: String,
-    pub rpc_username: String,
-    pub rpc_password: String,
-    pub db_path: String,
-    pub network: Network,
-    pub limits: Limits,
-    pub wallet: Wallet,
-    pub hmac_secret: String,
-    pub payment: Payment,
-    pub ping_interval: u64,
-    pub websocket: Websocket,
-}
-
-#[derive(Debug, Deserialize)]
-pub struct Wallet {
-    pub timeout: u64,
+pub struct BitcoinRpc {
+    pub address: String,
+    pub username: String,
+    pub password: String,
 }
 
 #[derive(Debug, Deserialize)]
@@ -54,13 +40,29 @@ pub struct Limits {
 
 #[derive(Debug, Deserialize)]
 pub struct Payment {
+    pub timeout: u64,
     pub token_fee: u64,
     pub memo: String,
+    pub hmac_secret: String,
 }
 
 #[derive(Debug, Deserialize)]
 pub struct Websocket {
+    pub ping_interval: u64,
     pub truncation_length: u64,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct Settings {
+    pub bind: SocketAddr,
+    #[cfg(monitor)]
+    pub bind_prom: SocketAddr,
+    pub db_path: String,
+    pub network: Network,
+    pub bitcoin_rpc: BitcoinRpc,
+    pub limits: Limits,
+    pub payments: Payment,
+    pub websocket: Websocket,
 }
 
 impl Settings {
@@ -79,26 +81,26 @@ impl Settings {
             None => return Err(ConfigError::Message("no home directory".to_string())),
         };
         s.set_default("bind", DEFAULT_BIND)?;
-        s.set_default("rpc_addr", DEFAULT_RPC_ADDR)?;
-        s.set_default("rpc_username", DEFAULT_RPC_USER)?;
-        s.set_default("rpc_password", DEFAULT_RPC_PASSWORD)?;
+        #[cfg(monitor)]
+        s.set_default("bind_prom", DEFAULT_BIND_PROM)?;
+        s.set_default("network", DEFAULT_NETWORK)?;
         let mut default_db = home_dir.clone();
         default_db.push(format!("{}/db", FOLDER_DIR));
         s.set_default("db_path", default_db.to_str())?;
-        s.set_default("network", DEFAULT_NETWORK)?;
-        s.set_default("ping_interval", DEFAULT_PING_INTERVAL as i64)?;
+        s.set_default("bitcoin_rpc.address", DEFAULT_RPC_ADDR)?;
+        s.set_default("bitcoin_rpc.username", DEFAULT_RPC_USER)?;
+        s.set_default("bitcoin_rpc.password", DEFAULT_RPC_PASSWORD)?;
         s.set_default("limits.message_size", DEFAULT_MESSAGE_LIMIT as i64)?;
         s.set_default("limits.profile_size", DEFAULT_PROFILE_LIMIT as i64)?;
         s.set_default("limits.payment_size", DEFAULT_PAYMENT_LIMIT as i64)?;
-        s.set_default("payment.token_fee", DEFAULT_TOKEN_FEE as i64)?;
-        s.set_default("payment.memo", DEFAULT_MEMO)?;
-        s.set_default("wallet.timeout", DEFAULT_WALLET_TIMEOUT as i64)?;
+        s.set_default("payments.token_fee", DEFAULT_TOKEN_FEE as i64)?;
+        s.set_default("payments.memo", DEFAULT_MEMO)?;
+        s.set_default("payments.timeout", DEFAULT_PAYMENT_TIMEOUT as i64)?;
         s.set_default(
             "websocket.truncation_length",
             DEFAULT_TRUNCATION_LENGTH as i64,
         )?;
-
-        s.set_default("bind_prom", DEFAULT_BIND_PROM)?;
+        s.set_default("websocket.ping_interval", DEFAULT_PING_INTERVAL as i64)?;
 
         // NOTE: Don't set HMAC key to a default during release for security reasons
         #[cfg(debug_assertions)]
@@ -118,24 +120,14 @@ impl Settings {
             s.set("bind", bind)?;
         }
 
-        // Set node IP from cmd line
-        if let Some(node_ip) = matches.value_of("rpc-addr") {
-            s.set("rpc_addr", node_ip)?;
+        // Set bind address from cmd line
+        if let Some(bind_prom) = matches.value_of("bind-prom") {
+            s.set("bind_prom", bind_prom)?;
         }
 
-        // Set rpc username from cmd line
-        if let Some(rpc_username) = matches.value_of("rpc-username") {
-            s.set("rpc_username", rpc_username)?;
-        }
-
-        // Set rpc password from cmd line
-        if let Some(rpc_password) = matches.value_of("rpc-password") {
-            s.set("rpc_password", rpc_password)?;
-        }
-
-        // Set secret from cmd line
-        if let Some(hmac_secret) = matches.value_of("hmac-secret") {
-            s.set("hmac_secret", hmac_secret)?;
+        // Set the bitcoin network
+        if let Some(network) = matches.value_of("network") {
+            s.set("network", network)?;
         }
 
         // Set db from cmd line
@@ -143,9 +135,24 @@ impl Settings {
             s.set("db_path", db_path)?;
         }
 
-        // Set the bitcoin network
-        if let Some(network) = matches.value_of("network") {
-            s.set("network", network)?;
+        // Set node IP from cmd line
+        if let Some(node_ip) = matches.value_of("rpc-addr") {
+            s.set("bitcoin_rpc.address", node_ip)?;
+        }
+
+        // Set rpc username from cmd line
+        if let Some(rpc_username) = matches.value_of("rpc-username") {
+            s.set("bitcoin_rpc.username", rpc_username)?;
+        }
+
+        // Set rpc password from cmd line
+        if let Some(rpc_password) = matches.value_of("rpc-password") {
+            s.set("bitcoin_rpc.password", rpc_password)?;
+        }
+
+        // Set secret from cmd line
+        if let Some(hmac_secret) = matches.value_of("hmac-secret") {
+            s.set("payments.hmac_secret", hmac_secret)?;
         }
 
         s.try_into()

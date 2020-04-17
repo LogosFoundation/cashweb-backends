@@ -10,6 +10,11 @@ args:
         long: bind
         help: Bind address for the server
         takes_value: true
+    - bind:
+        short: b
+        long: bind-prom
+        help: Bind address for the prometheus exporter
+        takes_value: true
     - rpc-addr:
         long: rpc-addr
         help: Bitcoin RPC address
