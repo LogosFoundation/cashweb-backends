@@ -3,7 +3,7 @@
 </h1>
 
 <p align="center">
-  A backend server for the stamp protocol.
+  An end-to-end encrypted message relay server.
 </p>
 
 <p align="center">
