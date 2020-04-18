@@ -59,7 +59,7 @@ impl From<&str> for Route {
         } else if path_len >= PAYMENTS_PATH.len()
             && &path[1..PAYMENTS_PATH.len() + 1] == PAYMENTS_PATH
         {
-            Route::payloads
+            Route::payments
         } else if path_len >= PAYLOADS_PATH.len()
             && &path[1..PAYLOADS_PATH.len() + 1] == PAYLOADS_PATH
         {
@@ -105,8 +105,6 @@ pub fn measure(info: Info) {
     // Observe duration
     let duration_secs = info.elapsed().as_secs_f64();
     HTTP_ELAPSED.get(method).get(route).observe(duration_secs);
-
-    println!("observed");
 }
 
 pub fn export() -> Vec<u8> {

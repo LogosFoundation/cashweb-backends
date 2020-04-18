@@ -8,7 +8,7 @@
 
 <p align="center">
   <a href="https://github.com/cashweb/cash-relay/actions">
-    <img alt="Build Status" src="https://github.com/cashweb/cash-relay/workflows/Continuous%20integration/badge.svg">
+    <img alt="Build Status" src="https://github.com/cashweb/cash-relay/workflows/CI/badge.svg">
   </a>
 
   <a href="LICENSE">
