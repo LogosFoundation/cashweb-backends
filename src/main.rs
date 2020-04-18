@@ -10,8 +10,8 @@ pub mod net;
 pub mod settings;
 pub mod stamps;
 
-#[cfg(monitor)]
-pub mod observations;
+#[cfg(feature = "monitoring")]
+pub mod monitoring ;
 
 use std::{env, sync::Arc, time::Duration};
 
@@ -27,7 +27,7 @@ use warp::{
     Filter,
 };
 
-#[cfg(monitor)]
+#[cfg(feature = "monitoring")]
 use prometheus::{Encoder, TextEncoder};
 
 use crate::bitcoin::BitcoinClient;
@@ -209,11 +209,14 @@ async fn main() {
         .build();
 
     // If monitoring is enabled
-    #[cfg(monitor)]
+    #[cfg(feature = "monitoring")]
     {
-        println!("monitoring");
+        // Init Prometheus server
+        let prometheus_server = warp::path("metrics").map(monitoring::export);
+        let prometheus_task = warp::serve(prometheus_server).run(SETTINGS.bind_prom);
+
         // Init REST API
-        let http_server = root
+        let rest_api = root
             .or(payments)
             .or(websocket)
             .or(messages_get)
@@ -225,30 +228,19 @@ async fn main() {
             .recover(net::handle_rejection)
             .with(cors)
             .with(warp::log("cash-relay"))
-            .with(warp::log::custom(observations::measure));
-        let http_task = warp::serve(http_server).run(SETTINGS.bind);
-
-        let prometheus_server = warp::path("metrics").map(|| {
-            let metric_families = prometheus::gather();
-
-            let mut buffer = Vec::new();
-            let encoder = TextEncoder::new();
-            encoder.encode(&metric_families, &mut buffer).unwrap();
-            buffer
-        });
-        let prometheus_task = warp::serve(prometheus_server).run(SETTINGS.bind_prom);
+            .with(warp::log::custom(monitoring::measure));
+        let rest_api_task = warp::serve(rest_api).run(SETTINGS.bind);
 
         // Spawn servers
         tokio::spawn(prometheus_task);
-        tokio::spawn(http_task).await.unwrap(); // Unrecoverable
+        tokio::spawn(rest_api_task).await.unwrap(); // Unrecoverable
     }
 
     // If monitoring is disabled
-    #[cfg(not(monitor))]
+    #[cfg(not(feature = "monitoring"))]
     {
-        println!("not monitoring");
         // Init REST API
-        let http_server = root
+        let rest_api = root
             .or(payments)
             .or(websocket)
             .or(messages_get)
@@ -260,7 +252,7 @@ async fn main() {
             .recover(net::handle_rejection)
             .with(cors)
             .with(warp::log("cash-relay"));
-        let http_task = warp::serve(http_server).run(SETTINGS.bind);
-        tokio::spawn(http_task).await.unwrap(); // Unrecoverable
+        let rest_api_task = warp::serve(rest_api).run(SETTINGS.bind);
+        tokio::spawn(rest_api_task).await.unwrap(); // Unrecoverable
     }
 }

@@ -6,7 +6,7 @@ edition = "2018"
 description = "Cash:web Relay is a end-to-end encrypted message relay server"
 
 [features]
-monitor = ["prometheus", "prometheus-static-metric"]
+monitoring = ["prometheus", "prometheus-static-metric"]
 
 [dependencies]
 base64 = "0.12.0"

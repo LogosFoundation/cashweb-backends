@@ -21,7 +21,7 @@ const DEFAULT_TRUNCATION_LENGTH: usize = 500;
 const DEFAULT_TOKEN_FEE: u64 = 100_000;
 const DEFAULT_MEMO: &str = "Thanks for your custom!";
 
-#[cfg(monitor)]
+#[cfg(feature = "monitoring")]
 const DEFAULT_BIND_PROM: &str = "127.0.0.1:9095";
 
 #[derive(Debug, Deserialize)]
@@ -55,7 +55,7 @@ pub struct Websocket {
 #[derive(Debug, Deserialize)]
 pub struct Settings {
     pub bind: SocketAddr,
-    #[cfg(monitor)]
+    #[cfg(feature = "monitoring")]
     pub bind_prom: SocketAddr,
     pub db_path: String,
     pub network: Network,
@@ -82,7 +82,7 @@ impl Settings {
             None => return Err(ConfigError::Message("no home directory".to_string())),
         };
         s.set_default("bind", DEFAULT_BIND)?;
-        #[cfg(monitor)]
+        #[cfg(feature = "monitoring")]
         s.set_default("bind_prom", DEFAULT_BIND_PROM)?;
         s.set_default("network", DEFAULT_NETWORK)?;
         let mut default_db = home_dir.clone();
@@ -106,7 +106,7 @@ impl Settings {
         // NOTE: Don't set HMAC key to a default during release for security reasons
         #[cfg(debug_assertions)]
         {
-            s.set_default("hmac_secret", "1234")?;
+            s.set_default("payments.hmac_secret", "1234")?;
         }
 
         // Load config from file

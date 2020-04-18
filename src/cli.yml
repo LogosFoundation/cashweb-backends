@@ -10,8 +10,7 @@ args:
         long: bind
         help: Bind address for the server
         takes_value: true
-    - bind:
-        short: b
+    - bind-prom:
         long: bind-prom
         help: Bind address for the prometheus exporter
         takes_value: true
@@ -37,7 +36,7 @@ args:
         help: Bitcoin network
         takes_value: true
     - secret:
-        short: s
-        long: secret
-        help: Set the signing secret
+        short: h
+        long: hmac-secret
+        help: HMAC secret
         takes_value: true

@@ -108,3 +108,12 @@ pub fn measure(info: Info) {
 
     println!("observed");
 }
+
+pub fn export() -> Vec<u8> {
+    let metric_families = prometheus::gather();
+
+    let mut buffer = Vec::new();
+    let encoder = TextEncoder::new();
+    encoder.encode(&metric_families, &mut buffer).unwrap();
+    buffer
+}
