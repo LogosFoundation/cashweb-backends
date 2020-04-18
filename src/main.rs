@@ -11,7 +11,7 @@ pub mod settings;
 pub mod stamps;
 
 #[cfg(feature = "monitoring")]
-pub mod monitoring ;
+pub mod monitoring;
 
 use std::{env, sync::Arc, time::Duration};
 
