@@ -204,11 +204,15 @@ impl Database {
         Ok(())
     }
 
-    pub fn get_profile(&self, addr: &[u8]) -> Result<Option<AuthWrapper>, RocksError> {
+    pub fn get_raw_profile(&self, addr: &[u8]) -> Result<Option<Vec<u8>>, RocksError> {
         // Prefix key
         let key = [addr, &[PROFILE_NAMESPACE]].concat();
 
-        self.0.get(key).map(|raw_profile_opt| {
+        self.0.get(key)
+    }
+
+    pub fn get_profile(&self, addr: &[u8]) -> Result<Option<AuthWrapper>, RocksError> {
+        self.get_raw_profile(addr).map(|raw_profile_opt| {
             raw_profile_opt.map(|raw_profile| {
                 AuthWrapper::decode(&raw_profile[..]).unwrap() // This panics if stored bytes are malformed
             })

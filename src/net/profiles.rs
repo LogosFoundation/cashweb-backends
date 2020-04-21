@@ -6,6 +6,7 @@ use prost::Message as _;
 use rocksdb::Error as RocksError;
 use secp256k1::{key::PublicKey, Error as SecpError, Message, Secp256k1, Signature};
 use sha2::{Digest, Sha256};
+use tokio::task;
 use warp::{http::Response, hyper::Body, reject::Reject};
 
 use super::IntoResponse;
@@ -69,13 +70,10 @@ pub async fn get_profile(
     database: Database,
 ) -> Result<Response<Body>, ProfileError> {
     // Get profile
-    let profile = database
-        .get_profile(addr.as_body())?
+    let raw_profile = task::spawn_blocking(move || database.get_raw_profile(addr.as_body()))
+        .await
+        .unwrap()?
         .ok_or(ProfileError::NotFound)?;
-
-    // Serialize messages
-    let mut raw_profile = Vec::with_capacity(profile.encoded_len());
-    profile.encode(&mut raw_profile).unwrap();
 
     // Respond
     match query.digest {
@@ -92,7 +90,7 @@ pub async fn get_profile(
 pub async fn put_profile(
     addr: Address,
     profile_raw: Bytes,
-    db_data: Database,
+    database: Database,
 ) -> Result<Response<Body>, ProfileError> {
     // Decode profile
     let profile = AuthWrapper::decode(profile_raw.clone()).map_err(ProfileError::ProfileDecode)?;
@@ -111,7 +109,9 @@ pub async fn put_profile(
         .map_err(ProfileError::InvalidSignature)?;
 
     // Put to database
-    db_data.put_profile(addr.as_body(), &profile_raw)?;
+    task::spawn_blocking(move || database.put_profile(addr.as_body(), &profile_raw))
+        .await
+        .unwrap()?;
 
     // Respond
     Ok(Response::builder().body(Body::empty()).unwrap())
