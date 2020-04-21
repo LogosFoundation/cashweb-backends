@@ -8,8 +8,8 @@ use std::{
 use bitcoin_hashes::{hash160, Hash};
 use bitcoincash_addr::Address;
 use bytes::Bytes;
+use cashweb::bitcoin_client::{BitcoinClient, HttpConnector, NodeError};
 use hex::FromHexError;
-use json_rpc::clients::http::HttpConnector;
 use prost::Message as _;
 use rocksdb::Error as RocksError;
 use secp256k1::key::PublicKey;
@@ -18,7 +18,6 @@ use warp::{http::Response, hyper::Body, reject::Reject};
 
 use super::{ws::MessageBus, IntoResponse};
 use crate::{
-    bitcoin::{BitcoinClient, NodeError},
     db::{self, Database},
     models::relay::messaging::*,
     stamps::*,

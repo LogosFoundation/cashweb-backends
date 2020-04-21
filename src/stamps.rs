@@ -12,17 +12,14 @@ use bitcoin::{
     Transaction,
 };
 use bitcoin_hashes::{hash160, Hash};
+use cashweb::bitcoin_client::{BitcoinClient, HttpConnector, NodeError};
 use secp256k1::{
     key::{PublicKey, SecretKey},
     Secp256k1,
 };
 use sha2::{Digest, Sha256};
 
-use crate::{
-    bitcoin::{BitcoinClient, HttpConnector, NodeError},
-    models::relay::messaging::StampOutpoints,
-    SETTINGS,
-};
+use crate::{models::relay::messaging::StampOutpoints, SETTINGS};
 
 #[derive(Debug)]
 pub enum StampError {
