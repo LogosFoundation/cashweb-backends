@@ -14,7 +14,7 @@ bitcoin = "0.23.0"
 bitcoincash-addr = "0.5.1"
 bitcoin_hashes = "0.7.6"
 bytes = "0.5.4"
-cashweb = { git = "https://github.com/cashweb/cashweb-rs" }
+cashweb = "0.1.0-alpha.0"
 clap = { version = "2.33.0", features = ["yaml"] }
 config = "0.10.1"
 dashmap = "3.11.0"

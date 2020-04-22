@@ -17,7 +17,7 @@ use std::{env, sync::Arc, time::Duration};
 
 use cashweb::{
     payments::{preprocess_payment, wallet::Wallet},
-    token::schemes::hmac_bearer::HmacTokenScheme,
+    token::schemes::hmac_bearer::HmacScheme,
 };
 use dashmap::DashMap;
 use futures::prelude::*;
@@ -83,7 +83,7 @@ async fn main() {
     // Token generator
     let key =
         hex::decode(&SETTINGS.payments.hmac_secret).expect("unable to interpret hmac key as hex");
-    let token_scheme = Arc::new(HmacTokenScheme::new(&key));
+    let token_scheme = Arc::new(HmacScheme::new(&key));
     let token_scheme_state = warp::any().map(move || token_scheme.clone());
 
     // Protection

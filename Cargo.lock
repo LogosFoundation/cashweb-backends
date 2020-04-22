@@ -63,16 +63,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "async-trait"
-version = "0.1.30"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-dependencies = [
- "proc-macro2 1.0.10 (registry+https://github.com/rust-lang/crates.io-index)",
- "quote 1.0.3 (registry+https://github.com/rust-lang/crates.io-index)",
- "syn 1.0.17 (registry+https://github.com/rust-lang/crates.io-index)",
-]
-
-[[package]]
 name = "atty"
 version = "0.2.14"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -225,7 +215,7 @@ dependencies = [
  "bitcoin_hashes 0.7.6 (registry+https://github.com/rust-lang/crates.io-index)",
  "bitcoincash-addr 0.5.1 (registry+https://github.com/rust-lang/crates.io-index)",
  "bytes 0.5.4 (registry+https://github.com/rust-lang/crates.io-index)",
- "cashweb 0.1.0 (git+https://github.com/cashweb/cashweb-rs)",
+ "cashweb 0.1.0-alpha.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "clap 2.33.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "config 0.10.1 (registry+https://github.com/rust-lang/crates.io-index)",
  "dashmap 3.11.1 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -251,19 +241,19 @@ dependencies = [
 
 [[package]]
 name = "cashweb"
-version = "0.1.0"
-source = "git+https://github.com/cashweb/cashweb-rs#ba9faac406527b3ea9eae7e23080628c69418f2b"
+version = "0.1.0-alpha.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
 dependencies = [
- "cashweb-bitcoin-client 0.1.0 (git+https://github.com/cashweb/cashweb-rs)",
- "cashweb-payments 0.1.0 (git+https://github.com/cashweb/cashweb-rs)",
- "cashweb-protobuf 0.1.0 (git+https://github.com/cashweb/cashweb-rs)",
- "cashweb-token 0.1.0 (git+https://github.com/cashweb/cashweb-rs)",
+ "cashweb-bitcoin-client 0.1.0-alpha.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "cashweb-payments 0.1.0-alpha.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "cashweb-protobuf 0.1.0-alpha.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "cashweb-token 0.1.0-alpha.0 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
 
 [[package]]
 name = "cashweb-bitcoin-client"
-version = "0.1.0"
-source = "git+https://github.com/cashweb/cashweb-rs#ba9faac406527b3ea9eae7e23080628c69418f2b"
+version = "0.1.0-alpha.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
 dependencies = [
  "async-json-rpc 0.1.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "hex 0.4.2 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -273,11 +263,11 @@ dependencies = [
 
 [[package]]
 name = "cashweb-payments"
-version = "0.1.0"
-source = "git+https://github.com/cashweb/cashweb-rs#ba9faac406527b3ea9eae7e23080628c69418f2b"
+version = "0.1.0-alpha.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
 dependencies = [
  "bytes 0.5.4 (registry+https://github.com/rust-lang/crates.io-index)",
- "cashweb-protobuf 0.1.0 (git+https://github.com/cashweb/cashweb-rs)",
+ "cashweb-protobuf 0.1.0-alpha.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "dashmap 3.11.1 (registry+https://github.com/rust-lang/crates.io-index)",
  "http 0.2.1 (registry+https://github.com/rust-lang/crates.io-index)",
  "hyper 0.13.5 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -287,8 +277,8 @@ dependencies = [
 
 [[package]]
 name = "cashweb-protobuf"
-version = "0.1.0"
-source = "git+https://github.com/cashweb/cashweb-rs#ba9faac406527b3ea9eae7e23080628c69418f2b"
+version = "0.1.0-alpha.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
 dependencies = [
  "bytes 0.5.4 (registry+https://github.com/rust-lang/crates.io-index)",
  "prost 0.6.1 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -297,11 +287,12 @@ dependencies = [
 
 [[package]]
 name = "cashweb-token"
-version = "0.1.0"
-source = "git+https://github.com/cashweb/cashweb-rs#ba9faac406527b3ea9eae7e23080628c69418f2b"
+version = "0.1.0-alpha.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
 dependencies = [
- "async-trait 0.1.30 (registry+https://github.com/rust-lang/crates.io-index)",
- "base64 0.11.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "base64 0.12.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "bitcoin 0.23.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "cashweb-bitcoin-client 0.1.0-alpha.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "http 0.2.1 (registry+https://github.com/rust-lang/crates.io-index)",
  "ring 0.16.12 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
@@ -2295,7 +2286,6 @@ dependencies = [
 "checksum arrayvec 0.4.12 (registry+https://github.com/rust-lang/crates.io-index)" = "cd9fd44efafa8690358b7408d253adf110036b88f55672a933f01d616ad9b1b9"
 "checksum arrayvec 0.5.1 (registry+https://github.com/rust-lang/crates.io-index)" = "cff77d8686867eceff3105329d4698d96c2391c176d5d03adc90c7389162b5b8"
 "checksum async-json-rpc 0.1.0 (registry+https://github.com/rust-lang/crates.io-index)" = "77c5e40ab1e18dab57e8a9ae260a75cacc3fdecd9100ccb86810600da147f791"
-"checksum async-trait 0.1.30 (registry+https://github.com/rust-lang/crates.io-index)" = "da71fef07bc806586090247e971229289f64c210a278ee5ae419314eb386b31d"
 "checksum atty 0.2.14 (registry+https://github.com/rust-lang/crates.io-index)" = "d9b39be18770d11421cdb1b9947a45dd3f37e93092cbf377614828a319d5fee8"
 "checksum autocfg 0.1.7 (registry+https://github.com/rust-lang/crates.io-index)" = "1d49d90015b3c36167a20fe2810c5cd875ad504b39cff3d4eae7977e6b7c1cb2"
 "checksum autocfg 1.0.0 (registry+https://github.com/rust-lang/crates.io-index)" = "f8aac770f1885fd7e387acedd76065302551364496e46b3dd00860b2f8359b9d"
@@ -2315,11 +2305,11 @@ dependencies = [
 "checksum byte-tools 0.3.1 (registry+https://github.com/rust-lang/crates.io-index)" = "e3b5ca7a04898ad4bcd41c90c5285445ff5b791899bb1b0abdd2a2aa791211d7"
 "checksum byteorder 1.3.4 (registry+https://github.com/rust-lang/crates.io-index)" = "08c48aae112d48ed9f069b33538ea9e3e90aa263cfa3d1c24309612b1f7472de"
 "checksum bytes 0.5.4 (registry+https://github.com/rust-lang/crates.io-index)" = "130aac562c0dd69c56b3b1cc8ffd2e17be31d0b6c25b61c96b76231aa23e39e1"
-"checksum cashweb 0.1.0 (git+https://github.com/cashweb/cashweb-rs)" = "<none>"
-"checksum cashweb-bitcoin-client 0.1.0 (git+https://github.com/cashweb/cashweb-rs)" = "<none>"
-"checksum cashweb-payments 0.1.0 (git+https://github.com/cashweb/cashweb-rs)" = "<none>"
-"checksum cashweb-protobuf 0.1.0 (git+https://github.com/cashweb/cashweb-rs)" = "<none>"
-"checksum cashweb-token 0.1.0 (git+https://github.com/cashweb/cashweb-rs)" = "<none>"
+"checksum cashweb 0.1.0-alpha.0 (registry+https://github.com/rust-lang/crates.io-index)" = "8aca2da690276cda5d1e5c25bd259d822168b9170ad554392d73ede3192d2906"
+"checksum cashweb-bitcoin-client 0.1.0-alpha.0 (registry+https://github.com/rust-lang/crates.io-index)" = "29840160e367ec78cd511d74780ae42fa66270bfc288c19b3115e49fef976120"
+"checksum cashweb-payments 0.1.0-alpha.0 (registry+https://github.com/rust-lang/crates.io-index)" = "abb38f5c6abf64a4c6cc0bcd6d53b0206a3c99d5e0d99871a6aedeca364e2d48"
+"checksum cashweb-protobuf 0.1.0-alpha.0 (registry+https://github.com/rust-lang/crates.io-index)" = "fb24f7cce7d8a073b97055324581e7a7d9bd91a5d1191a10b4d548e0a3ea0a95"
+"checksum cashweb-token 0.1.0-alpha.0 (registry+https://github.com/rust-lang/crates.io-index)" = "22c4c5cb9a77d14ad443019168e40f9f1768a93eba98106734e6d42547e14671"
 "checksum cc 1.0.41 (registry+https://github.com/rust-lang/crates.io-index)" = "8dae9c4b8fedcae85592ba623c4fd08cfdab3e3b72d6df780c6ead964a69bfff"
 "checksum cexpr 0.4.0 (registry+https://github.com/rust-lang/crates.io-index)" = "f4aedb84272dbe89af497cf81375129abda4fc0a9e7c5d317498c15cc30c0d27"
 "checksum cfg-if 0.1.10 (registry+https://github.com/rust-lang/crates.io-index)" = "4785bdd1c96b2a846b2bd7cc02e86b6b3dbf14e7e53446c4f54c92a361040822"

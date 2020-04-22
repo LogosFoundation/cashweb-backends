@@ -17,7 +17,7 @@ use cashweb::{
         PreprocessingError,
     },
     protobuf::bip70::{PaymentAck, PaymentDetails, PaymentRequest},
-    token::{schemes::hmac_bearer::HmacTokenScheme, TokenGenerator},
+    token::schemes::hmac_bearer::HmacScheme,
 };
 use prost::Message as _;
 use warp::{
@@ -84,7 +84,7 @@ pub async fn process_payment(
     payment: Payment,
     wallet: Wallet,
     bitcoin_client: BitcoinClient<HttpConnector>,
-    token_state: Arc<HmacTokenScheme>,
+    token_state: Arc<HmacScheme>,
 ) -> Result<Response<Body>, PaymentError> {
     let txs_res: Result<Vec<Transaction>, BitcoinError> = payment
         .transactions
@@ -119,7 +119,7 @@ pub async fn process_payment(
     }
 
     // Construct token
-    let token = token_state.construct_token(pubkey_hash).unwrap(); // This is safe
+    let token = format!("POP {}", token_state.construct_token(pubkey_hash));
 
     // Create PaymentAck
     let memo = Some(SETTINGS.payments.memo.clone());

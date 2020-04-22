@@ -2,7 +2,7 @@ use std::{fmt, sync::Arc};
 
 use bitcoincash_addr::Address;
 use cashweb::bitcoin_client::{BitcoinClient, HttpConnector};
-use cashweb::token::{extract_pop, schemes::hmac_bearer::*, TokenValidator};
+use cashweb::token::{extract_pop, schemes::hmac_bearer::*};
 use http::header::HeaderMap;
 use warp::{http::Response, hyper::Body, reject::Reject};
 
@@ -49,7 +49,7 @@ impl Reject for ProtectionError {}
 pub async fn pop_protection(
     addr: Address,
     header_map: HeaderMap,
-    token_scheme: Arc<HmacTokenScheme>,
+    token_scheme: Arc<HmacScheme>,
     wallet: Wallet,
     bitcoin_client: BitcoinClient<HttpConnector>,
 ) -> Result<Address, ProtectionError> {
