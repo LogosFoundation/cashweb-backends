@@ -57,7 +57,6 @@ pub async fn pop_protection(
         Some(pop_token) => {
             token_scheme
                 .validate_token(&addr.as_body().to_vec(), pop_token)
-                .await
                 .map_err(ProtectionError::Validation)?;
             Ok(addr)
         }
