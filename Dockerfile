@@ -24,4 +24,4 @@ RUN apt-get update && apt-get install -y libssl-dev
 
 COPY --from=cargo-build /usr/src/cash-relay/target/release/cash-relay /usr/local/bin/cash-relay
 
-CMD ["cash-relay"]
+ENTRYPOINT ["cash-relay"]
