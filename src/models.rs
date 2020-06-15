@@ -1,1 +1,1 @@
-pub use cashweb::protobuf::*;
+pub use cashweb::auth_wrapper as wrapper;

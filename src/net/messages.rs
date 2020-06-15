@@ -1,5 +1,4 @@
 use std::{
-    collections::HashMap,
     convert::TryFrom,
     fmt,
     time::{SystemTime, UNIX_EPOCH},
@@ -8,19 +7,20 @@ use std::{
 use bitcoin_hashes::{hash160, Hash};
 use bitcoincash_addr::Address;
 use bytes::Bytes;
-use cashweb::bitcoin_client::{BitcoinClient, HttpConnector, NodeError};
+use cashweb::{
+    bitcoin_client::{BitcoinClient, HttpConnector, NodeError},
+    relay::{stamp::StampError, *},
+};
+use futures::future;
 use hex::FromHexError;
+use log::warn;
 use prost::Message as _;
 use rocksdb::Error as RocksError;
-use secp256k1::key::PublicKey;
-use sha2::{Digest, Sha256};
 use warp::{http::Response, hyper::Body, reject::Reject};
 
 use super::{ws::MessageBus, IntoResponse};
 use crate::{
     db::{self, Database},
-    models::relay::messaging::*,
-    stamps::*,
     SETTINGS,
 };
 
@@ -96,18 +96,18 @@ fn get_unix_now() -> u64 {
 }
 
 fn construct_prefixes(
-    addr: &[u8],
+    addr_payload: &[u8],
     query: Query,
     database: &Database,
 ) -> Result<(Vec<u8>, Option<Vec<u8>>), GetMessageError> {
     // Get start prefix
     let start_prefix = match (query.start_time, query.start_digest) {
-        (Some(start_time), None) => db::msg_prefix(addr, start_time),
+        (Some(start_time), None) => db::msg_prefix(addr_payload, start_time),
         (None, Some(start_digest_hex)) => {
             let start_digest =
                 hex::decode(start_digest_hex).map_err(GetMessageError::StartDigestMalformed)?;
             database
-                .get_msg_key_by_digest(addr, &start_digest)?
+                .get_msg_key_by_digest(addr_payload, &start_digest)?
                 .ok_or(GetMessageError::StartDigestNotFound)?
         }
         (Some(_), Some(_)) => return Err(GetMessageError::StartBothGiven),
@@ -116,12 +116,12 @@ fn construct_prefixes(
 
     // Get end prefix
     let end_prefix = match (query.end_time, query.end_digest) {
-        (Some(end_time), None) => Some(db::msg_prefix(addr, end_time)),
+        (Some(end_time), None) => Some(db::msg_prefix(addr_payload, end_time)),
         (None, Some(end_digest_hex)) => {
             let start_digest =
                 hex::decode(end_digest_hex).map_err(GetMessageError::EndDigestMalformed)?;
             let msg_key = database
-                .get_msg_key_by_digest(addr, &start_digest)?
+                .get_msg_key_by_digest(addr_payload, &start_digest)?
                 .ok_or(GetMessageError::EndDigestNotFound)?;
             Some(msg_key)
         }
@@ -137,37 +137,25 @@ pub async fn get_payloads(
     query: Query,
     database: Database,
 ) -> Result<Response<Body>, GetMessageError> {
-    // Convert address
-    let addr = addr.as_body();
+    // Extract address payload
+    let address_payload = addr.as_body();
 
     // If digest query then get single payload
     if let Some(digest) = query.digest {
         let raw_digest = hex::decode(digest).map_err(GetMessageError::DigestDecode)?;
         let raw_message = database
-            .get_message_by_digest(addr, &raw_digest[..])?
+            .get_message_by_digest(&address_payload, &raw_digest[..])?
             .ok_or(GetMessageError::NotFound)?;
         let message = Message::decode(&raw_message[..]).unwrap(); // This is safe
         return Ok(Response::builder()
-            .body(Body::from(message.serialized_payload))
+            .body(Body::from(message.payload))
             .unwrap());
     }
 
-    let (start_prefix, end_prefix) = construct_prefixes(addr, query, &database)?;
-    let message_set =
+    let (start_prefix, end_prefix) = construct_prefixes(&address_payload, query, &database)?;
+    let message_page =
         database.get_messages_range(&start_prefix, end_prefix.as_ref().map(|v| &v[..]))?;
-    let payloads: Vec<_> = message_set
-        .messages
-        .into_iter()
-        .map(|timed_message| {
-            let payload =
-                Payload::decode(&timed_message.message.unwrap().serialized_payload[..]).unwrap(); // This is safe
-            TimedPayload {
-                server_time: timed_message.server_time,
-                payload: Some(payload),
-            }
-        })
-        .collect();
-    let payload_page = PayloadPage { payloads };
+    let payload_page = message_page.into_payload_page();
 
     // Serialize messages
     let mut raw_payload_page = Vec::with_capacity(payload_page.encoded_len());
@@ -184,19 +172,19 @@ pub async fn get_messages(
     query: Query,
     database: Database,
 ) -> Result<Response<Body>, GetMessageError> {
-    // Convert address
-    let addr = addr.as_body();
+    // Extract address payload
+    let address_payload = addr.as_body();
 
     // If digest query then get single message
     if let Some(digest) = query.digest {
         let raw_digest = hex::decode(digest).map_err(GetMessageError::DigestDecode)?;
         let message = database
-            .get_message_by_digest(addr, &raw_digest[..])?
+            .get_message_by_digest(&address_payload, &raw_digest[..])?
             .ok_or(GetMessageError::NotFound)?;
         return Ok(Response::builder().body(Body::from(message)).unwrap());
     }
 
-    let (start_prefix, end_prefix) = construct_prefixes(addr, query, &database)?;
+    let (start_prefix, end_prefix) = construct_prefixes(&address_payload, query, &database)?;
     let message_set =
         database.get_messages_range(&start_prefix, end_prefix.as_ref().map(|v| &v[..]))?;
 
@@ -216,18 +204,18 @@ pub async fn remove_messages(
     database: Database,
 ) -> Result<Response<Body>, GetMessageError> {
     // Convert address
-    let addr = addr.as_body();
+    let address_payload = addr.as_body();
 
     // If digest query then get single message
     if let Some(digest) = query.digest {
         let raw_digest = hex::decode(digest).map_err(GetMessageError::DigestDecode)?;
         database
-            .remove_message_by_digest(addr, &raw_digest[..])?
+            .remove_message_by_digest(&address_payload, &raw_digest[..])?
             .ok_or(GetMessageError::NotFound)?;
         return Ok(Response::builder().body(Body::empty()).unwrap());
     }
 
-    let (start_prefix, end_prefix) = construct_prefixes(addr, query, &database)?;
+    let (start_prefix, end_prefix) = construct_prefixes(&address_payload, query, &database)?;
     database.remove_messages_range(&start_prefix, end_prefix.as_ref().map(|v| &v[..]))?;
 
     // Respond
@@ -239,8 +227,10 @@ pub enum PutMessageError {
     DB(RocksError),
     DestinationMalformed,
     MessagesDecode(prost::DecodeError),
+    MessageParsing(ParseError),
     PayloadDecode(prost::DecodeError),
-    Stamp(StampError),
+    StampVerify(StampError),
+    StampBroadcast(NodeError),
 }
 
 impl From<RocksError> for PutMessageError {
@@ -257,8 +247,10 @@ impl fmt::Display for PutMessageError {
             Self::DB(err) => return err.fmt(f),
             Self::DestinationMalformed => "destination malformed",
             Self::MessagesDecode(err) => return err.fmt(f),
+            Self::MessageParsing(err) => return err.fmt(f),
             Self::PayloadDecode(err) => return err.fmt(f),
-            Self::Stamp(err) => return err.fmt(f),
+            Self::StampVerify(err) => return err.fmt(f),
+            Self::StampBroadcast(err) => return err.fmt(f),
         };
         f.write_str(printable)
     }
@@ -268,12 +260,10 @@ impl IntoResponse for PutMessageError {
     fn to_status(&self) -> u16 {
         match self {
             Self::DB(_) => 500,
-            Self::Stamp(err) => match err {
-                StampError::TxReject(err) => match err {
-                    NodeError::Rpc(_) => 400,
-                    _ => 500,
-                },
-                _ => 400,
+            Self::StampVerify(_) => 400,
+            Self::StampBroadcast(err) => match err {
+                NodeError::Rpc(_) => 400,
+                _ => 500,
             },
             _ => 400,
         }
@@ -287,115 +277,98 @@ pub async fn put_message(
     bitcoin_client: BitcoinClient<HttpConnector>,
     msg_bus: MessageBus,
 ) -> Result<Response<Body>, PutMessageError> {
+    // Time now
+    let timestamp = get_unix_now();
+
     // Decode message
-    let mut message_set =
+    let message_set =
         MessageSet::decode(&messages_raw[..]).map_err(PutMessageError::MessagesDecode)?;
 
-    // Verify, collect and truncate
-    let n_messages = message_set.messages.len();
-    let mut digest_pubkey = Vec::with_capacity(n_messages); // Collect pubkey hashes
-    for message in message_set.messages.iter_mut() {
+    for mut message in message_set.messages.into_iter() {
         // Get sender public key
-        let sender_pubkey = &message.sender_pub_key;
-        let sender_pubkey_hash = hash160::Hash::hash(&sender_pubkey[..]).into_inner();
+        let source_pubkey = &message.source_pub_key;
+        let destination_pubkey = &message.destination_pub_key;
+        let source_pubkey_hash = hash160::Hash::hash(&source_pubkey[..]).into_inner();
+        let destination_pubkey_hash = hash160::Hash::hash(&destination_pubkey[..]).into_inner();
 
-        // Calculate payload hash
-        let serialized_payload = &message.serialized_payload[..];
-        let payload_digest = Sha256::digest(&serialized_payload).to_vec();
-
-        // If sender is not self then check stamp
-        if addr.as_body() != sender_pubkey_hash {
-            // TODO: Check destination matches?
-
-            // Get destination public key
-            let payload =
-                Payload::decode(serialized_payload).map_err(PutMessageError::PayloadDecode)?;
-            let destination_public_key = PublicKey::from_slice(&payload.destination[..])
-                .map_err(|_| PutMessageError::DestinationMalformed)?;
-
-            verify_stamps(
-                &message.stamp_outpoints,
-                serialized_payload,
-                destination_public_key,
-                bitcoin_client.clone(),
-            )
-            .await
-            .map_err(PutMessageError::Stamp)?;
+        // Check if URL address is correct
+        if addr.as_body() == &destination_pubkey_hash[..] {
+            // TODO: What do we do here? Exit
         }
 
-        // Add payload digest to message
-        message.payload_digest = payload_digest.clone();
-
-        // Collect digest and pubkey hash
-        digest_pubkey.push((payload_digest, sender_pubkey_hash));
-    }
-
-    // Put to database and construct sender map
-    let timestamp = get_unix_now();
-    let mut sender_map = HashMap::<_, Vec<Message>>::with_capacity(n_messages);
-    for (i, mut message) in message_set.messages.iter_mut().enumerate() {
-        // Push to destination key
-        let (payload_digest, pubkey_hash) = &digest_pubkey[i];
+        // Serialze message which is stored in database
         let mut raw_message = Vec::with_capacity(message.encoded_len());
         message.encode(&mut raw_message).unwrap(); // This is safe
-        database.push_message(
-            addr.as_body(),
-            timestamp,
-            &raw_message[..],
-            &payload_digest[..],
-        )?;
+
+        // If serialized payload too long then remove it
+        let raw_message_ws =
+            if message.payload.len() > SETTINGS.websocket.truncation_length as usize {
+                message.payload = Vec::with_capacity(0);
+                // Serialize message
+                let mut raw_message = Vec::with_capacity(message.encoded_len());
+                message.encode(&mut raw_message).unwrap(); // This is safe
+                raw_message
+            } else {
+                raw_message.clone()
+            };
+
+        let parsed_message = message.parse().map_err(PutMessageError::MessageParsing)?;
+
+        let is_self_send = destination_pubkey_hash != source_pubkey_hash;
+
+        // If sender is not self then check stamp
+        if is_self_send {
+            parsed_message
+                .verify_stamp(SETTINGS.network)
+                .map_err(PutMessageError::StampVerify)?;
+        }
+
+        // Try broadcast stamp transactions
+        let broadcast = parsed_message
+            .stamp
+            .stamp_outpoints
+            .into_iter()
+            .map(move |stamp_oupoint| stamp_oupoint.stamp_tx)
+            .map(|stamp_tx| {
+                let bitcoin_client_inner = bitcoin_client.clone();
+                async move {
+                    let stamp_tx = stamp_tx;
+                    bitcoin_client_inner.send_tx(&stamp_tx).await
+                }
+            });
+        future::try_join_all(broadcast)
+            .await
+            .map_err(PutMessageError::StampBroadcast)?;
 
         // Push to source key
         database.push_message(
-            pubkey_hash,
+            &source_pubkey_hash,
             timestamp,
             &raw_message[..],
-            &payload_digest[..],
+            &parsed_message.payload_digest[..],
         )?;
 
-        // If serialized payload too long then remove it
-        if message.serialized_payload.len() > SETTINGS.websocket.truncation_length as usize {
-            message.serialized_payload = Vec::new();
+        // Push to destination key
+        database.push_message(
+            &destination_pubkey_hash,
+            timestamp,
+            &raw_message[..],
+            &parsed_message.payload_digest[..],
+        )?;
+
+        // Send to source
+        if is_self_send {
+            if let Some(sender) = msg_bus.get(&source_pubkey_hash.to_vec()) {
+                if let Err(err) = sender.send(raw_message_ws.clone()) {
+                    warn!("{:?}", err);
+                }
+            }
         }
 
-        // Add to sender map
-        let vec_pubkey_hash = pubkey_hash.to_vec();
-        if let Some(messages) = sender_map.get_mut(&vec_pubkey_hash) {
-            messages.push(message.clone());
-        } else {
-            let mut messages = Vec::with_capacity(n_messages);
-            messages.push(message.clone());
-            sender_map.insert(pubkey_hash.to_vec(), messages);
-        }
-    }
-
-    // Create WS message
-    let timed_message_set = TimedMessageSet {
-        server_time: timestamp as i64,
-        messages: message_set.messages,
-    };
-    let mut timed_msg_set_raw = Vec::with_capacity(timed_message_set.encoded_len());
-    timed_message_set.encode(&mut timed_msg_set_raw).unwrap(); // This is safe
-
-    // Send over WS to receiver
-    if let Some(sender) = msg_bus.get(addr.as_body()) {
-        if let Err(_err) = sender.value().send(timed_msg_set_raw) {
-            // TODO: Log error
-        }
-    }
-
-    // Send over WS to senders
-    for (sender_pubkey_hash, messages) in sender_map {
-        if let Some(sender) = msg_bus.get(&sender_pubkey_hash) {
-            let timed_message_set = TimedMessageSet {
-                server_time: timestamp as i64,
-                messages,
-            };
-
-            let mut timed_msg_set_raw = Vec::with_capacity(timed_message_set.encoded_len());
-            timed_message_set.encode(&mut timed_msg_set_raw).unwrap(); // This is safe
-            if let Err(_err) = sender.value().send(timed_msg_set_raw) {
-                // TODO: Log error
+        // Send to destination
+        if let Some(sender) = msg_bus.get(&destination_pubkey_hash.to_vec()) {
+            if let Err(err) = sender.send(raw_message_ws) {
+                warn!("{:?}", err);
             }
         }
     }

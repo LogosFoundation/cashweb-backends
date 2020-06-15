@@ -1,12 +1,10 @@
-use std::{convert::TryInto, sync::Arc};
+use std::sync::Arc;
 
+use cashweb::relay::*;
 use prost::Message as PMessage;
 use rocksdb::{Direction, Error as RocksError, IteratorMode, Options, DB};
 
-use crate::models::{
-    relay::messaging::{Message, MessagePage, TimedMessage},
-    wrapper::AuthWrapper,
-};
+use crate::models::wrapper::AuthWrapper;
 
 const DIGEST_LEN: usize = 4;
 const NAMESPACE_LEN: usize = 20 + 1;
@@ -31,13 +29,7 @@ pub fn msg_key(pubkey_hash: &[u8], timestamp: u64, digest: &[u8]) -> Vec<u8> {
 
 pub fn msg_prefix(pubkey_hash: &[u8], timestamp: u64) -> Vec<u8> {
     let raw_timestamp: [u8; 8] = timestamp.to_be_bytes();
-    [pubkey_hash, &[MESSAGE_NAMESPACE], &raw_timestamp].concat()
-}
-
-/// Convert timestamp array to u64
-fn time_slice(key: &[u8]) -> u64 {
-    let arr: [u8; 8] = key[NAMESPACE_LEN..NAMESPACE_LEN + 8].try_into().unwrap(); // This is safe
-    u64::from_be_bytes(arr)
+    [&pubkey_hash[..], &[MESSAGE_NAMESPACE], &raw_timestamp].concat()
 }
 
 impl Database {
@@ -91,7 +83,7 @@ impl Database {
         // Create key
         let raw_timestamp: [u8; 8] = timestamp.to_be_bytes();
         let key = [
-            pubkey_hash,
+            &pubkey_hash[..],
             &[MESSAGE_NAMESPACE],
             &raw_timestamp,
             &digest[..DIGEST_LEN],
@@ -100,7 +92,7 @@ impl Database {
         self.0.put(key, raw_message)?;
 
         // Create digest key
-        let digest_key = [pubkey_hash, &[DIGEST_NAMESPACE], &digest].concat();
+        let digest_key = [&pubkey_hash[..], &[DIGEST_NAMESPACE], &digest].concat();
 
         self.0.put(digest_key, raw_timestamp)?;
 
@@ -137,34 +129,40 @@ impl Database {
             .0
             .iterator(IteratorMode::From(&start_prefix, Direction::Forward));
 
-        let messages: Vec<TimedMessage> = if let Some(end_prefix) = opt_end_prefix {
+        let messages: Vec<Message> = if let Some(end_prefix) = opt_end_prefix {
             // Check whether key is before end time
             let before_end_key = |key: &[u8]| key[NAMESPACE_LEN..] < end_prefix[NAMESPACE_LEN..];
 
             // Take items inside namespace and before end time
             iter.take_while(|(key, _)| in_namespace(key) && before_end_key(key))
-                .map(|(key, item)| {
-                    let message = Some(Message::decode(&item[..]).unwrap()); // This panics if stored bytes are malformed
-                    TimedMessage {
-                        server_time: time_slice(&key) as i64,
-                        message,
-                    }
+                .map(|(_, item)| {
+                    let message = Message::decode(&item[..]).unwrap(); // This panics if stored bytes are malformed
+                    message
                 })
                 .collect()
         } else {
             // Take items inside namespace
             iter.take_while(|(key, _)| in_namespace(key))
-                .map(|(key, item)| {
-                    let message = Some(Message::decode(&item[..]).unwrap()); // This panics if stored bytes are malformed
-                    TimedMessage {
-                        server_time: time_slice(&key) as i64,
-                        message,
-                    }
+                .map(|(_, item)| {
+                    let message = Message::decode(&item[..]).unwrap(); // This panics if stored bytes are malformed
+                    message
                 })
                 .collect()
         };
 
-        Ok(MessagePage { messages })
+        let mut message_page = MessagePage::default();
+        if let Some(message) = messages.first() {
+            message_page.start_time = message.received_time;
+            let payload_digest = message.payload_digest().unwrap(); // This is safe
+            message_page.start_digest = payload_digest.to_vec();
+        }
+        if let Some(message) = messages.last() {
+            message_page.start_time = message.received_time;
+            let payload_digest = message.payload_digest().unwrap(); // This is safe
+            message_page.start_digest = payload_digest.to_vec();
+        }
+        message_page.messages = messages;
+        Ok(message_page)
     }
 
     pub fn remove_messages_range(
@@ -231,32 +229,32 @@ impl Database {
 mod tests {
     use super::*;
     use bitcoincash_addr::Address;
-    use sha2::{Digest, Sha256};
+    use ring::digest::{digest, SHA256};
 
     #[test]
     fn get_digest() {
         let database = Database::try_new("./test_dbs/get_digest").unwrap();
 
         let addr = Address::decode("bchtest:qz35wy0grm4tze4p5tvu0fc6kujsa5vnrcr7y5xl65").unwrap();
-        let pubkey_hash = addr.as_body();
+        let address_payload = addr.as_body();
 
         let message = Message::default();
         let mut raw_message = Vec::with_capacity(message.encoded_len());
         message.encode(&mut raw_message).unwrap();
-        let digest = &Sha256::digest(&raw_message)[..];
+        let digest = digest(&SHA256, &raw_message).as_ref();
 
         let timestamp = 100;
         database
-            .push_message(pubkey_hash, timestamp, &raw_message[..], digest)
+            .push_message(&address_payload, timestamp, &raw_message[..], digest)
             .unwrap();
 
         assert!(database
-            .get_msg_key_by_digest(pubkey_hash, digest)
+            .get_msg_key_by_digest(&address_payload, digest)
             .unwrap()
             .is_some());
 
         assert!(database
-            .get_message_by_digest(pubkey_hash, digest)
+            .get_message_by_digest(&address_payload, digest)
             .unwrap()
             .is_some())
     }
@@ -266,30 +264,30 @@ mod tests {
         let database = Database::try_new("./test_dbs/delete_digest").unwrap();
 
         let addr = Address::decode("bchtest:qz35wy0grm4tze4p5tvu0fc6kujsa5vnrcr7y5xl65").unwrap();
-        let pubkey_hash = addr.as_body();
+        let address_payload = addr.as_body();
 
         let message = Message::default();
         let mut raw_message = Vec::with_capacity(message.encoded_len());
         message.encode(&mut raw_message).unwrap();
-        let digest = &Sha256::digest(&raw_message)[..];
+        let digest = digest(&SHA256, &raw_message).as_ref();
 
         let timestamp = 100;
         database
-            .push_message(pubkey_hash, timestamp, &raw_message[..], digest)
+            .push_message(&address_payload, timestamp, &raw_message[..], digest)
             .unwrap();
 
         assert!(database
-            .get_msg_key_by_digest(pubkey_hash, digest)
+            .get_msg_key_by_digest(&address_payload, digest)
             .unwrap()
             .is_some());
 
         assert!(database
-            .remove_message_by_digest(pubkey_hash, digest)
+            .remove_message_by_digest(&address_payload, digest)
             .unwrap()
             .is_some());
 
         assert!(database
-            .get_message_by_digest(pubkey_hash, digest)
+            .get_message_by_digest(&address_payload, digest)
             .unwrap()
             .is_none())
     }
@@ -299,30 +297,30 @@ mod tests {
         let database = Database::try_new("./test_dbs/get_time_range").unwrap();
 
         let addr = Address::decode("bchtest:qz35wy0grm4tze4p5tvu0fc6kujsa5vnrcr7y5xl65").unwrap();
-        let pubkey_hash = addr.as_body();
+        let address_payload = addr.as_body();
 
         let message = Message::default();
         let mut raw_message = Vec::with_capacity(message.encoded_len());
         message.encode(&mut raw_message).unwrap();
-        let digest = &Sha256::digest(&raw_message)[..];
+        let digest = digest(&SHA256, &raw_message).as_ref();
 
         // Put at 100 and 105
         database
-            .push_message(pubkey_hash, 100, &raw_message[..], digest)
+            .push_message(&address_payload, 100, &raw_message[..], digest)
             .unwrap();
         database
-            .push_message(pubkey_hash, 105, &raw_message[..], digest)
+            .push_message(&address_payload, 105, &raw_message[..], digest)
             .unwrap();
 
         // Check out of range [106, inf)
-        let prefix = msg_prefix(pubkey_hash, 106);
+        let prefix = msg_prefix(&address_payload, 106);
         assert_eq!(
             database.get_messages_range(&prefix, None).unwrap().messages,
             vec![]
         );
 
         // Check within range [100, inf)
-        let prefix = msg_prefix(pubkey_hash, 100);
+        let prefix = msg_prefix(&address_payload, 100);
         assert_eq!(
             database
                 .get_messages_range(&prefix, None)
@@ -333,8 +331,8 @@ mod tests {
         );
 
         // Check within range [100, 101)
-        let prefix = msg_prefix(pubkey_hash, 100);
-        let prefix_end = msg_prefix(pubkey_hash, 101);
+        let prefix = msg_prefix(&address_payload, 100);
+        let prefix_end = msg_prefix(&address_payload, 101);
         assert_eq!(
             database
                 .get_messages_range(&prefix, Some(&prefix_end))
@@ -345,8 +343,8 @@ mod tests {
         );
 
         // Check within range [101, 105)
-        let prefix = msg_prefix(pubkey_hash, 101);
-        let prefix_end = msg_prefix(pubkey_hash, 105);
+        let prefix = msg_prefix(&address_payload, 101);
+        let prefix_end = msg_prefix(&address_payload, 105);
         assert_eq!(
             database
                 .get_messages_range(&prefix, Some(&prefix_end))

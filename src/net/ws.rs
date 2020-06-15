@@ -16,7 +16,6 @@ use crate::SETTINGS;
 
 const BROADCAST_CHANNEL_CAPACITY: usize = 256;
 
-// pubkey hash:serialized timed message
 pub type MessageBus = Arc<DashMap<Vec<u8>, broadcast::Sender<Vec<u8>>>>;
 
 pub fn upgrade_ws(addr: Address, ws: Ws, msg_bus: MessageBus) -> impl Reply {

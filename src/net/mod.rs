@@ -20,22 +20,38 @@ use warp::{
 };
 
 #[derive(Debug)]
-pub struct AddressDecode(
-    bitcoincash_addr::cashaddr::DecodingError,
-    bitcoincash_addr::base58::DecodingError,
-);
+pub enum AddressDecode {
+    Decode(
+        bitcoincash_addr::cashaddr::DecodingError,
+        bitcoincash_addr::base58::DecodingError,
+    ),
+    UnexpectedBodyLength(usize),
+}
 
 impl Reject for AddressDecode {}
 
 impl fmt::Display for AddressDecode {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "{}, {}", self.0, self.1)
+        match self {
+            Self::Decode(cash_err, base58_err) => writeln!(f, "{}, {}", cash_err, base58_err),
+            Self::UnexpectedBodyLength(size) => {
+                writeln!(f, "expected address payload of length 20, found {}", size)
+            }
+        }
     }
 }
 
 pub fn address_decode(addr_str: &str) -> Result<Address, AddressDecode> {
     // Convert address
-    Address::decode(&addr_str).map_err(|(cash_err, base58_err)| AddressDecode(cash_err, base58_err))
+    let address = Address::decode(&addr_str)
+        .map_err(|(cash_err, base58_err)| AddressDecode::Decode(cash_err, base58_err))?;
+
+    // Check address payload is correct length
+    let body_len = address.as_body().len();
+    if body_len != 20 {
+        return Err(AddressDecode::UnexpectedBodyLength(body_len));
+    }
+    Ok(address)
 }
 
 impl IntoResponse for AddressDecode {
