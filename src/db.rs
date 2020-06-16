@@ -241,20 +241,25 @@ mod tests {
         let message = Message::default();
         let mut raw_message = Vec::with_capacity(message.encoded_len());
         message.encode(&mut raw_message).unwrap();
-        let digest = digest(&SHA256, &raw_message).as_ref();
+        let digest = digest(&SHA256, &raw_message);
 
         let timestamp = 100;
         database
-            .push_message(&address_payload, timestamp, &raw_message[..], digest)
+            .push_message(
+                &address_payload,
+                timestamp,
+                &raw_message[..],
+                digest.as_ref(),
+            )
             .unwrap();
 
         assert!(database
-            .get_msg_key_by_digest(&address_payload, digest)
+            .get_msg_key_by_digest(&address_payload, digest.as_ref())
             .unwrap()
             .is_some());
 
         assert!(database
-            .get_message_by_digest(&address_payload, digest)
+            .get_message_by_digest(&address_payload, digest.as_ref())
             .unwrap()
             .is_some())
     }
@@ -269,25 +274,30 @@ mod tests {
         let message = Message::default();
         let mut raw_message = Vec::with_capacity(message.encoded_len());
         message.encode(&mut raw_message).unwrap();
-        let digest = digest(&SHA256, &raw_message).as_ref();
+        let digest = digest(&SHA256, &raw_message);
 
         let timestamp = 100;
         database
-            .push_message(&address_payload, timestamp, &raw_message[..], digest)
+            .push_message(
+                &address_payload,
+                timestamp,
+                &raw_message[..],
+                digest.as_ref(),
+            )
             .unwrap();
 
         assert!(database
-            .get_msg_key_by_digest(&address_payload, digest)
+            .get_msg_key_by_digest(&address_payload, digest.as_ref())
             .unwrap()
             .is_some());
 
         assert!(database
-            .remove_message_by_digest(&address_payload, digest)
+            .remove_message_by_digest(&address_payload, digest.as_ref())
             .unwrap()
             .is_some());
 
         assert!(database
-            .get_message_by_digest(&address_payload, digest)
+            .get_message_by_digest(&address_payload, digest.as_ref())
             .unwrap()
             .is_none())
     }
@@ -299,17 +309,18 @@ mod tests {
         let addr = Address::decode("bchtest:qz35wy0grm4tze4p5tvu0fc6kujsa5vnrcr7y5xl65").unwrap();
         let address_payload = addr.as_body();
 
-        let message = Message::default();
+        let mut message = Message::default();
+        message.payload_digest = vec![0; 32];
         let mut raw_message = Vec::with_capacity(message.encoded_len());
         message.encode(&mut raw_message).unwrap();
-        let digest = digest(&SHA256, &raw_message).as_ref();
+        let digest = digest(&SHA256, &raw_message);
 
         // Put at 100 and 105
         database
-            .push_message(&address_payload, 100, &raw_message[..], digest)
+            .push_message(&address_payload, 100, &raw_message[..], digest.as_ref())
             .unwrap();
         database
-            .push_message(&address_payload, 105, &raw_message[..], digest)
+            .push_message(&address_payload, 105, &raw_message[..], digest.as_ref())
             .unwrap();
 
         // Check out of range [106, inf)
