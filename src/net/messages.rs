@@ -4,7 +4,6 @@ use std::{
     time::{SystemTime, UNIX_EPOCH},
 };
 
-use bitcoin_hashes::{hash160, Hash};
 use bitcoincash_addr::Address;
 use bytes::Bytes;
 use cashweb::{
@@ -15,6 +14,8 @@ use futures::future;
 use hex::FromHexError;
 use log::warn;
 use prost::Message as _;
+use ring::digest::{digest, SHA256};
+use ripemd160::{Digest, Ripemd160};
 use rocksdb::Error as RocksError;
 use warp::{http::Response, hyper::Body, reject::Reject};
 
@@ -288,8 +289,9 @@ pub async fn put_message(
         // Get sender public key
         let source_pubkey = &message.source_pub_key;
         let destination_pubkey = &message.destination_pub_key;
-        let source_pubkey_hash = hash160::Hash::hash(&source_pubkey[..]).into_inner();
-        let destination_pubkey_hash = hash160::Hash::hash(&destination_pubkey[..]).into_inner();
+        let source_pubkey_hash = Ripemd160::digest(digest(&SHA256, &source_pubkey).as_ref());
+        let destination_pubkey_hash =
+            Ripemd160::digest(digest(&SHA256, &destination_pubkey).as_ref());
 
         // Check if URL address is correct
         if addr.as_body() == &destination_pubkey_hash[..] {
