@@ -78,7 +78,7 @@ impl From<&str> for Route {
 lazy_static! {
     // Request counter
     pub static ref HTTP_TOTAL_VEC: CounterVec = prometheus::register_counter_vec!(
-        "http_requests_total",
+        "http_request_total",
         "Total number of HTTP requests.",
         &["method", "route"]
     )
@@ -87,7 +87,7 @@ lazy_static! {
 
     // Request duration
     pub static ref HTTP_ELAPSED_VEC: HistogramVec = prometheus::register_histogram_vec!(
-        "http_request_duration_seconds",
+        "http_request_duration_milliseconds",
         "Histogram of elapsed times.",
         &["method", "route"]
     )
@@ -103,7 +103,7 @@ pub fn measure(info: Info) {
     HTTP_TOTAL.get(method).get(route).inc();
 
     // Observe duration
-    let duration_secs = info.elapsed().as_secs_f64();
+    let duration_secs = info.elapsed().as_millis();
     HTTP_ELAPSED.get(method).get(route).observe(duration_secs);
 }
 
