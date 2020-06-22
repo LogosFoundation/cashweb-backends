@@ -58,6 +58,7 @@ pub async fn pop_protection(
             token_scheme
                 .validate_token(&addr.as_body().to_vec(), pop_token)
                 .map_err(ProtectionError::Validation)?;
+
             Ok(addr)
         }
         None => Err(ProtectionError::MissingToken(addr, wallet, bitcoin_client)),

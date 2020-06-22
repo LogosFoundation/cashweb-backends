@@ -1,10 +1,9 @@
 use std::net::SocketAddr;
 
+use cashweb::bitcoin::Network;
 use clap::App;
 use config::{Config, ConfigError, File};
 use serde::Deserialize;
-
-use crate::bitcoin::Network;
 
 const FOLDER_DIR: &str = ".relay";
 const DEFAULT_BIND: &str = "127.0.0.1:8080";

@@ -3,12 +3,10 @@ extern crate clap;
 #[macro_use]
 extern crate serde;
 
-pub mod bitcoin;
 pub mod db;
 pub mod models;
 pub mod net;
 pub mod settings;
-pub mod stamps;
 
 #[cfg(feature = "monitoring")]
 pub mod monitoring;
@@ -37,7 +35,7 @@ use settings::Settings;
 
 const DASHMAP_CAPACITY: usize = 2048;
 
-const PROFILE_PATH: &str = "profile";
+const PROFILES_PATH: &str = "profiles";
 const WS_PATH: &str = "ws";
 const MESSAGES_PATH: &str = "messages";
 const PAYLOADS_PATH: &str = "payloads";
@@ -147,15 +145,12 @@ async fn main() {
         .map(net::upgrade_ws);
 
     // Profile handlers
-    let profile_get = warp::path(PROFILE_PATH)
+    let profile_get = warp::path(PROFILES_PATH)
         .and(addr_base)
         .and(warp::get())
-        .and(warp::query())
         .and(db_state.clone())
-        .and_then(move |addr, query, db| {
-            net::get_profile(addr, query, db).map_err(warp::reject::custom)
-        });
-    let profile_put = warp::path(PROFILE_PATH)
+        .and_then(move |addr, db| net::get_profile(addr, db).map_err(warp::reject::custom));
+    let profile_put = warp::path(PROFILES_PATH)
         .and(addr_protected)
         .and(warp::put())
         .and(warp::body::content_length_limit(

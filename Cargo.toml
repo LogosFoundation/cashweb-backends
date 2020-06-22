@@ -10,14 +10,12 @@ monitoring = ["prometheus", "prometheus-static-metric"]
 
 [dependencies]
 base64 = "0.12.1"
-bitcoin = "0.23.0"
 bitcoincash-addr = "0.5.2"
-bitcoin_hashes = "0.7.6"
 bytes = "0.5.4"
-cashweb = "0.1.0-alpha.3"
-clap = { version = "2.33.0", features = ["yaml"] }
+cashweb = { git = "https://github.com/cashweb/cashweb-rs.git" }
+clap = { version = "2.33.1", features = ["yaml"] }
 config = "0.10.1"
-dashmap = "3.11.1"
+dashmap = "3.11.4"
 dirs = "2.0.2"
 futures = "0.3.5"
 hex = "0.4.2"
@@ -26,13 +24,16 @@ lazy_static = "1.4.0"
 log = "0.4.8"
 pretty_env_logger = "0.4.0"
 prost = "0.6.1"
-prometheus = { version = "0.8.0", optional = true }
+prometheus = { version = "0.9.0", optional = true }
 prometheus-static-metric = { version = "0.2.0", optional = true }
+ripemd160 = "0.9.0"
 rocksdb = "0.14.0"
-secp256k1 = { version = "0.17.2", features = ["rand-std"] }
-serde = { version = "1.0.110", features = ["derive"] }
-sha2 = "0.8.1"
-subtle = "2.2.2"
-tokio = { version = "0.2.20", features = ["blocking",  "macros", "rt-core", "rt-threaded", "sync", "time"] }
+ring = "0.16.14"
+serde = { version = "1.0.111", features = ["derive"] }
+subtle = "2.2.3"
+tokio = { version = "0.2.21", features = ["blocking",  "macros", "rt-core", "rt-threaded", "sync", "time"] }
 url = "2.1.1"
-warp = "0.2.2"
+warp = "0.2.3"
+
+[dev-dependencies]
+ring = "0.16.14"

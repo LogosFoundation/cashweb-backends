@@ -4,19 +4,20 @@ use std::{
     time::{Duration, SystemTime, UNIX_EPOCH},
 };
 
-use bitcoin::{
-    consensus::encode::Error as BitcoinError, util::psbt::serialize::Deserialize, Transaction,
-};
 use bitcoincash_addr::{
     base58::DecodingError as Base58Error, cashaddr::DecodingError as CashAddrError, Address,
 };
-use cashweb::bitcoin_client::{BitcoinClient, HttpConnector, NodeError};
 use cashweb::{
+    bitcoin::{
+        transaction::{DecodeError as TransactionDecodeError, Transaction},
+        Decodable,
+    },
+    bitcoin_client::{BitcoinClient, HttpConnector, NodeError},
+    payments::bip70::{Output, Payment, PaymentAck, PaymentDetails, PaymentRequest},
     payments::{
         wallet::{Wallet as WalletGeneric, WalletError},
         PreprocessingError,
     },
-    protobuf::bip70::{PaymentAck, PaymentDetails, PaymentRequest},
     token::schemes::hmac_bearer::HmacScheme,
 };
 use prost::Message as _;
@@ -27,10 +28,7 @@ use warp::{
 };
 
 use super::IntoResponse;
-use crate::{
-    models::bip70::{Output, Payment},
-    PAYMENTS_PATH, SETTINGS,
-};
+use crate::{PAYMENTS_PATH, SETTINGS};
 
 pub type Wallet = WalletGeneric<Vec<u8>, Output>;
 
@@ -38,7 +36,7 @@ pub type Wallet = WalletGeneric<Vec<u8>, Output>;
 pub enum PaymentError {
     Preprocess(PreprocessingError),
     Wallet(WalletError),
-    MalformedTx(BitcoinError),
+    MalformedTx(TransactionDecodeError),
     MissingMerchantData,
     Node(NodeError),
 }
@@ -86,19 +84,19 @@ pub async fn process_payment(
     bitcoin_client: BitcoinClient<HttpConnector>,
     token_state: Arc<HmacScheme>,
 ) -> Result<Response<Body>, PaymentError> {
-    let txs_res: Result<Vec<Transaction>, BitcoinError> = payment
+    let txs_res: Result<Vec<Transaction>, TransactionDecodeError> = payment
         .transactions
         .iter()
-        .map(|raw_tx| Transaction::deserialize(raw_tx))
+        .map(|raw_tx: &Vec<u8>| Transaction::decode(&mut raw_tx.as_slice()))
         .collect();
     let txs = txs_res.map_err(PaymentError::MalformedTx)?;
     let outputs: Vec<Output> = txs
         .into_iter()
-        .map(move |tx| tx.output)
+        .map(move |tx| tx.outputs)
         .flatten()
-        .map(|output| Output {
+        .map(move |output| Output {
             amount: Some(output.value),
-            script: output.script_pubkey.to_bytes(),
+            script: output.script.into_bytes(),
         })
         .collect();
 
