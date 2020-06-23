@@ -2,7 +2,7 @@ use std::fmt;
 
 use bitcoincash_addr::Address;
 use bytes::Bytes;
-use cashweb::auth_wrapper::ValidationError;
+use cashweb::auth_wrapper::{ParseError, VerifyError};
 use prost::Message as _;
 use rocksdb::Error as RocksError;
 use tokio::task;
@@ -16,7 +16,8 @@ pub enum ProfileError {
     NotFound,
     Database(RocksError),
     ProfileDecode(prost::DecodeError),
-    Validation(ValidationError),
+    Verify(VerifyError),
+    Parse(ParseError),
 }
 
 impl From<RocksError> for ProfileError {
@@ -31,7 +32,8 @@ impl fmt::Display for ProfileError {
             Self::NotFound => "not found",
             Self::Database(err) => return err.fmt(f),
             Self::ProfileDecode(err) => return err.fmt(f),
-            Self::Validation(err) => return err.fmt(f),
+            Self::Verify(err) => return err.fmt(f),
+            Self::Parse(err) => return err.fmt(f),
         };
         f.write_str(printable)
     }
@@ -72,7 +74,11 @@ pub async fn put_profile(
     let profile = AuthWrapper::decode(profile_raw.clone()).map_err(ProfileError::ProfileDecode)?;
 
     // Verify signatures
-    profile.validate().map_err(ProfileError::Validation)?;
+    profile
+        .parse()
+        .map_err(ProfileError::Parse)?
+        .verify()
+        .map_err(ProfileError::Verify)?;
 
     // Put to database
     task::spawn_blocking(move || database.put_profile(addr.as_body(), &profile_raw))
