@@ -287,8 +287,8 @@ pub async fn put_message(
 
     for mut message in message_set.messages.into_iter() {
         // Get sender public key
-        let source_pubkey = &message.source_pub_key;
-        let destination_pubkey = &message.destination_pub_key;
+        let source_pubkey = &message.source_public_key;
+        let destination_pubkey = &message.destination_public_key;
         let source_pubkey_hash = Ripemd160::digest(digest(&SHA256, &source_pubkey).as_ref());
         let destination_pubkey_hash =
             Ripemd160::digest(digest(&SHA256, &destination_pubkey).as_ref());
@@ -321,7 +321,7 @@ pub async fn put_message(
         // If sender is not self then check stamp
         if is_self_send {
             parsed_message
-                .verify_stamp(SETTINGS.network)
+                .verify_stamp()
                 .map_err(PutMessageError::StampVerify)?;
         }
 
