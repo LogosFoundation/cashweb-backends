@@ -136,16 +136,14 @@ impl Database {
             // Take items inside namespace and before end time
             iter.take_while(|(key, _)| in_namespace(key) && before_end_key(key))
                 .map(|(_, item)| {
-                    let message = Message::decode(&item[..]).unwrap(); // This panics if stored bytes are malformed
-                    message
+                    Message::decode(&item[..]).unwrap() // This panics if stored bytes are malformed
                 })
                 .collect()
         } else {
             // Take items inside namespace
             iter.take_while(|(key, _)| in_namespace(key))
                 .map(|(_, item)| {
-                    let message = Message::decode(&item[..]).unwrap(); // This panics if stored bytes are malformed
-                    message
+                    Message::decode(&item[..]).unwrap() // This panics if stored bytes are malformed
                 })
                 .collect()
         };
