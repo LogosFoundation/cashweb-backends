@@ -7,7 +7,7 @@ use std::{
 use bitcoincash_addr::Address;
 use bytes::Bytes;
 use cashweb::{
-    bitcoin_client::{BitcoinClient, HttpConnector, NodeError},
+    bitcoin_client::{BitcoinClient, HttpClient, HttpError, NodeError},
     relay::{stamp::StampError, *},
 };
 use futures::future;
@@ -231,7 +231,7 @@ pub enum PutMessageError {
     MessageParsing(ParseError),
     PayloadDecode(prost::DecodeError),
     StampVerify(StampError),
-    StampBroadcast(NodeError),
+    StampBroadcast(HttpError),
 }
 
 impl From<RocksError> for PutMessageError {
@@ -275,7 +275,7 @@ pub async fn put_message(
     addr: Address,
     messages_raw: Bytes,
     database: Database,
-    bitcoin_client: BitcoinClient<HttpConnector>,
+    bitcoin_client: BitcoinClient<HttpClient>,
     msg_bus: MessageBus,
 ) -> Result<Response<Body>, PutMessageError> {
     // Time now

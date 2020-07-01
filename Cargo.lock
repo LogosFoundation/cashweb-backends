@@ -70,7 +70,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 
 [[package]]
 name = "async-json-rpc"
-version = "0.1.1"
+version = "0.2.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 dependencies = [
  "base64 0.12.3 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -79,8 +79,9 @@ dependencies = [
  "hyper 0.13.6 (registry+https://github.com/rust-lang/crates.io-index)",
  "hyper-tls 0.4.1 (registry+https://github.com/rust-lang/crates.io-index)",
  "serde 1.0.114 (registry+https://github.com/rust-lang/crates.io-index)",
- "serde_json 1.0.55 (registry+https://github.com/rust-lang/crates.io-index)",
+ "serde_json 1.0.56 (registry+https://github.com/rust-lang/crates.io-index)",
  "tower-service 0.3.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "tower-util 0.3.1 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
 
 [[package]]
@@ -284,73 +285,78 @@ dependencies = [
 [[package]]
 name = "cashweb"
 version = "0.1.0-alpha.3"
-source = "git+https://github.com/cashweb/cashweb-rs.git#6595cbc7e90bc439fb08cf8f786c243368f08bc4"
+source = "git+https://github.com/cashweb/cashweb-rs.git#18ba7d6f9cb1e34e31fa8318497441c3bc8babbe"
 dependencies = [
- "cashweb-auth-wrapper 0.1.0-alpha.0 (git+https://github.com/cashweb/cashweb-rs.git)",
- "cashweb-bitcoin 0.1.0-alpha.0 (git+https://github.com/cashweb/cashweb-rs.git)",
- "cashweb-bitcoin-client 0.1.0-alpha.0 (git+https://github.com/cashweb/cashweb-rs.git)",
- "cashweb-keyserver-client 0.1.0-alpha.0 (git+https://github.com/cashweb/cashweb-rs.git)",
- "cashweb-payments 0.1.0-alpha.0 (git+https://github.com/cashweb/cashweb-rs.git)",
+ "cashweb-auth-wrapper 0.1.0-alpha.1 (git+https://github.com/cashweb/cashweb-rs.git)",
+ "cashweb-bitcoin 0.1.0-alpha.1 (git+https://github.com/cashweb/cashweb-rs.git)",
+ "cashweb-bitcoin-client 0.1.0-alpha.1 (git+https://github.com/cashweb/cashweb-rs.git)",
+ "cashweb-keyserver-client 0.1.0-alpha.1 (git+https://github.com/cashweb/cashweb-rs.git)",
+ "cashweb-payments 0.1.0-alpha.1 (git+https://github.com/cashweb/cashweb-rs.git)",
  "cashweb-relay 0.1.0 (git+https://github.com/cashweb/cashweb-rs.git)",
  "cashweb-relay-client 0.1.0-alpha.0 (git+https://github.com/cashweb/cashweb-rs.git)",
+ "cashweb-secp256k1 0.17.3 (registry+https://github.com/rust-lang/crates.io-index)",
  "cashweb-token 0.1.0-alpha.3 (git+https://github.com/cashweb/cashweb-rs.git)",
 ]
 
 [[package]]
 name = "cashweb-auth-wrapper"
-version = "0.1.0-alpha.0"
-source = "git+https://github.com/cashweb/cashweb-rs.git#6595cbc7e90bc439fb08cf8f786c243368f08bc4"
+version = "0.1.0-alpha.1"
+source = "git+https://github.com/cashweb/cashweb-rs.git#18ba7d6f9cb1e34e31fa8318497441c3bc8babbe"
 dependencies = [
+ "cashweb-secp256k1 0.17.3 (registry+https://github.com/rust-lang/crates.io-index)",
  "prost 0.6.1 (registry+https://github.com/rust-lang/crates.io-index)",
  "prost-build 0.6.1 (registry+https://github.com/rust-lang/crates.io-index)",
  "ring 0.16.15 (registry+https://github.com/rust-lang/crates.io-index)",
- "secp256k1 0.17.2 (git+https://github.com/rust-bitcoin/rust-secp256k1?rev=a5147bbf015ca61bb0e4e09adb8e9b324965c291)",
 ]
 
 [[package]]
 name = "cashweb-bitcoin"
-version = "0.1.0-alpha.0"
-source = "git+https://github.com/cashweb/cashweb-rs.git#6595cbc7e90bc439fb08cf8f786c243368f08bc4"
+version = "0.1.0-alpha.1"
+source = "git+https://github.com/cashweb/cashweb-rs.git#18ba7d6f9cb1e34e31fa8318497441c3bc8babbe"
 dependencies = [
  "bytes 0.5.5 (registry+https://github.com/rust-lang/crates.io-index)",
+ "cashweb-secp256k1 0.17.3 (registry+https://github.com/rust-lang/crates.io-index)",
  "ring 0.16.15 (registry+https://github.com/rust-lang/crates.io-index)",
- "secp256k1 0.17.2 (git+https://github.com/rust-bitcoin/rust-secp256k1?rev=a5147bbf015ca61bb0e4e09adb8e9b324965c291)",
  "serde 1.0.114 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
 
 [[package]]
 name = "cashweb-bitcoin-client"
-version = "0.1.0-alpha.0"
-source = "git+https://github.com/cashweb/cashweb-rs.git#6595cbc7e90bc439fb08cf8f786c243368f08bc4"
+version = "0.1.0-alpha.1"
+source = "git+https://github.com/cashweb/cashweb-rs.git#18ba7d6f9cb1e34e31fa8318497441c3bc8babbe"
 dependencies = [
- "async-json-rpc 0.1.1 (registry+https://github.com/rust-lang/crates.io-index)",
+ "async-json-rpc 0.2.2 (registry+https://github.com/rust-lang/crates.io-index)",
  "hex 0.4.2 (registry+https://github.com/rust-lang/crates.io-index)",
+ "hyper 0.13.6 (registry+https://github.com/rust-lang/crates.io-index)",
+ "hyper-tls 0.4.1 (registry+https://github.com/rust-lang/crates.io-index)",
  "serde 1.0.114 (registry+https://github.com/rust-lang/crates.io-index)",
- "serde_json 1.0.55 (registry+https://github.com/rust-lang/crates.io-index)",
+ "serde_json 1.0.56 (registry+https://github.com/rust-lang/crates.io-index)",
+ "tower-service 0.3.0 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
 
 [[package]]
 name = "cashweb-keyserver-client"
-version = "0.1.0-alpha.0"
-source = "git+https://github.com/cashweb/cashweb-rs.git#6595cbc7e90bc439fb08cf8f786c243368f08bc4"
+version = "0.1.0-alpha.1"
+source = "git+https://github.com/cashweb/cashweb-rs.git#18ba7d6f9cb1e34e31fa8318497441c3bc8babbe"
 dependencies = [
  "async-trait 0.1.36 (registry+https://github.com/rust-lang/crates.io-index)",
- "cashweb-auth-wrapper 0.1.0-alpha.0 (git+https://github.com/cashweb/cashweb-rs.git)",
+ "cashweb-auth-wrapper 0.1.0-alpha.1 (git+https://github.com/cashweb/cashweb-rs.git)",
+ "cashweb-secp256k1 0.17.3 (registry+https://github.com/rust-lang/crates.io-index)",
  "futures-core 0.3.5 (registry+https://github.com/rust-lang/crates.io-index)",
  "futures-util 0.3.5 (registry+https://github.com/rust-lang/crates.io-index)",
  "hyper 0.13.6 (registry+https://github.com/rust-lang/crates.io-index)",
+ "hyper-tls 0.4.1 (registry+https://github.com/rust-lang/crates.io-index)",
  "prost 0.6.1 (registry+https://github.com/rust-lang/crates.io-index)",
  "prost-build 0.6.1 (registry+https://github.com/rust-lang/crates.io-index)",
  "rand 0.7.3 (registry+https://github.com/rust-lang/crates.io-index)",
- "secp256k1 0.17.2 (git+https://github.com/rust-bitcoin/rust-secp256k1?rev=a5147bbf015ca61bb0e4e09adb8e9b324965c291)",
  "tower-service 0.3.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "tower-util 0.3.1 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
 
 [[package]]
 name = "cashweb-payments"
-version = "0.1.0-alpha.0"
-source = "git+https://github.com/cashweb/cashweb-rs.git#6595cbc7e90bc439fb08cf8f786c243368f08bc4"
+version = "0.1.0-alpha.1"
+source = "git+https://github.com/cashweb/cashweb-rs.git#18ba7d6f9cb1e34e31fa8318497441c3bc8babbe"
 dependencies = [
  "bytes 0.5.5 (registry+https://github.com/rust-lang/crates.io-index)",
  "dashmap 3.11.4 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -364,51 +370,71 @@ dependencies = [
 [[package]]
 name = "cashweb-relay"
 version = "0.1.0"
-source = "git+https://github.com/cashweb/cashweb-rs.git#6595cbc7e90bc439fb08cf8f786c243368f08bc4"
+source = "git+https://github.com/cashweb/cashweb-rs.git#18ba7d6f9cb1e34e31fa8318497441c3bc8babbe"
 dependencies = [
  "aes 0.4.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "block-modes 0.4.0 (registry+https://github.com/rust-lang/crates.io-index)",
- "cashweb-bitcoin 0.1.0-alpha.0 (git+https://github.com/cashweb/cashweb-rs.git)",
+ "cashweb-bitcoin 0.1.0-alpha.1 (git+https://github.com/cashweb/cashweb-rs.git)",
+ "cashweb-secp256k1 0.17.3 (registry+https://github.com/rust-lang/crates.io-index)",
  "prost 0.6.1 (registry+https://github.com/rust-lang/crates.io-index)",
  "prost-build 0.6.1 (registry+https://github.com/rust-lang/crates.io-index)",
  "ring 0.16.15 (registry+https://github.com/rust-lang/crates.io-index)",
  "ripemd160 0.9.1 (registry+https://github.com/rust-lang/crates.io-index)",
- "secp256k1 0.17.2 (git+https://github.com/rust-bitcoin/rust-secp256k1?rev=a5147bbf015ca61bb0e4e09adb8e9b324965c291)",
 ]
 
 [[package]]
 name = "cashweb-relay-client"
 version = "0.1.0-alpha.0"
-source = "git+https://github.com/cashweb/cashweb-rs.git#6595cbc7e90bc439fb08cf8f786c243368f08bc4"
+source = "git+https://github.com/cashweb/cashweb-rs.git#18ba7d6f9cb1e34e31fa8318497441c3bc8babbe"
 dependencies = [
  "async-trait 0.1.36 (registry+https://github.com/rust-lang/crates.io-index)",
- "cashweb-auth-wrapper 0.1.0-alpha.0 (git+https://github.com/cashweb/cashweb-rs.git)",
+ "cashweb-auth-wrapper 0.1.0-alpha.1 (git+https://github.com/cashweb/cashweb-rs.git)",
  "cashweb-relay 0.1.0 (git+https://github.com/cashweb/cashweb-rs.git)",
+ "cashweb-secp256k1 0.17.3 (registry+https://github.com/rust-lang/crates.io-index)",
  "futures-core 0.3.5 (registry+https://github.com/rust-lang/crates.io-index)",
  "futures-util 0.3.5 (registry+https://github.com/rust-lang/crates.io-index)",
+ "http 0.2.1 (registry+https://github.com/rust-lang/crates.io-index)",
  "hyper 0.13.6 (registry+https://github.com/rust-lang/crates.io-index)",
  "prost 0.6.1 (registry+https://github.com/rust-lang/crates.io-index)",
  "rand 0.7.3 (registry+https://github.com/rust-lang/crates.io-index)",
- "secp256k1 0.17.2 (git+https://github.com/rust-bitcoin/rust-secp256k1?rev=a5147bbf015ca61bb0e4e09adb8e9b324965c291)",
  "tower-service 0.3.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "tower-util 0.3.1 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
 
 [[package]]
+name = "cashweb-secp256k1"
+version = "0.17.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+dependencies = [
+ "cashweb-secp256k1-sys 0.1.2 (registry+https://github.com/rust-lang/crates.io-index)",
+]
+
+[[package]]
+name = "cashweb-secp256k1-sys"
+version = "0.1.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+dependencies = [
+ "cc 1.0.56 (registry+https://github.com/rust-lang/crates.io-index)",
+]
+
+[[package]]
 name = "cashweb-token"
 version = "0.1.0-alpha.3"
-source = "git+https://github.com/cashweb/cashweb-rs.git#6595cbc7e90bc439fb08cf8f786c243368f08bc4"
+source = "git+https://github.com/cashweb/cashweb-rs.git#18ba7d6f9cb1e34e31fa8318497441c3bc8babbe"
 dependencies = [
  "base64 0.12.3 (registry+https://github.com/rust-lang/crates.io-index)",
- "cashweb-bitcoin 0.1.0-alpha.0 (git+https://github.com/cashweb/cashweb-rs.git)",
- "cashweb-bitcoin-client 0.1.0-alpha.0 (git+https://github.com/cashweb/cashweb-rs.git)",
+ "cashweb-bitcoin 0.1.0-alpha.1 (git+https://github.com/cashweb/cashweb-rs.git)",
+ "cashweb-bitcoin-client 0.1.0-alpha.1 (git+https://github.com/cashweb/cashweb-rs.git)",
  "http 0.2.1 (registry+https://github.com/rust-lang/crates.io-index)",
+ "hyper 0.13.6 (registry+https://github.com/rust-lang/crates.io-index)",
+ "hyper-tls 0.4.1 (registry+https://github.com/rust-lang/crates.io-index)",
  "ring 0.16.15 (registry+https://github.com/rust-lang/crates.io-index)",
+ "tower-service 0.3.0 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
 
 [[package]]
 name = "cc"
-version = "1.0.55"
+version = "1.0.56"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 dependencies = [
  "jobserver 0.1.21 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -447,7 +473,7 @@ dependencies = [
  "bitflags 1.2.1 (registry+https://github.com/rust-lang/crates.io-index)",
  "strsim 0.8.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "textwrap 0.11.0 (registry+https://github.com/rust-lang/crates.io-index)",
- "unicode-width 0.1.7 (registry+https://github.com/rust-lang/crates.io-index)",
+ "unicode-width 0.1.8 (registry+https://github.com/rust-lang/crates.io-index)",
  "vec_map 0.8.2 (registry+https://github.com/rust-lang/crates.io-index)",
  "yaml-rust 0.3.5 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
@@ -470,7 +496,7 @@ dependencies = [
  "rust-ini 0.13.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "serde 1.0.114 (registry+https://github.com/rust-lang/crates.io-index)",
  "serde-hjson 0.9.1 (registry+https://github.com/rust-lang/crates.io-index)",
- "serde_json 1.0.55 (registry+https://github.com/rust-lang/crates.io-index)",
+ "serde_json 1.0.56 (registry+https://github.com/rust-lang/crates.io-index)",
  "toml 0.5.6 (registry+https://github.com/rust-lang/crates.io-index)",
  "yaml-rust 0.4.4 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
@@ -727,7 +753,7 @@ name = "generator"
 version = "0.6.21"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 dependencies = [
- "cc 1.0.55 (registry+https://github.com/rust-lang/crates.io-index)",
+ "cc 1.0.56 (registry+https://github.com/rust-lang/crates.io-index)",
  "libc 0.2.71 (registry+https://github.com/rust-lang/crates.io-index)",
  "log 0.4.8 (registry+https://github.com/rust-lang/crates.io-index)",
  "rustc_version 0.2.3 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -952,10 +978,10 @@ dependencies = [
 
 [[package]]
 name = "js-sys"
-version = "0.3.40"
+version = "0.3.41"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 dependencies = [
- "wasm-bindgen 0.2.63 (registry+https://github.com/rust-lang/crates.io-index)",
+ "wasm-bindgen 0.2.64 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
 
 [[package]]
@@ -999,7 +1025,7 @@ name = "libloading"
 version = "0.5.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 dependencies = [
- "cc 1.0.55 (registry+https://github.com/rust-lang/crates.io-index)",
+ "cc 1.0.56 (registry+https://github.com/rust-lang/crates.io-index)",
  "winapi 0.3.9 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
 
@@ -1009,7 +1035,7 @@ version = "6.7.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 dependencies = [
  "bindgen 0.53.3 (registry+https://github.com/rust-lang/crates.io-index)",
- "cc 1.0.55 (registry+https://github.com/rust-lang/crates.io-index)",
+ "cc 1.0.56 (registry+https://github.com/rust-lang/crates.io-index)",
  "glob 0.3.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "libc 0.2.71 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
@@ -1249,7 +1275,7 @@ version = "0.9.58"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 dependencies = [
  "autocfg 1.0.0 (registry+https://github.com/rust-lang/crates.io-index)",
- "cc 1.0.55 (registry+https://github.com/rust-lang/crates.io-index)",
+ "cc 1.0.56 (registry+https://github.com/rust-lang/crates.io-index)",
  "libc 0.2.71 (registry+https://github.com/rust-lang/crates.io-index)",
  "pkg-config 0.3.17 (registry+https://github.com/rust-lang/crates.io-index)",
  "vcpkg 0.2.10 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -1390,7 +1416,7 @@ dependencies = [
  "cfg-if 0.1.10 (registry+https://github.com/rust-lang/crates.io-index)",
  "fnv 1.0.7 (registry+https://github.com/rust-lang/crates.io-index)",
  "lazy_static 1.4.0 (registry+https://github.com/rust-lang/crates.io-index)",
- "protobuf 2.15.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "protobuf 2.15.1 (registry+https://github.com/rust-lang/crates.io-index)",
  "spin 0.5.2 (registry+https://github.com/rust-lang/crates.io-index)",
  "thiserror 1.0.20 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
@@ -1455,7 +1481,7 @@ dependencies = [
 
 [[package]]
 name = "protobuf"
-version = "2.15.0"
+version = "2.15.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 
 [[package]]
@@ -1664,12 +1690,12 @@ name = "ring"
 version = "0.16.15"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 dependencies = [
- "cc 1.0.55 (registry+https://github.com/rust-lang/crates.io-index)",
+ "cc 1.0.56 (registry+https://github.com/rust-lang/crates.io-index)",
  "libc 0.2.71 (registry+https://github.com/rust-lang/crates.io-index)",
  "once_cell 1.4.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "spin 0.5.2 (registry+https://github.com/rust-lang/crates.io-index)",
  "untrusted 0.7.1 (registry+https://github.com/rust-lang/crates.io-index)",
- "web-sys 0.3.40 (registry+https://github.com/rust-lang/crates.io-index)",
+ "web-sys 0.3.41 (registry+https://github.com/rust-lang/crates.io-index)",
  "winapi 0.3.9 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
 
@@ -1751,22 +1777,6 @@ version = "1.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 
 [[package]]
-name = "secp256k1"
-version = "0.17.2"
-source = "git+https://github.com/rust-bitcoin/rust-secp256k1?rev=a5147bbf015ca61bb0e4e09adb8e9b324965c291#a5147bbf015ca61bb0e4e09adb8e9b324965c291"
-dependencies = [
- "secp256k1-sys 0.1.2 (git+https://github.com/rust-bitcoin/rust-secp256k1?rev=a5147bbf015ca61bb0e4e09adb8e9b324965c291)",
-]
-
-[[package]]
-name = "secp256k1-sys"
-version = "0.1.2"
-source = "git+https://github.com/rust-bitcoin/rust-secp256k1?rev=a5147bbf015ca61bb0e4e09adb8e9b324965c291#a5147bbf015ca61bb0e4e09adb8e9b324965c291"
-dependencies = [
- "cc 1.0.55 (registry+https://github.com/rust-lang/crates.io-index)",
-]
-
-[[package]]
 name = "security-framework"
 version = "0.4.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1837,7 +1847,7 @@ dependencies = [
 
 [[package]]
 name = "serde_json"
-version = "1.0.55"
+version = "1.0.56"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 dependencies = [
  "itoa 0.4.6 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -1967,7 +1977,7 @@ name = "textwrap"
 version = "0.11.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 dependencies = [
- "unicode-width 0.1.7 (registry+https://github.com/rust-lang/crates.io-index)",
+ "unicode-width 0.1.8 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
 
 [[package]]
@@ -2171,7 +2181,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 
 [[package]]
 name = "unicode-width"
-version = "0.1.7"
+version = "0.1.8"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 
 [[package]]
@@ -2255,7 +2265,7 @@ dependencies = [
  "pin-project 0.4.22 (registry+https://github.com/rust-lang/crates.io-index)",
  "scoped-tls 1.0.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "serde 1.0.114 (registry+https://github.com/rust-lang/crates.io-index)",
- "serde_json 1.0.55 (registry+https://github.com/rust-lang/crates.io-index)",
+ "serde_json 1.0.56 (registry+https://github.com/rust-lang/crates.io-index)",
  "serde_urlencoded 0.6.1 (registry+https://github.com/rust-lang/crates.io-index)",
  "tokio 0.2.21 (registry+https://github.com/rust-lang/crates.io-index)",
  "tokio-tungstenite 0.10.1 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -2270,16 +2280,16 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 
 [[package]]
 name = "wasm-bindgen"
-version = "0.2.63"
+version = "0.2.64"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 dependencies = [
  "cfg-if 0.1.10 (registry+https://github.com/rust-lang/crates.io-index)",
- "wasm-bindgen-macro 0.2.63 (registry+https://github.com/rust-lang/crates.io-index)",
+ "wasm-bindgen-macro 0.2.64 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
 
 [[package]]
 name = "wasm-bindgen-backend"
-version = "0.2.63"
+version = "0.2.64"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 dependencies = [
  "bumpalo 3.4.0 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -2288,42 +2298,42 @@ dependencies = [
  "proc-macro2 1.0.18 (registry+https://github.com/rust-lang/crates.io-index)",
  "quote 1.0.7 (registry+https://github.com/rust-lang/crates.io-index)",
  "syn 1.0.33 (registry+https://github.com/rust-lang/crates.io-index)",
- "wasm-bindgen-shared 0.2.63 (registry+https://github.com/rust-lang/crates.io-index)",
+ "wasm-bindgen-shared 0.2.64 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
 
 [[package]]
 name = "wasm-bindgen-macro"
-version = "0.2.63"
+version = "0.2.64"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 dependencies = [
  "quote 1.0.7 (registry+https://github.com/rust-lang/crates.io-index)",
- "wasm-bindgen-macro-support 0.2.63 (registry+https://github.com/rust-lang/crates.io-index)",
+ "wasm-bindgen-macro-support 0.2.64 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
 
 [[package]]
 name = "wasm-bindgen-macro-support"
-version = "0.2.63"
+version = "0.2.64"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 dependencies = [
  "proc-macro2 1.0.18 (registry+https://github.com/rust-lang/crates.io-index)",
  "quote 1.0.7 (registry+https://github.com/rust-lang/crates.io-index)",
  "syn 1.0.33 (registry+https://github.com/rust-lang/crates.io-index)",
- "wasm-bindgen-backend 0.2.63 (registry+https://github.com/rust-lang/crates.io-index)",
- "wasm-bindgen-shared 0.2.63 (registry+https://github.com/rust-lang/crates.io-index)",
+ "wasm-bindgen-backend 0.2.64 (registry+https://github.com/rust-lang/crates.io-index)",
+ "wasm-bindgen-shared 0.2.64 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
 
 [[package]]
 name = "wasm-bindgen-shared"
-version = "0.2.63"
+version = "0.2.64"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 
 [[package]]
 name = "web-sys"
-version = "0.3.40"
+version = "0.3.41"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 dependencies = [
- "js-sys 0.3.40 (registry+https://github.com/rust-lang/crates.io-index)",
- "wasm-bindgen 0.2.63 (registry+https://github.com/rust-lang/crates.io-index)",
+ "js-sys 0.3.41 (registry+https://github.com/rust-lang/crates.io-index)",
+ "wasm-bindgen 0.2.64 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
 
 [[package]]
@@ -2403,7 +2413,7 @@ dependencies = [
 "checksum anyhow 1.0.31 (registry+https://github.com/rust-lang/crates.io-index)" = "85bb70cc08ec97ca5450e6eba421deeea5f172c0fc61f78b5357b2a8e8be195f"
 "checksum arrayref 0.3.6 (registry+https://github.com/rust-lang/crates.io-index)" = "a4c527152e37cf757a3f78aae5a06fbeefdb07ccc535c980a3208ee3060dd544"
 "checksum arrayvec 0.5.1 (registry+https://github.com/rust-lang/crates.io-index)" = "cff77d8686867eceff3105329d4698d96c2391c176d5d03adc90c7389162b5b8"
-"checksum async-json-rpc 0.1.1 (registry+https://github.com/rust-lang/crates.io-index)" = "6a5bd3c866038246c1e1c564becc7fb1b325c6ae4738e9e9c6344786d2a8c80f"
+"checksum async-json-rpc 0.2.2 (registry+https://github.com/rust-lang/crates.io-index)" = "7ce6e4856836a197fa45d90b2a82354cd4a271c93bc4a1b3c1e8ef6d94ea505d"
 "checksum async-trait 0.1.36 (registry+https://github.com/rust-lang/crates.io-index)" = "a265e3abeffdce30b2e26b7a11b222fe37c6067404001b434101457d0385eb92"
 "checksum atty 0.2.14 (registry+https://github.com/rust-lang/crates.io-index)" = "d9b39be18770d11421cdb1b9947a45dd3f37e93092cbf377614828a319d5fee8"
 "checksum autocfg 0.1.7 (registry+https://github.com/rust-lang/crates.io-index)" = "1d49d90015b3c36167a20fe2810c5cd875ad504b39cff3d4eae7977e6b7c1cb2"
@@ -2426,15 +2436,17 @@ dependencies = [
 "checksum byteorder 1.3.4 (registry+https://github.com/rust-lang/crates.io-index)" = "08c48aae112d48ed9f069b33538ea9e3e90aa263cfa3d1c24309612b1f7472de"
 "checksum bytes 0.5.5 (registry+https://github.com/rust-lang/crates.io-index)" = "118cf036fbb97d0816e3c34b2d7a1e8cfc60f68fcf63d550ddbe9bd5f59c213b"
 "checksum cashweb 0.1.0-alpha.3 (git+https://github.com/cashweb/cashweb-rs.git)" = "<none>"
-"checksum cashweb-auth-wrapper 0.1.0-alpha.0 (git+https://github.com/cashweb/cashweb-rs.git)" = "<none>"
-"checksum cashweb-bitcoin 0.1.0-alpha.0 (git+https://github.com/cashweb/cashweb-rs.git)" = "<none>"
-"checksum cashweb-bitcoin-client 0.1.0-alpha.0 (git+https://github.com/cashweb/cashweb-rs.git)" = "<none>"
-"checksum cashweb-keyserver-client 0.1.0-alpha.0 (git+https://github.com/cashweb/cashweb-rs.git)" = "<none>"
-"checksum cashweb-payments 0.1.0-alpha.0 (git+https://github.com/cashweb/cashweb-rs.git)" = "<none>"
+"checksum cashweb-auth-wrapper 0.1.0-alpha.1 (git+https://github.com/cashweb/cashweb-rs.git)" = "<none>"
+"checksum cashweb-bitcoin 0.1.0-alpha.1 (git+https://github.com/cashweb/cashweb-rs.git)" = "<none>"
+"checksum cashweb-bitcoin-client 0.1.0-alpha.1 (git+https://github.com/cashweb/cashweb-rs.git)" = "<none>"
+"checksum cashweb-keyserver-client 0.1.0-alpha.1 (git+https://github.com/cashweb/cashweb-rs.git)" = "<none>"
+"checksum cashweb-payments 0.1.0-alpha.1 (git+https://github.com/cashweb/cashweb-rs.git)" = "<none>"
 "checksum cashweb-relay 0.1.0 (git+https://github.com/cashweb/cashweb-rs.git)" = "<none>"
 "checksum cashweb-relay-client 0.1.0-alpha.0 (git+https://github.com/cashweb/cashweb-rs.git)" = "<none>"
+"checksum cashweb-secp256k1 0.17.3 (registry+https://github.com/rust-lang/crates.io-index)" = "533e59822597a20ec3d7190c0b230fec9a781e1082e2ebb7a640f5b00e2c8278"
+"checksum cashweb-secp256k1-sys 0.1.2 (registry+https://github.com/rust-lang/crates.io-index)" = "224ad5593107a227e1d06253e8b17f92525ccb5694b813c7ced6b027fcffda97"
 "checksum cashweb-token 0.1.0-alpha.3 (git+https://github.com/cashweb/cashweb-rs.git)" = "<none>"
-"checksum cc 1.0.55 (registry+https://github.com/rust-lang/crates.io-index)" = "b1be3409f94d7bdceeb5f5fac551039d9b3f00e25da7a74fc4d33400a0d96368"
+"checksum cc 1.0.56 (registry+https://github.com/rust-lang/crates.io-index)" = "77c1f1d60091c1b73e2b1f4560ab419204b178e625fa945ded7b660becd2bd46"
 "checksum cexpr 0.4.0 (registry+https://github.com/rust-lang/crates.io-index)" = "f4aedb84272dbe89af497cf81375129abda4fc0a9e7c5d317498c15cc30c0d27"
 "checksum cfg-if 0.1.10 (registry+https://github.com/rust-lang/crates.io-index)" = "4785bdd1c96b2a846b2bd7cc02e86b6b3dbf14e7e53446c4f54c92a361040822"
 "checksum clang-sys 0.29.3 (registry+https://github.com/rust-lang/crates.io-index)" = "fe6837df1d5cba2397b835c8530f51723267e16abbf83892e9e5af4f0e5dd10a"
@@ -2496,7 +2508,7 @@ dependencies = [
 "checksum itertools 0.8.2 (registry+https://github.com/rust-lang/crates.io-index)" = "f56a2d0bc861f9165be4eb3442afd3c236d8a98afd426f65d92324ae1091a484"
 "checksum itoa 0.4.6 (registry+https://github.com/rust-lang/crates.io-index)" = "dc6f3ad7b9d11a0c00842ff8de1b60ee58661048eb8049ed33c73594f359d7e6"
 "checksum jobserver 0.1.21 (registry+https://github.com/rust-lang/crates.io-index)" = "5c71313ebb9439f74b00d9d2dcec36440beaf57a6aa0623068441dd7cd81a7f2"
-"checksum js-sys 0.3.40 (registry+https://github.com/rust-lang/crates.io-index)" = "ce10c23ad2ea25ceca0093bd3192229da4c5b3c0f2de499c1ecac0d98d452177"
+"checksum js-sys 0.3.41 (registry+https://github.com/rust-lang/crates.io-index)" = "c4b9172132a62451e56142bff9afc91c8e4a4500aa5b847da36815b63bfda916"
 "checksum kernel32-sys 0.2.2 (registry+https://github.com/rust-lang/crates.io-index)" = "7507624b29483431c0ba2d82aece8ca6cdba9382bff4ddd0f7490560c056098d"
 "checksum lazy_static 1.4.0 (registry+https://github.com/rust-lang/crates.io-index)" = "e2abad23fbc42b3700f2f279844dc832adb2b2eb069b2df918f455c4e18cc646"
 "checksum lazycell 1.2.1 (registry+https://github.com/rust-lang/crates.io-index)" = "b294d6fa9ee409a054354afc4352b0b9ef7ca222c69b8812cbea9e7d2bf3783f"
@@ -2555,7 +2567,7 @@ dependencies = [
 "checksum prost-build 0.6.1 (registry+https://github.com/rust-lang/crates.io-index)" = "02b10678c913ecbd69350e8535c3aef91a8676c0773fc1d7b95cdd196d7f2f26"
 "checksum prost-derive 0.6.1 (registry+https://github.com/rust-lang/crates.io-index)" = "537aa19b95acde10a12fec4301466386f757403de4cd4e5b4fa78fb5ecb18f72"
 "checksum prost-types 0.6.1 (registry+https://github.com/rust-lang/crates.io-index)" = "1834f67c0697c001304b75be76f67add9c89742eda3a085ad8ee0bb38c3417aa"
-"checksum protobuf 2.15.0 (registry+https://github.com/rust-lang/crates.io-index)" = "3e2ccb6b8f7e175f2d2401e7a5988b0630000164d221262c4fe50ae729513202"
+"checksum protobuf 2.15.1 (registry+https://github.com/rust-lang/crates.io-index)" = "e4951a8253c06334be9fe320bbcf73f14949fde62a0c8128d697eec1ff0fa8cd"
 "checksum quick-error 1.2.3 (registry+https://github.com/rust-lang/crates.io-index)" = "a1d01941d82fa2ab50be1e79e6714289dd7cde78eba4c074bc5a4374f650dfe0"
 "checksum quote 0.5.2 (registry+https://github.com/rust-lang/crates.io-index)" = "9949cfe66888ffe1d53e6ec9d9f3b70714083854be20fd5e271b232a017401e8"
 "checksum quote 1.0.7 (registry+https://github.com/rust-lang/crates.io-index)" = "aa563d17ecb180e500da1cfd2b028310ac758de548efdd203e18f283af693f37"
@@ -2591,8 +2603,6 @@ dependencies = [
 "checksum schannel 0.1.19 (registry+https://github.com/rust-lang/crates.io-index)" = "8f05ba609c234e60bee0d547fe94a4c7e9da733d1c962cf6e59efa4cd9c8bc75"
 "checksum scoped-tls 0.1.2 (registry+https://github.com/rust-lang/crates.io-index)" = "332ffa32bf586782a3efaeb58f127980944bbc8c4d6913a86107ac2a5ab24b28"
 "checksum scoped-tls 1.0.0 (registry+https://github.com/rust-lang/crates.io-index)" = "ea6a9290e3c9cf0f18145ef7ffa62d68ee0bf5fcd651017e586dc7fd5da448c2"
-"checksum secp256k1 0.17.2 (git+https://github.com/rust-bitcoin/rust-secp256k1?rev=a5147bbf015ca61bb0e4e09adb8e9b324965c291)" = "<none>"
-"checksum secp256k1-sys 0.1.2 (git+https://github.com/rust-bitcoin/rust-secp256k1?rev=a5147bbf015ca61bb0e4e09adb8e9b324965c291)" = "<none>"
 "checksum security-framework 0.4.4 (registry+https://github.com/rust-lang/crates.io-index)" = "64808902d7d99f78eaddd2b4e2509713babc3dc3c85ad6f4c447680f3c01e535"
 "checksum security-framework-sys 0.4.3 (registry+https://github.com/rust-lang/crates.io-index)" = "17bf11d99252f512695eb468de5516e5cf75455521e69dfe343f3b74e4748405"
 "checksum semver 0.9.0 (registry+https://github.com/rust-lang/crates.io-index)" = "1d7eb9ef2c18661902cc47e535f9bc51b78acd254da71d375c2f6720d9a40403"
@@ -2601,7 +2611,7 @@ dependencies = [
 "checksum serde 1.0.114 (registry+https://github.com/rust-lang/crates.io-index)" = "5317f7588f0a5078ee60ef675ef96735a1442132dc645eb1d12c018620ed8cd3"
 "checksum serde-hjson 0.9.1 (registry+https://github.com/rust-lang/crates.io-index)" = "6a3a4e0ea8a88553209f6cc6cfe8724ecad22e1acf372793c27d995290fe74f8"
 "checksum serde_derive 1.0.114 (registry+https://github.com/rust-lang/crates.io-index)" = "2a0be94b04690fbaed37cddffc5c134bf537c8e3329d53e982fe04c374978f8e"
-"checksum serde_json 1.0.55 (registry+https://github.com/rust-lang/crates.io-index)" = "ec2c5d7e739bc07a3e73381a39d61fdb5f671c60c1df26a130690665803d8226"
+"checksum serde_json 1.0.56 (registry+https://github.com/rust-lang/crates.io-index)" = "3433e879a558dde8b5e8feb2a04899cf34fdde1fafb894687e52105fc1162ac3"
 "checksum serde_test 0.8.23 (registry+https://github.com/rust-lang/crates.io-index)" = "110b3dbdf8607ec493c22d5d947753282f3bae73c0f56d322af1e8c78e4c23d5"
 "checksum serde_urlencoded 0.6.1 (registry+https://github.com/rust-lang/crates.io-index)" = "9ec5d77e2d4c73717816afac02670d5c4f534ea95ed430442cad02e7a6e32c97"
 "checksum sha-1 0.8.2 (registry+https://github.com/rust-lang/crates.io-index)" = "f7d94d0bede923b3cea61f3f1ff57ff8cdfd77b400fb8f9998949e0cf04163df"
@@ -2640,7 +2650,7 @@ dependencies = [
 "checksum unicode-bidi 0.3.4 (registry+https://github.com/rust-lang/crates.io-index)" = "49f2bd0c6468a8230e1db229cff8029217cf623c767ea5d60bfbd42729ea54d5"
 "checksum unicode-normalization 0.1.13 (registry+https://github.com/rust-lang/crates.io-index)" = "6fb19cf769fa8c6a80a162df694621ebeb4dafb606470b2b2fce0be40a98a977"
 "checksum unicode-segmentation 1.6.0 (registry+https://github.com/rust-lang/crates.io-index)" = "e83e153d1053cbb5a118eeff7fd5be06ed99153f00dbcd8ae310c5fb2b22edc0"
-"checksum unicode-width 0.1.7 (registry+https://github.com/rust-lang/crates.io-index)" = "caaa9d531767d1ff2150b9332433f32a24622147e5ebb1f26409d5da67afd479"
+"checksum unicode-width 0.1.8 (registry+https://github.com/rust-lang/crates.io-index)" = "9337591893a19b88d8d87f2cec1e73fad5cdfd10e5a6f349f498ad6ea2ffb1e3"
 "checksum unicode-xid 0.1.0 (registry+https://github.com/rust-lang/crates.io-index)" = "fc72304796d0818e357ead4e000d19c9c174ab23dc11093ac919054d20a6a7fc"
 "checksum unicode-xid 0.2.1 (registry+https://github.com/rust-lang/crates.io-index)" = "f7fe0bb3479651439c9112f72b6c505038574c9fbb575ed1bf3b797fa39dd564"
 "checksum untrusted 0.7.1 (registry+https://github.com/rust-lang/crates.io-index)" = "a156c684c91ea7d62626509bce3cb4e1d9ed5c4d978f7b4352658f96a4c26b4a"
@@ -2654,12 +2664,12 @@ dependencies = [
 "checksum want 0.3.0 (registry+https://github.com/rust-lang/crates.io-index)" = "1ce8a968cb1cd110d136ff8b819a556d6fb6d919363c61534f6860c7eb172ba0"
 "checksum warp 0.2.3 (registry+https://github.com/rust-lang/crates.io-index)" = "0e95175b7a927258ecbb816bdada3cc469cb68593e7940b96a60f4af366a9970"
 "checksum wasi 0.9.0+wasi-snapshot-preview1 (registry+https://github.com/rust-lang/crates.io-index)" = "cccddf32554fecc6acb585f82a32a72e28b48f8c4c1883ddfeeeaa96f7d8e519"
-"checksum wasm-bindgen 0.2.63 (registry+https://github.com/rust-lang/crates.io-index)" = "4c2dc4aa152834bc334f506c1a06b866416a8b6697d5c9f75b9a689c8486def0"
-"checksum wasm-bindgen-backend 0.2.63 (registry+https://github.com/rust-lang/crates.io-index)" = "ded84f06e0ed21499f6184df0e0cb3494727b0c5da89534e0fcc55c51d812101"
-"checksum wasm-bindgen-macro 0.2.63 (registry+https://github.com/rust-lang/crates.io-index)" = "838e423688dac18d73e31edce74ddfac468e37b1506ad163ffaf0a46f703ffe3"
-"checksum wasm-bindgen-macro-support 0.2.63 (registry+https://github.com/rust-lang/crates.io-index)" = "3156052d8ec77142051a533cdd686cba889537b213f948cd1d20869926e68e92"
-"checksum wasm-bindgen-shared 0.2.63 (registry+https://github.com/rust-lang/crates.io-index)" = "c9ba19973a58daf4db6f352eda73dc0e289493cd29fb2632eb172085b6521acd"
-"checksum web-sys 0.3.40 (registry+https://github.com/rust-lang/crates.io-index)" = "7b72fe77fd39e4bd3eaa4412fd299a0be6b3dfe9d2597e2f1c20beb968f41d17"
+"checksum wasm-bindgen 0.2.64 (registry+https://github.com/rust-lang/crates.io-index)" = "6a634620115e4a229108b71bde263bb4220c483b3f07f5ba514ee8d15064c4c2"
+"checksum wasm-bindgen-backend 0.2.64 (registry+https://github.com/rust-lang/crates.io-index)" = "3e53963b583d18a5aa3aaae4b4c1cb535218246131ba22a71f05b518098571df"
+"checksum wasm-bindgen-macro 0.2.64 (registry+https://github.com/rust-lang/crates.io-index)" = "3fcfd5ef6eec85623b4c6e844293d4516470d8f19cd72d0d12246017eb9060b8"
+"checksum wasm-bindgen-macro-support 0.2.64 (registry+https://github.com/rust-lang/crates.io-index)" = "9adff9ee0e94b926ca81b57f57f86d5545cdcb1d259e21ec9bdd95b901754c75"
+"checksum wasm-bindgen-shared 0.2.64 (registry+https://github.com/rust-lang/crates.io-index)" = "7f7b90ea6c632dd06fd765d44542e234d5e63d9bb917ecd64d79778a13bd79ae"
+"checksum web-sys 0.3.41 (registry+https://github.com/rust-lang/crates.io-index)" = "863539788676619aac1a23e2df3655e96b32b0e05eb72ca34ba045ad573c625d"
 "checksum which 3.1.1 (registry+https://github.com/rust-lang/crates.io-index)" = "d011071ae14a2f6671d0b74080ae0cd8ebf3a6f8c9589a2cd45f23126fe29724"
 "checksum winapi 0.2.8 (registry+https://github.com/rust-lang/crates.io-index)" = "167dc9d6949a9b857f3451275e911c3f44255842c1f7a76f33c55103a909087a"
 "checksum winapi 0.3.9 (registry+https://github.com/rust-lang/crates.io-index)" = "5c839a674fcd7a98952e593242ea400abe93992746761e38641405d28b00f419"

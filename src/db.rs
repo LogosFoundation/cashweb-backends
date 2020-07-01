@@ -151,12 +151,12 @@ impl Database {
         let mut message_page = MessagePage::default();
         if let Some(message) = messages.first() {
             message_page.start_time = message.received_time;
-            let payload_digest = message.payload_digest().unwrap(); // This is safe
+            let payload_digest = message.digest().unwrap(); // This is safe
             message_page.start_digest = payload_digest.to_vec();
         }
         if let Some(message) = messages.last() {
             message_page.start_time = message.received_time;
-            let payload_digest = message.payload_digest().unwrap(); // This is safe
+            let payload_digest = message.digest().unwrap(); // This is safe
             message_page.start_digest = payload_digest.to_vec();
         }
         message_page.messages = messages;

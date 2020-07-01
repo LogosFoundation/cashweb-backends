@@ -12,10 +12,10 @@ use cashweb::{
         transaction::{DecodeError as TransactionDecodeError, Transaction},
         Decodable,
     },
-    bitcoin_client::{BitcoinClient, HttpConnector, NodeError},
+    bitcoin_client::{BitcoinClient, HttpClient, HttpError, NodeError},
     payments::bip70::{Output, Payment, PaymentAck, PaymentDetails, PaymentRequest},
     payments::{
-        wallet::{Wallet as WalletGeneric, WalletError},
+        wallet::{UnexpectedOutputs, Wallet as WalletGeneric},
         PreprocessingError,
     },
     token::schemes::hmac_bearer::HmacScheme,
@@ -35,10 +35,10 @@ pub type Wallet = WalletGeneric<Vec<u8>, Output>;
 #[derive(Debug)]
 pub enum PaymentError {
     Preprocess(PreprocessingError),
-    Wallet(WalletError),
+    Wallet(UnexpectedOutputs),
     MalformedTx(TransactionDecodeError),
     MissingMerchantData,
-    Node(NodeError),
+    Node(HttpError),
 }
 
 impl fmt::Display for PaymentError {
@@ -64,10 +64,7 @@ impl IntoResponse for PaymentError {
                 PreprocessingError::MissingContentTypeHeader => 415,
                 PreprocessingError::PaymentDecode(_) => 400,
             },
-            PaymentError::Wallet(err) => match err {
-                WalletError::NotFound => 404,
-                WalletError::InvalidOutputs => 400,
-            },
+            PaymentError::Wallet(_) => 404,
             PaymentError::MalformedTx(_) => 400,
             PaymentError::MissingMerchantData => 400,
             PaymentError::Node(err) => match err {
@@ -81,7 +78,7 @@ impl IntoResponse for PaymentError {
 pub async fn process_payment(
     payment: Payment,
     wallet: Wallet,
-    bitcoin_client: BitcoinClient<HttpConnector>,
+    bitcoin_client: BitcoinClient<HttpClient>,
     token_state: Arc<HmacScheme>,
 ) -> Result<Response<Body>, PaymentError> {
     let txs_res: Result<Vec<Transaction>, TransactionDecodeError> = payment
@@ -136,7 +133,7 @@ pub async fn process_payment(
 #[derive(Debug)]
 pub enum PaymentRequestError {
     Address(CashAddrError, Base58Error),
-    Node(NodeError),
+    Node(HttpError),
     MismatchedNetwork,
 }
 
@@ -155,7 +152,7 @@ impl fmt::Display for PaymentRequestError {
 pub async fn generate_payment_request(
     addr: Address,
     wallet: Wallet,
-    bitcoin_client: BitcoinClient<HttpConnector>,
+    bitcoin_client: BitcoinClient<HttpClient>,
 ) -> Result<Response<Body>, PaymentRequestError> {
     let output_addr_str = bitcoin_client
         .get_new_addr()

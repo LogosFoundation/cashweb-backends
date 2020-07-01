@@ -1,7 +1,7 @@
 use std::{fmt, sync::Arc};
 
 use bitcoincash_addr::Address;
-use cashweb::bitcoin_client::{BitcoinClient, HttpConnector};
+use cashweb::bitcoin_client::{BitcoinClient, HttpClient};
 use cashweb::token::{extract_pop, schemes::hmac_bearer::*};
 use http::header::HeaderMap;
 use warp::{http::Response, hyper::Body, reject::Reject};
@@ -10,7 +10,7 @@ use crate::net::payments::{generate_payment_request, Wallet};
 
 #[derive(Debug)]
 pub enum ProtectionError {
-    MissingToken(Address, Wallet, BitcoinClient<HttpConnector>),
+    MissingToken(Address, Wallet, BitcoinClient<HttpClient>),
     Validation(ValidationError),
 }
 
@@ -51,7 +51,7 @@ pub async fn pop_protection(
     header_map: HeaderMap,
     token_scheme: Arc<HmacScheme>,
     wallet: Wallet,
-    bitcoin_client: BitcoinClient<HttpConnector>,
+    bitcoin_client: BitcoinClient<HttpClient>,
 ) -> Result<Address, ProtectionError> {
     match extract_pop(&header_map) {
         Some(pop_token) => {
