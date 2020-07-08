@@ -20,6 +20,7 @@ use cashweb::{
     },
     token::schemes::hmac_bearer::HmacScheme,
 };
+use log::info;
 use prost::Message as _;
 use warp::{
     http::{header::AUTHORIZATION, Response},
@@ -102,6 +103,7 @@ pub async fn process_payment(
         .as_ref()
         .ok_or(PaymentError::MissingMerchantData)?;
 
+    info!("checking {:?} in wallet at {:x?}", outputs, pubkey_hash);
     wallet
         .recv_outputs(pubkey_hash, &outputs)
         .map_err(PaymentError::Wallet)?;
@@ -175,6 +177,7 @@ pub async fn generate_payment_request(
         script,
     };
     let cleanup = wallet.add_outputs(addr.as_body().to_vec(), vec![output.clone()]);
+    info!("added {:?} to wallet at {:x?}", output, addr.as_body());
     tokio::spawn(cleanup);
 
     // Valid interval
