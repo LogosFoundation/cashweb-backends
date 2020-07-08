@@ -53,7 +53,8 @@ impl From<&str> for Route {
         let path_len = path.len();
         if path_len >= MESSAGES_PATH.len() && &path[1..MESSAGES_PATH.len() + 1] == MESSAGES_PATH {
             Route::messages
-        } else if path_len >= PROFILE_PATH.len() && &path[1..PROFILE_PATH.len() + 1] == PROFILE_PATH
+        } else if path_len >= PROFILES_PATH.len()
+            && &path[1..PROFILES_PATH.len() + 1] == PROFILES_PATH
         {
             Route::profiles
         } else if path_len >= PAYMENTS_PATH.len()
@@ -104,7 +105,10 @@ pub fn measure(info: Info) {
 
     // Observe duration
     let duration_secs = info.elapsed().as_millis();
-    HTTP_ELAPSED.get(method).get(route).observe(duration_secs);
+    HTTP_ELAPSED
+        .get(method)
+        .get(route)
+        .observe(duration_secs as f64);
 }
 
 pub fn export() -> Vec<u8> {

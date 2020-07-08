@@ -12,7 +12,7 @@ COPY Cargo.toml Cargo.lock ./
 RUN mkdir src/
 RUN echo "fn main() {println!(\"failed to replace dummy build\")}" > src/main.rs
 RUN cargo build --release --all-features
-RUN rm -f target/release/deps/cash-relay*
+RUN rm -f target/release/deps/cash_relay*
 
 # Compile
 COPY . .
