@@ -12,7 +12,7 @@ monitoring = ["prometheus", "prometheus-static-metric"]
 base64 = "0.12.3"
 bitcoincash-addr = "0.5.2"
 bytes = "0.5.5"
-cashweb = { git = "https://github.com/cashweb/cashweb-rs.git" }
+cashweb = "0.1.0-alpha.4"
 clap = { version = "2.33.1", features = ["yaml"] }
 config = "0.10.1"
 dashmap = "3.11.7"
