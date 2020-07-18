@@ -17,6 +17,7 @@ use prost::Message as _;
 use ring::digest::{digest, SHA256};
 use ripemd160::{Digest, Ripemd160};
 use rocksdb::Error as RocksError;
+use serde::Deserialize;
 use warp::{http::Response, hyper::Body, reject::Reject};
 
 use super::{ws::MessageBus, IntoResponse};
@@ -286,6 +287,9 @@ pub async fn put_message(
         MessageSet::decode(&messages_raw[..]).map_err(PutMessageError::MessagesDecode)?;
 
     for mut message in message_set.messages.into_iter() {
+        // Set received time
+        message.received_time = timestamp as i64;
+
         // Get sender public key
         let source_pubkey = &message.source_public_key;
         let destination_pubkey = &message.destination_public_key;
