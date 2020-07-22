@@ -1,11 +1,11 @@
-use std::{fmt, sync::Arc};
+use std::sync::Arc;
 
 use bitcoincash_addr::Address;
 use cashweb::bitcoin_client::{BitcoinClient, HttpClient};
 use cashweb::token::{extract_pop, schemes::hmac_bearer::*};
 use http::header::HeaderMap;
-use warp::{http::Response, hyper::Body, reject::Reject};
 use thiserror::Error;
+use warp::{http::Response, hyper::Body, reject::Reject};
 
 use crate::net::payments::{generate_payment_request, Wallet};
 
