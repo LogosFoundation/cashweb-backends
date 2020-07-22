@@ -18,6 +18,8 @@ use cashweb::{
 use dashmap::DashMap;
 use futures::prelude::*;
 use lazy_static::lazy_static;
+use tracing::info;
+use tracing_subscriber::{fmt, EnvFilter};
 use warp::{
     http::{header, Method},
     Filter,
@@ -49,21 +51,33 @@ async fn main() {
     if env::var_os("RUST_LOG").is_none() {
         env::set_var("RUST_LOG", "info");
     }
-    pretty_env_logger::init();
+    let subscriber = fmt::Subscriber::builder()
+        .with_env_filter(EnvFilter::from_default_env())
+        .finish();
+    tracing::subscriber::set_global_default(subscriber).expect("no global subscriber has been set");
 
+    info!(message = "starting", version = crate_version!());
     // Database state
+
+    info!("opening database");
     let db = Database::try_new(&SETTINGS.db_path).expect("failed to open database");
     let db_state = warp::any().map(move || db.clone());
 
     // Message broadcast state
+    info!("constructing message bus");
     let message_bus = Arc::new(DashMap::with_capacity(DASHMAP_CAPACITY));
     let msg_bus_state = warp::any().map(move || message_bus.clone());
 
     // Wallet state
+    info!(
+        message = "constructing wallet",
+        timeout = SETTINGS.payments.timeout
+    );
     let wallet = Wallet::new(Duration::from_millis(SETTINGS.payments.timeout));
     let wallet_state = warp::any().map(move || wallet.clone());
 
     // Bitcoin client state
+    info!(message = "constructing bitcoin client", address = %SETTINGS.bitcoin_rpc.address);
     let bitcoin_client = BitcoinClient::new(
         SETTINGS.bitcoin_rpc.address.clone(),
         SETTINGS.bitcoin_rpc.username.clone(),
@@ -93,6 +107,8 @@ async fn main() {
             protection::pop_protection(addr, headers, token_scheme, wallet, bitcoin)
                 .map_err(warp::reject::custom)
         });
+
+    info!("constructing handlers");
 
     // Message handlers
     let messages_get = warp::path(MESSAGES_PATH)
@@ -204,6 +220,8 @@ async fn main() {
     // If monitoring is enabled
     #[cfg(feature = "monitoring")]
     {
+        info!(monitoring = true);
+
         // Init Prometheus server
         let prometheus_server = warp::path("metrics").map(monitoring::export);
         let prometheus_task = warp::serve(prometheus_server).run(SETTINGS.bind_prom);
@@ -220,7 +238,7 @@ async fn main() {
             .or(profile_put)
             .recover(net::handle_rejection)
             .with(cors)
-            .with(warp::log("cash-relay"))
+            .with(warp::trace::request())
             .with(warp::log::custom(monitoring::measure));
         let rest_api_task = warp::serve(rest_api).run(SETTINGS.bind);
 
@@ -232,6 +250,8 @@ async fn main() {
     // If monitoring is disabled
     #[cfg(not(feature = "monitoring"))]
     {
+        info!(monitoring = false);
+
         // Init REST API
         let rest_api = root
             .or(payments)
@@ -244,7 +264,7 @@ async fn main() {
             .or(profile_put)
             .recover(net::handle_rejection)
             .with(cors)
-            .with(warp::log("cash-relay"));
+            .with(warp::trace::request());
         let rest_api_task = warp::serve(rest_api).run(SETTINGS.bind);
         tokio::spawn(rest_api_task).await.unwrap(); // Unrecoverable
     }

@@ -13,33 +13,26 @@ pub use ws::*;
 use std::{convert::Infallible, fmt};
 
 use bitcoincash_addr::Address;
+use thiserror::Error;
+use tracing::error;
 use warp::{
     http::Response,
     hyper::Body,
     reject::{PayloadTooLarge, Reject, Rejection},
 };
 
-#[derive(Debug)]
+#[derive(Debug, Error)]
 pub enum AddressDecode {
+    #[error("address decoding failed: {0}, {1}")]
     Decode(
         bitcoincash_addr::cashaddr::DecodingError,
         bitcoincash_addr::base58::DecodingError,
     ),
+    #[error("expected address payload of length 20, found {0}")]
     UnexpectedBodyLength(usize),
 }
 
 impl Reject for AddressDecode {}
-
-impl fmt::Display for AddressDecode {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            Self::Decode(cash_err, base58_err) => writeln!(f, "{}, {}", cash_err, base58_err),
-            Self::UnexpectedBodyLength(size) => {
-                writeln!(f, "expected address payload of length 20, found {}", size)
-            }
-        }
-    }
-}
 
 pub fn address_decode(addr_str: &str) -> Result<Address, AddressDecode> {
     // Convert address
@@ -82,39 +75,40 @@ pub trait IntoResponse: fmt::Display + Sized {
 
 pub async fn handle_rejection(err: Rejection) -> Result<Response<Body>, Infallible> {
     if let Some(err) = err.find::<AddressDecode>() {
-        log::error!("{:#?}", err);
+        error!(message = "address decoding error", error = %err);
         return Ok(err.into_response());
     }
     if let Some(err) = err.find::<ProfileError>() {
-        log::error!("{:#?}", err);
+        error!(message = "profile error", error = %err);
         return Ok(err.into_response());
     }
     if let Some(err) = err.find::<GetMessageError>() {
-        log::error!("{:#?}", err);
+        error!(message = "get message error", error = %err);
         return Ok(err.into_response());
     }
     if let Some(err) = err.find::<PutMessageError>() {
-        log::error!("{:#?}", err);
+        error!(message = "put message error", error = %err);
         return Ok(err.into_response());
     }
     if let Some(err) = err.find::<PaymentError>() {
-        log::error!("{:#?}", err);
+        error!(message = "payment error", error = %err);
         return Ok(err.into_response());
     }
     if let Some(err) = err.find::<ProtectionError>() {
-        log::error!("{:#?}", err);
+        error!(message = "protection error", error = %err);
         return Ok(protection_error_recovery(err).await);
     }
 
     if let Some(err) = err.find::<PayloadTooLarge>() {
-        log::error!("{:#?}", err);
+        error!(message = "payload too large error", error = %err);
         return Ok(Response::builder().status(413).body(Body::empty()).unwrap());
     }
 
     if err.is_not_found() {
-        log::error!("{:#?}", err);
+        error!(message = "not found error");
         return Ok(Response::builder().status(404).body(Body::empty()).unwrap());
     }
 
+    error!("unexpected error");
     Ok(Response::builder().status(500).body(Body::empty()).unwrap())
 }

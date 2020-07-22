@@ -1,42 +1,27 @@
-use std::fmt;
-
 use bitcoincash_addr::Address;
 use bytes::Bytes;
 use cashweb::auth_wrapper::{ParseError, VerifyError};
 use prost::Message as _;
 use rocksdb::Error as RocksError;
+use thiserror::Error;
 use tokio::task;
 use warp::{http::Response, hyper::Body, reject::Reject};
 
 use super::IntoResponse;
 use crate::{db::Database, models::wrapper::AuthWrapper};
 
-#[derive(Debug)]
+#[derive(Debug, Error)]
 pub enum ProfileError {
+    #[error("not found")]
     NotFound,
-    Database(RocksError),
+    #[error(transparent)]
+    Database(#[from] RocksError),
+    #[error(transparent)]
     ProfileDecode(prost::DecodeError),
+    #[error(transparent)]
     Verify(VerifyError),
+    #[error(transparent)]
     Parse(ParseError),
-}
-
-impl From<RocksError> for ProfileError {
-    fn from(err: RocksError) -> Self {
-        ProfileError::Database(err)
-    }
-}
-
-impl fmt::Display for ProfileError {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        let printable = match self {
-            Self::NotFound => "not found",
-            Self::Database(err) => return err.fmt(f),
-            Self::ProfileDecode(err) => return err.fmt(f),
-            Self::Verify(err) => return err.fmt(f),
-            Self::Parse(err) => return err.fmt(f),
-        };
-        f.write_str(printable)
-    }
 }
 
 impl Reject for ProfileError {}

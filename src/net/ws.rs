@@ -3,10 +3,12 @@ use std::sync::Arc;
 use bitcoincash_addr::Address;
 use dashmap::DashMap;
 use futures::prelude::*;
+use thiserror::Error;
 use tokio::{
     sync::broadcast,
     time::{interval, Duration},
 };
+use tracing::error;
 use warp::{
     ws::{Message, WebSocket, Ws},
     Reply,
@@ -26,10 +28,12 @@ pub fn upgrade_ws(addr: Address, ws: Ws, msg_bus: MessageBus) -> impl Reply {
     ws.on_upgrade(move |socket| connect_ws(pubkey_hash, socket, msg_bus))
 }
 
-#[derive(Debug)]
+#[derive(Debug, Error)]
 enum WsError {
-    SinkError(warp::Error),
-    BusError(broadcast::RecvError),
+    #[error("websocket send failed")]
+    SinkError(#[from] warp::Error),
+    #[error("broadcast failure")]
+    BusError(#[from] broadcast::RecvError),
 }
 
 pub async fn connect_ws(pubkey_hash: Vec<u8>, ws: WebSocket, msg_bus: MessageBus) {
@@ -51,7 +55,7 @@ pub async fn connect_ws(pubkey_hash: Vec<u8>, ws: WebSocket, msg_bus: MessageBus
         .forward(user_ws_tx.sink_map_err(WsError::SinkError))
         .await
     {
-        log::error!("{:#?}", err);
+        error!(message = "forwarding error", error = %err);
     }
 
     // TODO: Double check this is atomic

@@ -12,12 +12,12 @@ use cashweb::{
 };
 use futures::future;
 use hex::FromHexError;
-use log::warn;
 use prost::Message as _;
 use ring::digest::{digest, SHA256};
 use ripemd160::{Digest, Ripemd160};
 use rocksdb::Error as RocksError;
 use serde::Deserialize;
+use tracing::warn;
 use warp::{http::Response, hyper::Body, reject::Reject};
 
 use super::{ws::MessageBus, IntoResponse};
@@ -366,7 +366,8 @@ pub async fn put_message(
         if is_self_send {
             if let Some(sender) = msg_bus.get(&source_pubkey_hash.to_vec()) {
                 if let Err(err) = sender.send(raw_message_ws.clone()) {
-                    warn!("{:?}", err);
+                    warn!(message = "failed to broadcast to self", error = ?err);
+                    // TODO: Make prettier
                 }
             }
         }
@@ -374,7 +375,7 @@ pub async fn put_message(
         // Send to destination
         if let Some(sender) = msg_bus.get(&destination_pubkey_hash.to_vec()) {
             if let Err(err) = sender.send(raw_message_ws) {
-                warn!("{:?}", err);
+                warn!(message = "failed to broadcast to destination", error = ?err);
             }
         }
     }

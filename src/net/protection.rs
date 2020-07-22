@@ -5,22 +5,16 @@ use cashweb::bitcoin_client::{BitcoinClient, HttpClient};
 use cashweb::token::{extract_pop, schemes::hmac_bearer::*};
 use http::header::HeaderMap;
 use warp::{http::Response, hyper::Body, reject::Reject};
+use thiserror::Error;
 
 use crate::net::payments::{generate_payment_request, Wallet};
 
-#[derive(Debug)]
+#[derive(Debug, Error)]
 pub enum ProtectionError {
+    #[error("missing token: {0:?}")] // TODO: Make this prettier
     MissingToken(Address, Wallet, BitcoinClient<HttpClient>),
+    #[error("validation failed: {0}")]
     Validation(ValidationError),
-}
-
-impl fmt::Display for ProtectionError {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            Self::MissingToken(_, _, _) => f.write_str("missing token"),
-            Self::Validation(err) => err.fmt(f),
-        }
-    }
 }
 
 pub async fn protection_error_recovery(err: &ProtectionError) -> Response<Body> {
