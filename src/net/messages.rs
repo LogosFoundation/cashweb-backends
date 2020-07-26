@@ -1,6 +1,5 @@
 use std::{
     convert::TryFrom,
-    fmt,
     time::{SystemTime, UNIX_EPOCH},
 };
 
@@ -17,6 +16,7 @@ use ring::digest::{digest, SHA256};
 use ripemd160::{Digest, Ripemd160};
 use rocksdb::Error as RocksError;
 use serde::Deserialize;
+use thiserror::Error;
 use tracing::warn;
 use warp::{http::Response, hyper::Body, reject::Reject};
 
@@ -35,18 +35,29 @@ pub struct Query {
     digest: Option<String>,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Error)]
 pub enum GetMessageError {
+    #[error("failed to read from database: {0}")]
     DB(RocksError),
+    #[error("failed to decode digest: {0}")]
     DigestDecode(FromHexError),
+    #[error("destination malformed")]
     DestinationMalformed,
+    #[error("message not found")]
     NotFound,
+    #[error("both start time and digest given")]
     StartBothGiven,
+    #[error("failed to decode start digest: {0}")]
     StartDigestMalformed(FromHexError),
+    #[error("start digest not found")]
     StartDigestNotFound,
+    #[error("no start found")]
     MissingStart,
+    #[error("both end time and digest given")]
     EndBothGiven,
+    #[error("failed to decode end digest: {0}")]
     EndDigestMalformed(FromHexError),
+    #[error("end digest not found")]
     EndDigestNotFound,
 }
 
@@ -57,25 +68,6 @@ impl From<RocksError> for GetMessageError {
 }
 
 impl Reject for GetMessageError {}
-
-impl fmt::Display for GetMessageError {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        let printable = match self {
-            Self::DB(err) => return err.fmt(f),
-            Self::DigestDecode(err) => return err.fmt(f),
-            Self::DestinationMalformed => "destination malformed",
-            Self::NotFound => "not found",
-            Self::StartBothGiven => "both start time and digest given",
-            Self::StartDigestMalformed(err) => return err.fmt(f),
-            Self::StartDigestNotFound => "start digest not found",
-            Self::MissingStart => "missing start",
-            Self::EndBothGiven => "both end time and digest given",
-            Self::EndDigestMalformed(err) => return err.fmt(f),
-            Self::EndDigestNotFound => "end digest not found",
-        };
-        f.write_str(printable)
-    }
-}
 
 impl IntoResponse for GetMessageError {
     fn to_status(&self) -> u16 {
@@ -224,14 +216,21 @@ pub async fn remove_messages(
     Ok(Response::builder().body(Body::empty()).unwrap()) // TODO: Headers
 }
 
-#[derive(Debug)]
+#[derive(Debug, Error)]
 pub enum PutMessageError {
+    #[error("failed to write to database: {0}")]
     DB(RocksError),
+    #[error("destination malformed")]
     DestinationMalformed,
+    #[error("failed to decode message: {0}")]
     MessagesDecode(prost::DecodeError),
+    #[error("failed to parse message: {0}")]
     MessageParsing(ParseError),
+    #[error("failed to decode payload: {0}")]
     PayloadDecode(prost::DecodeError),
+    #[error("failed verify stamp: {0}")]
     StampVerify(StampError),
+    #[error("failed to broadcast stamp: {0}")]
     StampBroadcast(HttpError),
 }
 
@@ -242,21 +241,6 @@ impl From<RocksError> for PutMessageError {
 }
 
 impl Reject for PutMessageError {}
-
-impl fmt::Display for PutMessageError {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        let printable = match self {
-            Self::DB(err) => return err.fmt(f),
-            Self::DestinationMalformed => "destination malformed",
-            Self::MessagesDecode(err) => return err.fmt(f),
-            Self::MessageParsing(err) => return err.fmt(f),
-            Self::PayloadDecode(err) => return err.fmt(f),
-            Self::StampVerify(err) => return err.fmt(f),
-            Self::StampBroadcast(err) => return err.fmt(f),
-        };
-        f.write_str(printable)
-    }
-}
 
 impl IntoResponse for PutMessageError {
     fn to_status(&self) -> u16 {

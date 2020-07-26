@@ -75,40 +75,50 @@ pub trait IntoResponse: fmt::Display + Sized {
 
 pub async fn handle_rejection(err: Rejection) -> Result<Response<Body>, Infallible> {
     if let Some(err) = err.find::<AddressDecode>() {
-        error!(message = "address decoding error", error = %err);
+        error!(message = "failed to decode address", error = %err);
         return Ok(err.into_response());
     }
-    if let Some(err) = err.find::<ProfileError>() {
-        error!(message = "profile error", error = %err);
+
+    if let Some(err) = err.find::<GetProfileError>() {
+        error!(message = "failed to get profile", error = %err);
         return Ok(err.into_response());
     }
+
+    if let Some(err) = err.find::<PutProfileError>() {
+        error!(message = "failed to put profile", error = %err);
+        return Ok(err.into_response());
+    }
+
     if let Some(err) = err.find::<GetMessageError>() {
-        error!(message = "get message error", error = %err);
+        error!(message = "failed to get messages", error = %err);
         return Ok(err.into_response());
     }
+
     if let Some(err) = err.find::<PutMessageError>() {
-        error!(message = "put message error", error = %err);
+        error!(message = "failed to put messages", error = %err);
         return Ok(err.into_response());
     }
+
     if let Some(err) = err.find::<PaymentError>() {
-        error!(message = "payment error", error = %err);
+        error!(message = "payment failed", error = %err);
         return Ok(err.into_response());
     }
+
     if let Some(err) = err.find::<ProtectionError>() {
-        error!(message = "protection error", error = %err);
+        error!(message = "protection triggered", error = %err);
         return Ok(protection_error_recovery(err).await);
     }
 
-    if let Some(err) = err.find::<PayloadTooLarge>() {
-        error!(message = "payload too large error", error = %err);
+    if err.find::<PayloadTooLarge>().is_some() {
+        error!("payload too large");
         return Ok(Response::builder().status(413).body(Body::empty()).unwrap());
     }
 
     if err.is_not_found() {
-        error!(message = "not found error");
+        error!("page not found");
         return Ok(Response::builder().status(404).body(Body::empty()).unwrap());
     }
 
-    error!("unexpected error");
+    error!(message = "unexpected error", error = ?err);
     Ok(Response::builder().status(500).body(Body::empty()).unwrap())
 }

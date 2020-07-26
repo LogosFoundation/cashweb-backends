@@ -21,6 +21,7 @@ use cashweb::{
     token::schemes::hmac_bearer::HmacScheme,
 };
 use prost::Message as _;
+use thiserror::Error;
 use tracing::info;
 use warp::{
     http::{header::AUTHORIZATION, Response},
@@ -33,26 +34,18 @@ use crate::{PAYMENTS_PATH, SETTINGS};
 
 pub type Wallet = WalletGeneric<Vec<u8>, Output>;
 
-#[derive(Debug)]
+#[derive(Debug, Error)]
 pub enum PaymentError {
+    #[error("preprocessing failed: {0}")]
     Preprocess(PreprocessingError),
+    #[error(transparent)]
     Wallet(UnexpectedOutputs),
+    #[error("malformed tx: {0}")]
     MalformedTx(TransactionDecodeError),
+    #[error("missing merchant data")]
     MissingMerchantData,
+    #[error("bitcoin request failed: {0}")]
     Node(HttpError),
-}
-
-impl fmt::Display for PaymentError {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        let printable = match self {
-            Self::Preprocess(err) => return err.fmt(f),
-            Self::Wallet(err) => return err.fmt(f),
-            Self::MalformedTx(err) => return err.fmt(f),
-            Self::MissingMerchantData => "missing merchant data",
-            Self::Node(err) => return err.fmt(f),
-        };
-        f.write_str(printable)
-    }
 }
 
 impl Reject for PaymentError {}

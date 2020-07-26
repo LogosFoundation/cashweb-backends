@@ -30,9 +30,9 @@ ring = "0.16.15"
 serde = { version = "1.0.114", features = ["derive"] }
 subtle = "2.2.3"
 thiserror = "1.0.20"
-tracing = "0.1.16"
-tracing-subscriber = "0.2.8"
-tokio = { version = "0.2.21", features = ["blocking",  "macros", "rt-core", "rt-threaded", "sync", "time"] }
+tracing = "0.1.17"
+tracing-subscriber = "0.2.9"
+tokio = { version = "0.2.22", features = ["blocking",  "macros", "rt-core", "rt-threaded", "sync", "time"] }
 url = "2.1.1"
 warp = "0.2.4"
 
