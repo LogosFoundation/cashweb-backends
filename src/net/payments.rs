@@ -1,5 +1,4 @@
 use std::{
-    fmt,
     sync::Arc,
     time::{Duration, SystemTime, UNIX_EPOCH},
 };
@@ -125,23 +124,14 @@ pub async fn process_payment(
         .unwrap())
 }
 
-#[derive(Debug)]
+#[derive(Error, Debug)]
 pub enum PaymentRequestError {
+    #[error("address decoding failed: {0}, {1}")]
     Address(CashAddrError, Base58Error),
+    #[error("failed to retrieve address from bitcoind: {0}")]
     Node(HttpError),
+    #[error("mismatched network")]
     MismatchedNetwork,
-}
-
-impl fmt::Display for PaymentRequestError {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            PaymentRequestError::Address(cash_err, base58_err) => {
-                f.write_str(&format!("{}, {}", cash_err, base58_err))
-            }
-            PaymentRequestError::Node(err) => err.fmt(f),
-            PaymentRequestError::MismatchedNetwork => f.write_str("mismatched network"),
-        }
-    }
 }
 
 pub async fn generate_payment_request(
