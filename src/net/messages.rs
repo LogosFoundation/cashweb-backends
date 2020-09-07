@@ -351,10 +351,10 @@ pub async fn put_message(
             };
 
         // Send to source
-        if is_self_send {
+        if !is_self_send {
             if let Some(sender) = msg_bus.get(&source_pubkey_hash.to_vec()) {
                 if let Err(err) = sender.send(raw_message_ws.clone()) {
-                    warn!(message = "failed to broadcast to self", error = ?err);
+                    warn!(message = "failed to broadcast to source", error = ?err);
                     // TODO: Make prettier
                 }
             }
@@ -364,6 +364,7 @@ pub async fn put_message(
         if let Some(sender) = msg_bus.get(&destination_pubkey_hash.to_vec()) {
             if let Err(err) = sender.send(raw_message_ws) {
                 warn!(message = "failed to broadcast to destination", error = ?err);
+                // TODO: Make prettier
             }
         }
     }
