@@ -287,21 +287,16 @@ pub async fn put_message(
         }
 
         // Serialze message which is stored in database
-        let mut raw_message = Vec::with_capacity(message.encoded_len());
+        let encoded_length = message.encoded_len();
+        let mut raw_message = Vec::with_capacity(encoded_length);
         message.encode(&mut raw_message).unwrap(); // This is safe
 
-        // If serialized payload too long then remove it
-        let raw_message_ws =
-            if message.payload.len() > SETTINGS.websocket.truncation_length as usize {
-                message.payload = Vec::with_capacity(0);
-                // Serialize message
-                let mut raw_message = Vec::with_capacity(message.encoded_len());
-                message.encode(&mut raw_message).unwrap(); // This is safe
-                raw_message
-            } else {
-                raw_message.clone()
-            };
-
+        // TODO: Parse does not enforce there is *ACTUALLY* a payload, only that there is a
+        // payload digest. If the client is putting a message without a payload and only
+        // a payload digest, there won't be any way to recover it and it'll create downstream
+        // errors.
+        //
+        // This needs to be fixed.
         let parsed_message = message.parse().map_err(PutMessageError::MessageParsing)?;
 
         let is_self_send = destination_pubkey_hash == source_pubkey_hash;
@@ -317,15 +312,12 @@ pub async fn put_message(
         let broadcast = parsed_message
             .stamp
             .stamp_outpoints
-            .into_iter()
-            .map(move |stamp_oupoint| stamp_oupoint.stamp_tx)
-            .map(|stamp_tx| {
+            .iter()
+            .map(|stamp_oupoint| {
                 let bitcoin_client_inner = bitcoin_client.clone();
-                async move {
-                    let stamp_tx = stamp_tx;
-                    bitcoin_client_inner.send_tx(&stamp_tx).await
-                }
+                async move { bitcoin_client_inner.send_tx(&stamp_oupoint.stamp_tx).await }
             });
+
         future::try_join_all(broadcast)
             .await
             .map_err(PutMessageError::StampBroadcast)?;
@@ -345,6 +337,18 @@ pub async fn put_message(
             &raw_message[..],
             &parsed_message.payload_digest[..],
         )?;
+
+        // If serialized payload too long then remove it
+        let raw_message_ws =
+            if parsed_message.payload.len() > SETTINGS.websocket.truncation_length as usize {
+                let mut pruned_message = parsed_message.into_message();
+                pruned_message.payload = Vec::with_capacity(0);
+                let mut pruned_raw_message = Vec::with_capacity(encoded_length);
+                pruned_message.encode(&mut pruned_raw_message).unwrap(); // This is safe
+                pruned_raw_message
+            } else {
+                raw_message
+            };
 
         // Send to source
         if is_self_send {
