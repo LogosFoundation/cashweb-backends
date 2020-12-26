@@ -48,10 +48,11 @@ pub async fn pop_protection(
     wallet: Wallet,
     bitcoin_client: BitcoinClient<HttpClient>,
 ) -> Result<Address, ProtectionError> {
-    match extract_pop(&header_map).or_else(|| access_token
-        .as_ref()
-        .and_then(|access_token| split_pop_token(access_token)))
-    {
+    match extract_pop(&header_map).or_else(|| {
+        access_token
+            .as_ref()
+            .and_then(|access_token| split_pop_token(access_token))
+    }) {
         Some(pop_token) => {
             token_scheme
                 .validate_token(&addr.as_body().to_vec(), pop_token)
