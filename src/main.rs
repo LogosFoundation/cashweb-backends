@@ -18,6 +18,7 @@ use cashweb::{
 use dashmap::DashMap;
 use futures::prelude::*;
 use lazy_static::lazy_static;
+use serde::Deserialize;
 use tracing::info;
 use tracing_subscriber::{fmt, EnvFilter};
 use warp::{
@@ -45,6 +46,11 @@ pub const PAYMENTS_PATH: &str = "payments";
 lazy_static! {
     // Static settings
     pub static ref SETTINGS: Settings = Settings::new().expect("couldn't load config");
+}
+
+#[derive(Debug, Deserialize)]
+pub struct QueryAccessToken {
+    access_token: Option<String>,
 }
 
 #[tokio::main]
@@ -106,13 +112,23 @@ async fn main() {
     let addr_protected = addr_base
         .clone()
         .and(warp::header::headers_cloned())
+        .and(warp::query())
         .and(token_scheme_state.clone())
         .and(wallet_state.clone())
         .and(bitcoin_client_state.clone())
-        .and_then(move |addr, headers, token_scheme, wallet, bitcoin| {
-            protection::pop_protection(addr, headers, token_scheme, wallet, bitcoin)
+        .and_then(
+            move |addr, headers, query: QueryAccessToken, token_scheme, wallet, bitcoin| {
+                protection::pop_protection(
+                    addr,
+                    headers,
+                    query.access_token,
+                    token_scheme,
+                    wallet,
+                    bitcoin,
+                )
                 .map_err(warp::reject::custom)
-        });
+            },
+        );
 
     info!("constructing handlers");
 
