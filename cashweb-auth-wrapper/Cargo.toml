@@ -1,6 +1,6 @@
 [package]
 name = "cashweb-auth-wrapper"
-version = "0.1.0-alpha.4"
+version = "0.1.0-alpha.5"
 authors = ["Harry Barber <harrybarber@protonmail.com>"]
 edition = "2018"
 license = "MIT"
@@ -11,11 +11,11 @@ description = "A library providing deserialization, parsing, and verification ne
 categories = ["development-tools"]
 
 [dependencies]
-ring = "0.16.15"
-prost = "0.6.1"
-thiserror = "1.0.21"
+ring = "0.16"
+prost = "0.7"
+thiserror = "1"
 
-secp256k1 = { package = "cashweb-secp256k1", version = "0.17.3" }
+secp256k1 = { package = "cashweb-secp256k1", version = "0.19" }
 
 [build-dependencies]
-prost-build = "0.6.1"
+prost-build = "0.7.0"

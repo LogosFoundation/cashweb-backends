@@ -1,6 +1,6 @@
 [package]
 name = "cashweb-payments"
-version = "0.1.0-alpha.4"
+version = "0.1.0-alpha.5"
 authors = ["Harry Barber <harrybarber@protonmail.com>"]
 edition = "2018"
 license = "MIT"
@@ -11,13 +11,13 @@ description = "A helper library for cash:web payments."
 categories = ["development-tools"]
 
 [dependencies]
-bytes = "0.5.6"
-dashmap = "3.11.10"
-http = "0.2.1"
-hyper = "0.13.8"
-prost = "0.6.1"
-thiserror = "1.0.21"
-tokio = { version = "0.2.22", features = ["time"] }
+bytes = "1"
+dashmap = "4"
+http = "0.2"
+hyper = "0.14"
+prost = "0.7"
+thiserror = "1"
+tokio = { version = "1", features = ["time"] }
 
 [build-dependencies]
-prost-build = "0.6.1"
+prost-build = "0.7"

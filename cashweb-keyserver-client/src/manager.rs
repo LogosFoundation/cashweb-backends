@@ -1,9 +1,10 @@
 use std::{collections::HashSet, fmt, str::FromStr, sync::Arc};
 
 use hyper::{
+    client::Client as HyperClient,
     client::HttpConnector,
     http::uri::{InvalidUri, PathAndQuery},
-    Body, Client as HyperClient, Request, Response, Uri,
+    Body, Request, Response, Uri,
 };
 use prost::Message as _;
 use rand::seq::SliceRandom;

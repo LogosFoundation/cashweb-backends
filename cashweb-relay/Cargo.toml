@@ -1,6 +1,6 @@
 [package]
 name = "cashweb-relay"
-version = "0.1.0-alpha.3"
+version = "0.1.0-alpha.4"
 authors = ["Harry Barber <harrybarber@protonmail.com>"]
 edition = "2018"
 license = "MIT"
@@ -11,15 +11,15 @@ description = "`cashweb-relay` is a library providing serialization/deserializat
 categories = ["development-tools"]
 
 [dependencies]
-aes = "0.5.0"
-block-modes = "0.6.1"
-ring = "0.16.15"
-ripemd160 = "0.9.1"
-thiserror = "1.0.21"
-prost = "0.6.1"
+aes = "0.6"
+block-modes = "0.7"
+ring = "0.16"
+ripemd160 = "0.9"
+thiserror = "1"
+prost = "0.7"
 
-bitcoin = { version = "0.1.0-alpha.3", package = "cashweb-bitcoin", path = "../cashweb-bitcoin" }
-secp256k1 = { package = "cashweb-secp256k1", version = "0.17.3" }
+bitcoin = { version = "0.1.0-alpha.4", package = "cashweb-bitcoin", path = "../cashweb-bitcoin" }
+secp256k1 = { package = "cashweb-secp256k1", version = "0.19" }
 
 [build-dependencies]
-prost-build = "0.6.1"
+prost-build = "0.7"

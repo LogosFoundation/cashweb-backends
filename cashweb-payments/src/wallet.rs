@@ -4,7 +4,7 @@ use std::{fmt, sync::Arc, time::Duration};
 
 use dashmap::DashMap;
 use thiserror::Error;
-use tokio::time::delay_for;
+use tokio::time::sleep;
 
 /// Received unexpected outputs.
 #[derive(Debug, Clone, PartialEq, Eq, Error)]
@@ -61,7 +61,7 @@ where
 
         // Remove from pending map after timeout
         async move {
-            delay_for(timeout_inner).await;
+            sleep(timeout_inner).await;
             pending_inner.remove(&key_inner);
         }
     }

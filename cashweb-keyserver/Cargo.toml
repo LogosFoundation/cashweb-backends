@@ -1,6 +1,6 @@
 [package]
 name = "cashweb-keyserver"
-version = "0.1.0-alpha.3"
+version = "0.1.0-alpha.4"
 authors = ["Harry Barber <harrybarber@protonmail.com>"]
 edition = "2018"
 license = "MIT"
@@ -11,8 +11,8 @@ description = "A library providing protobuf structures within the cash:web Keyse
 categories = ["development-tools"]
 
 [dependencies]
-prost = "0.6.1"
-thiserror = "1.0.21"
+prost = "0.7"
+thiserror = "1"
 
 [build-dependencies]
-prost-build = "0.6.1"
+prost-build = "0.7"

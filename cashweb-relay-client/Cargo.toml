@@ -1,6 +1,6 @@
 [package]
 name = "cashweb-relay-client"
-version = "0.1.0-alpha.3"
+version = "0.1.0-alpha.4"
 authors = ["Harry Barber <harrybarber@protonmail.com>"]
 edition = "2018"
 license = "MIT"
@@ -11,16 +11,16 @@ description = "A library providing a client for use within the cash:web Relay Pr
 categories = ["development-tools"]
 
 [dependencies]
-futures-core = "0.3.6"
-futures-util = "0.3.6"
-http = "0.2.1"
-hyper = { version = "0.13.8", features = ["stream"] }
-rand = "0.7.3"
-thiserror = "1.0.21"
-tower-service = "0.3.0"
-tower-util = "0.3.1"
-prost = "0.6.1"
+futures-core = "0.3"
+futures-util = "0.3"
+http = "0.2"
+hyper = { version = "0.14", features = ["client", "http1", "tcp", "stream"] }
+rand = "0.8"
+thiserror = "1"
+tower-service = "0.3"
+tower-util = "0.3"
+prost = "0.7"
 
-auth-wrapper = { version = "0.1.0-alpha.3", package = "cashweb-auth-wrapper", path = "../cashweb-auth-wrapper" }
-relay = { version = "0.1.0-alpha.3", package = "cashweb-relay", path = "../cashweb-relay" }
-secp256k1 = { package = "cashweb-secp256k1", version = "0.17.3" }
+auth-wrapper = { version = "0.1.0-alpha.4", package = "cashweb-auth-wrapper", path = "../cashweb-auth-wrapper" }
+relay = { version = "0.1.0-alpha.4", package = "cashweb-relay", path = "../cashweb-relay" }
+secp256k1 = { package = "cashweb-secp256k1", version = "0.19" }

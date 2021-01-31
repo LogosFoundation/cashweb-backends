@@ -14,7 +14,7 @@
 
 pub mod wallet;
 
-use bytes::Bytes;
+use bytes::Buf;
 use http::header::{HeaderMap, HeaderValue, ACCEPT, CONTENT_TYPE};
 use prost::{DecodeError, Message};
 use thiserror::Error;
@@ -45,9 +45,9 @@ pub enum PreprocessingError {
 }
 
 /// Validates and parses the BIP70 payment.
-pub async fn preprocess_payment(
+pub async fn preprocess_payment<B: Buf>(
     headers: HeaderMap,
-    body: Bytes,
+    body: B,
 ) -> Result<Payment, PreprocessingError> {
     // Bitcoin Cash Headers
     let bch_content_type_value = HeaderValue::from_static("application/bitcoincash-payment");

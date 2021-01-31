@@ -1,6 +1,6 @@
 [package]
 name = "cashweb-bitcoin-client"
-version = "0.1.0-alpha.4"
+version = "0.1.0-alpha.5"
 authors = ["Harry Barber <harrybarber@protonmail.com>"]
 edition = "2018"
 license = "MIT"
@@ -10,12 +10,13 @@ keywords = ["cashweb", "bitcoin", "client"]
 description = "A minimal Bitcoin RPC client."
 categories = ["development-tools"]
 
+
 [dependencies]
-hex = "0.4.2"
-hyper = { version = "0.13.8", features = ["stream"] }
-hyper-tls = "0.4.3"
-json-rpc = { package = "async-json-rpc", version = "0.2.2" }
-serde = { version = "1.0.116", features = ["derive"] }
-serde_json = "1.0.58"
-thiserror = "1.0.21"
-tower-service = "0.3.0"
+hex = "0.4"
+hyper = { version = "0.14", features = [ "stream", "client", "http2", "tcp" ] }
+hyper-tls = "0.5"
+json-rpc = { package = "async-json-rpc", version = "0.3.0" }
+serde = { version = "1", features = [ "derive" ] }
+serde_json = "1"
+thiserror = "1"
+tower-service = "0.3"

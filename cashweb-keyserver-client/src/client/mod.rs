@@ -5,7 +5,7 @@ pub mod services;
 use std::{error, fmt};
 
 use bytes::Bytes;
-use hyper::{client::HttpConnector, http::uri::InvalidUri, Client as HyperClient};
+use hyper::{client::Client as HyperClient, client::HttpConnector, http::uri::InvalidUri};
 use hyper_tls::HttpsConnector;
 use secp256k1::key::PublicKey;
 use thiserror::Error;

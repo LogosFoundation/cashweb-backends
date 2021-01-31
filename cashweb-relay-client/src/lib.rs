@@ -16,7 +16,9 @@ pub use hyper::{
     client::{connect::Connect, HttpConnector},
     Uri,
 };
-use hyper::{http::uri::InvalidUri, Client as HyperClient};
+
+use hyper::client::Client as HyperClient;
+use hyper::http::uri::InvalidUri;
 use secp256k1::key::PublicKey;
 use thiserror::Error;
 use tower_service::Service;

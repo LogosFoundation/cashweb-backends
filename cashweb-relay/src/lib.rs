@@ -17,7 +17,7 @@ pub mod stamp;
 use std::convert::TryInto;
 
 use aes::{
-    block_cipher::generic_array::{typenum::U16, GenericArray},
+    cipher::generic_array::{typenum::U16, GenericArray},
     Aes128,
 };
 use bitcoin::transaction::Transaction;
