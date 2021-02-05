@@ -1,13 +1,15 @@
 use std::sync::Arc;
 
+use async_stream::stream;
 use bitcoincash_addr::Address;
 use dashmap::DashMap;
-use futures::prelude::*;
+use futures::{pin_mut, prelude::*};
 use thiserror::Error;
 use tokio::{
     sync::broadcast,
     time::{interval, Duration},
 };
+use tokio_stream::wrappers::IntervalStream;
 use tracing::error;
 use warp::{
     ws::{Message, WebSocket, Ws},
@@ -33,22 +35,32 @@ enum WsError {
     #[error("websocket send failed: {0}")]
     SinkError(warp::Error),
     #[error("broadcast failure: {0}")]
-    BusError(broadcast::RecvError),
+    BusError(broadcast::error::RecvError),
 }
 
 pub async fn connect_ws(pubkey_hash: Vec<u8>, ws: WebSocket, msg_bus: MessageBus) {
     let rx = msg_bus
         .entry(pubkey_hash.clone())
         .or_insert(broadcast::channel(BROADCAST_CHANNEL_CAPACITY).0)
-        .subscribe()
-        .map_ok(Message::binary)
-        .map_err(WsError::BusError);
+        .subscribe();
+
+    // Do this until broadcast::Receiver has a stream wrapper in tokio-stream library
+    let rx = stream! {
+        pin_mut!(rx);
+
+        loop {
+            yield rx.recv().await;
+        }
+    };
+    let rx = rx.map_ok(Message::binary).map_err(WsError::BusError);
 
     let (user_ws_tx, _) = ws.split();
 
     // Setup periodic ping
-    let periodic_ping = interval(Duration::from_millis(SETTINGS.websocket.ping_interval))
-        .map(move |_| Ok(Message::ping(vec![])));
+    let periodic_ping = IntervalStream::new(interval(Duration::from_millis(
+        SETTINGS.websocket.ping_interval,
+    )))
+    .map(move |_| Ok(Message::ping(vec![])));
     let merged = stream::select(rx, periodic_ping);
 
     if let Err(err) = merged
