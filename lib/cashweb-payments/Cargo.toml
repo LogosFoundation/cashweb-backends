@@ -1,0 +1,23 @@
+[package]
+name = "cashweb-payments"
+version = "0.1.0-alpha.5"
+authors = ["Harry Barber <harrybarber@protonmail.com>"]
+edition = "2018"
+license = "MIT"
+homepage = "https://github.com/cashweb/cashweb-rs"
+repository = "https://github.com/cashweb/cashweb-rs"
+keywords = ["cashweb", "bitcoin", "payments"]
+description = "A helper library for cash:web payments."
+categories = ["development-tools"]
+
+[dependencies]
+bytes = "1"
+dashmap = "4"
+http = "0.2"
+hyper = "0.14"
+prost = "0.7"
+thiserror = "1"
+tokio = { version = "1", features = ["time"] }
+
+[build-dependencies]
+prost-build = "0.7"
