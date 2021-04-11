@@ -1,0 +1,15 @@
+[workspace]
+members = [
+    "lib/cashweb",
+    "lib/cashweb-auth-wrapper",
+    "lib/cashweb-bitcoin",
+    "lib/cashweb-bitcoin-client",
+    "lib/cashweb-keyserver",
+    "lib/cashweb-keyserver-client",
+    "lib/cashweb-payments",
+    "lib/cashweb-relay",
+    "lib/cashweb-relay-client",
+    "lib/cashweb-token",
+    "keyserver",
+    "relayserver"
+]
