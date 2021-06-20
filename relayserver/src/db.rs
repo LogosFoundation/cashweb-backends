@@ -2,7 +2,7 @@ use std::sync::Arc;
 
 use cashweb::relay::*;
 use prost::Message as PMessage;
-use rocksdb::{Direction, Error as RocksError, IteratorMode, Options, DB};
+use tokio_postgres::{types::ToSql, Client, Error as PostgresError, NoTls};
 
 use crate::models::wrapper::AuthWrapper;
 
@@ -15,7 +15,7 @@ pub const MESSAGE_NAMESPACE: u8 = b'm';
 const PROFILE_NAMESPACE: u8 = b'p';
 
 #[derive(Clone)]
-pub struct Database(Arc<DB>);
+pub struct Database(Arc<Client>);
 
 pub fn msg_key(pubkey_hash: &[u8], timestamp: u64, digest: &[u8], namespace: u8) -> Vec<u8> {
     let raw_timestamp: [u8; 8] = timestamp.to_be_bytes();
@@ -34,191 +34,104 @@ pub fn msg_prefix(pubkey_hash: &[u8], timestamp: u64, namespace: u8) -> Vec<u8> 
 }
 
 impl Database {
-    pub fn try_new(path: &str) -> Result<Self, RocksError> {
-        let mut opts = Options::default();
-        opts.create_if_missing(true);
+    pub async fn try_new(config: &str) -> Result<Self, PostgresError> {
+        let (client, connection) = tokio_postgres::connect(config, NoTls).await?;
 
-        DB::open(&opts, &path).map(Arc::new).map(Database)
-    }
-
-    pub fn get_msg_key_by_digest(
-        &self,
-        pubkey_hash: &[u8],
-        digest: &[u8],
-        namespace: u8,
-    ) -> Result<Option<Vec<u8>>, RocksError> {
-        let digest_key = [pubkey_hash, &[DIGEST_NAMESPACE], &digest].concat();
-
-        let opt_timestamp = self.0.get(digest_key)?;
-        Ok(opt_timestamp.map(|timestamp| {
-            [pubkey_hash, &[namespace], &timestamp, &digest[..DIGEST_LEN]].concat()
-        }))
-    }
-
-    pub fn remove_message_by_digest(
-        &self,
-        pubkey_hash: &[u8],
-        digest: &[u8],
-        namespace: u8,
-    ) -> Result<Option<()>, RocksError> {
-        match self.get_msg_key_by_digest(pubkey_hash, digest, namespace)? {
-            Some(some) => {
-                self.0.delete(&some)?;
-                Ok(Some(()))
+        tokio::spawn(async move {
+            if let Err(e) = connection.await {
+                tracing::error!(message = "connection error", error = %e);
             }
-            None => Ok(None),
-        }
+        });
+
+        Ok(Self(Arc::new(client)))
     }
 
-    pub fn push_message(
+    pub async fn remove_message_by_digest(
+        &self,
+        pubkey_hash: &[u8],
+        digest: &[u8],
+        namespace: u8,
+    ) -> Result<Option<()>, PostgresError> {
+        todo!()
+    }
+
+    pub async fn push_message(
         &self,
         pubkey_hash: &[u8],
         timestamp: u64,
         raw_message: &[u8],
         digest: &[u8],
         namespace: u8,
-    ) -> Result<(), RocksError> {
-        // Create key
-        let raw_timestamp: [u8; 8] = timestamp.to_be_bytes();
-        let key = [
-            &pubkey_hash[..],
-            &[namespace],
-            &raw_timestamp,
-            &digest[..DIGEST_LEN],
-        ]
-        .concat();
-        self.0.put(key, raw_message)?;
-
-        // Create digest key
-        let digest_key = [&pubkey_hash[..], &[DIGEST_NAMESPACE], &digest].concat();
-
-        self.0.put(digest_key, raw_timestamp)?;
+    ) -> Result<(), PostgresError> {
+        let timestamp = timestamp as i64;
+        let namespace = namespace.to_string(); // TODO: This is weird
+        let params: Vec<&(dyn ToSql + Sync)> =
+            vec![&pubkey_hash, &timestamp, &digest, &namespace, &raw_message];
+        self.0
+            .query("INSERT INTO messages VALUES ($1, $2, $3, $4, $5)", &params)
+            .await?;
 
         Ok(())
     }
 
-    pub fn get_message_by_digest(
+    pub async fn get_message_by_digest(
         &self,
         pubkey_hash: &[u8],
         digest: &[u8],
         namespace: u8,
-    ) -> Result<Option<Vec<u8>>, RocksError> {
-        match self.get_msg_key_by_digest(pubkey_hash, digest, namespace)? {
-            Some(some) => self.get_message_by_key(&some),
-            None => Ok(None),
-        }
-    }
-
-    pub fn get_message_by_key(&self, key: &[u8]) -> Result<Option<Vec<u8>>, RocksError> {
-        self.0.get(key)
+    ) -> Result<Option<Vec<u8>>, PostgresError> {
+        let namespace = namespace.to_string(); // TODO: This is weird
+        let params: Vec<&(dyn ToSql + Sync)> = vec![&pubkey_hash, &digest, &namespace];
+        let rows = self.0.query_opt("SELECT message FROM messages WHERE pk_hash = $1 AND message_digest = $2 AND namespace = $3", &params).await?;
+        Ok(rows.map(|row| row.get(0)))
     }
 
     pub fn get_messages_range(
         &self,
         start_prefix: &[u8],
         opt_end_prefix: Option<&[u8]>,
-    ) -> Result<MessagePage, RocksError> {
-        let namespace = &start_prefix[..NAMESPACE_LEN]; // addr || msg namespace byte
-
-        // Check whether key is within namespace
-        let in_namespace = |key: &[u8]| key[..NAMESPACE_LEN] == namespace[..];
-
-        // Init iterator
-        let iter = self
-            .0
-            .iterator(IteratorMode::From(&start_prefix, Direction::Forward));
-
-        let messages: Vec<Message> = if let Some(end_prefix) = opt_end_prefix {
-            // Check whether key is before end time
-            let before_end_key = |key: &[u8]| key[NAMESPACE_LEN..] < end_prefix[NAMESPACE_LEN..];
-
-            // Take items inside namespace and before end time
-            iter.take_while(|(key, _)| in_namespace(key) && before_end_key(key))
-                .map(|(_, item)| {
-                    Message::decode(&item[..]).unwrap() // This panics if stored bytes are malformed
-                })
-                .collect()
-        } else {
-            // Take items inside namespace
-            iter.take_while(|(key, _)| in_namespace(key))
-                .map(|(_, item)| {
-                    Message::decode(&item[..]).unwrap() // This panics if stored bytes are malformed
-                })
-                .collect()
-        };
-
-        let mut message_page = MessagePage::default();
-        if let Some(message) = messages.first() {
-            message_page.start_time = message.received_time;
-            let payload_digest = message.digest().unwrap(); // This is safe
-            message_page.start_digest = payload_digest.to_vec();
-        }
-        if let Some(message) = messages.last() {
-            message_page.start_time = message.received_time;
-            let payload_digest = message.digest().unwrap(); // This is safe
-            message_page.start_digest = payload_digest.to_vec();
-        }
-        message_page.messages = messages;
-        Ok(message_page)
+    ) -> Result<MessagePage, PostgresError> {
+        todo!()
     }
 
     pub fn remove_messages_range(
         &self,
         start_prefix: &[u8],
         opt_end_prefix: Option<&[u8]>,
-    ) -> Result<(), RocksError> {
-        let namespace = &start_prefix[..NAMESPACE_LEN]; // addr || msg namespace byte
+    ) -> Result<(), PostgresError> {
+        todo!()
+    }
 
-        // Check whether key is within namespace
-        let in_namespace = |key: &[u8]| key[..NAMESPACE_LEN] == namespace[..];
-
-        // Init iterator
-        let iter = self
+    pub async fn get_raw_profile(
+        &self,
+        pubkey_hash: &[u8],
+    ) -> Result<Option<Vec<u8>>, PostgresError> {
+        let params: Vec<&(dyn ToSql + Sync)> = vec![&pubkey_hash];
+        let rows = self
             .0
-            .iterator(IteratorMode::From(&start_prefix, Direction::Forward));
-
-        if let Some(end_prefix) = opt_end_prefix {
-            // Check whether key is before end time
-            let before_end_key = |key: &[u8]| key[NAMESPACE_LEN..] < end_prefix[NAMESPACE_LEN..];
-
-            // Take items inside namespace and before end time
-            let iter = iter.take_while(|(key, _)| in_namespace(key) && before_end_key(key));
-
-            for (key, _) in iter {
-                self.0.delete(key)?;
-            }
-        } else {
-            // Take items inside namespace
-            let iter = iter.take_while(|(key, _)| in_namespace(key));
-
-            for (key, _) in iter {
-                self.0.delete(key)?;
-            }
-        };
-
-        Ok(())
+            .query_opt("SELECT profile FROM profiles WHERE pk_hash = $1", &params)
+            .await?;
+        Ok(rows.map(|row| row.get(0)))
     }
 
-    pub fn get_raw_profile(&self, addr: &[u8]) -> Result<Option<Vec<u8>>, RocksError> {
-        // Prefix key
-        let key = [addr, &[PROFILE_NAMESPACE]].concat();
-
-        self.0.get(key)
-    }
-
-    pub fn get_profile(&self, addr: &[u8]) -> Result<Option<AuthWrapper>, RocksError> {
-        self.get_raw_profile(addr).map(|raw_profile_opt| {
+    pub async fn get_profile(&self, addr: &[u8]) -> Result<Option<AuthWrapper>, PostgresError> {
+        self.get_raw_profile(addr).await.map(|raw_profile_opt| {
             raw_profile_opt.map(|raw_profile| {
                 AuthWrapper::decode(&raw_profile[..]).unwrap() // This panics if stored bytes are malformed
             })
         })
     }
 
-    pub fn put_profile(&self, addr: &[u8], raw_profile: &[u8]) -> Result<(), RocksError> {
-        // Prefix key
-        let key = [addr, &[PROFILE_NAMESPACE]].concat();
-
-        self.0.put(key, raw_profile)
+    pub async fn put_profile(
+        &self,
+        pk_hash: &[u8],
+        raw_profile: &[u8],
+    ) -> Result<(), PostgresError> {
+        let params: Vec<&(dyn ToSql + Sync)> = vec![&pk_hash, &raw_profile];
+        self.0
+            .query("INSERT INTO profile VALUES ($1, $2)", &params)
+            .await?;
+        Ok(())
     }
 }
 

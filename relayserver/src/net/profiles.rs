@@ -2,9 +2,9 @@ use bitcoincash_addr::Address;
 use bytes::Bytes;
 use cashweb::auth_wrapper::{ParseError, VerifyError};
 use prost::Message as _;
-use rocksdb::Error as RocksError;
 use thiserror::Error;
 use tokio::task;
+use tokio_postgres::Error as PostgresError;
 use warp::{http::Response, hyper::Body, reject::Reject};
 
 use super::IntoResponse;
@@ -15,7 +15,7 @@ pub enum GetProfileError {
     #[error("not found")]
     NotFound,
     #[error("failed to read from database: {0}")]
-    Database(#[from] RocksError),
+    Database(#[from] PostgresError),
 }
 
 impl Reject for GetProfileError {}
@@ -32,7 +32,7 @@ impl IntoResponse for GetProfileError {
 #[derive(Debug, Error)]
 pub enum PutProfileError {
     #[error("failed to write to database: {0}")]
-    Database(#[from] RocksError),
+    Database(#[from] PostgresError),
     #[error("failed to decode authorization wrapper: {0}")]
     ProfileDecode(prost::DecodeError),
     #[error("failed to verify authorization wrapper: {0}")]
@@ -57,9 +57,9 @@ pub async fn get_profile(
     database: Database,
 ) -> Result<Response<Body>, GetProfileError> {
     // Get profile
-    let raw_profile = task::spawn_blocking(move || database.get_raw_profile(addr.as_body()))
-        .await
-        .unwrap()?
+    let raw_profile = database
+        .get_raw_profile(addr.as_body())
+        .await?
         .ok_or(GetProfileError::NotFound)?;
 
     // Respond
@@ -83,9 +83,7 @@ pub async fn put_profile(
         .map_err(PutProfileError::Verify)?;
 
     // Put to database
-    task::spawn_blocking(move || database.put_profile(addr.as_body(), &profile_raw))
-        .await
-        .unwrap()?;
+    database.put_profile(addr.as_body(), &profile_raw).await?;
 
     // Respond
     Ok(Response::builder().body(Body::empty()).unwrap())

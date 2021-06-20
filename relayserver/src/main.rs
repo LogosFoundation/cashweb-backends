@@ -67,7 +67,9 @@ async fn main() {
 
     // Database state
     info!(message = "opening database", path = %SETTINGS.db_path);
-    let db = Database::try_new(&SETTINGS.db_path).expect("failed to open database");
+    let db = Database::try_new(&SETTINGS.db_path)
+        .await
+        .expect("failed to open database");
     let db_state = warp::any().map(move || db.clone());
 
     // Message broadcast state
