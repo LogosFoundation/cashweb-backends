@@ -14,9 +14,9 @@ use hex::FromHexError;
 use prost::Message as _;
 use ring::digest::{digest, SHA256};
 use ripemd160::{Digest, Ripemd160};
-use rocksdb::Error as RocksError;
 use serde::Deserialize;
 use thiserror::Error;
+use tokio_postgres::Error as PostgresError;
 use tracing::warn;
 use warp::{http::Response, hyper::Body, reject::Reject};
 
@@ -38,7 +38,7 @@ pub struct Query {
 #[derive(Debug, Error)]
 pub enum GetMessageError {
     #[error("failed to read from database: {0}")]
-    DB(RocksError),
+    DB(PostgresError),
     #[error("failed to decode digest: {0}")]
     DigestDecode(FromHexError),
     #[error("destination malformed")]
@@ -61,8 +61,8 @@ pub enum GetMessageError {
     EndDigestNotFound,
 }
 
-impl From<RocksError> for GetMessageError {
-    fn from(err: RocksError) -> Self {
+impl From<PostgresError> for GetMessageError {
+    fn from(err: PostgresError) -> Self {
         Self::DB(err)
     }
 }
@@ -89,44 +89,6 @@ fn get_unix_now() -> u64 {
     .expect("we're in the distant future")
 }
 
-fn construct_prefixes(
-    addr_payload: &[u8],
-    query: Query,
-    database: &Database,
-    namespace: u8,
-) -> Result<(Vec<u8>, Option<Vec<u8>>), GetMessageError> {
-    // Get start prefix
-    let start_prefix = match (query.start_time, query.start_digest) {
-        (Some(start_time), None) => db::msg_prefix(addr_payload, start_time, namespace),
-        (None, Some(start_digest_hex)) => {
-            let start_digest =
-                hex::decode(start_digest_hex).map_err(GetMessageError::StartDigestMalformed)?;
-            database
-                .get_msg_key_by_digest(addr_payload, &start_digest, namespace)?
-                .ok_or(GetMessageError::StartDigestNotFound)?
-        }
-        (Some(_), Some(_)) => return Err(GetMessageError::StartBothGiven),
-        _ => return Err(GetMessageError::MissingStart),
-    };
-
-    // Get end prefix
-    let end_prefix = match (query.end_time, query.end_digest) {
-        (Some(end_time), None) => Some(db::msg_prefix(addr_payload, end_time, namespace)),
-        (None, Some(end_digest_hex)) => {
-            let start_digest =
-                hex::decode(end_digest_hex).map_err(GetMessageError::EndDigestMalformed)?;
-            let msg_key = database
-                .get_msg_key_by_digest(addr_payload, &start_digest, namespace)?
-                .ok_or(GetMessageError::EndDigestNotFound)?;
-            Some(msg_key)
-        }
-        (Some(_), Some(_)) => return Err(GetMessageError::EndBothGiven),
-        _ => None,
-    };
-
-    Ok((start_prefix, end_prefix))
-}
-
 pub async fn get_payloads(
     addr: Address,
     query: Query,
@@ -140,7 +102,8 @@ pub async fn get_payloads(
     if let Some(digest) = query.digest {
         let raw_digest = hex::decode(digest).map_err(GetMessageError::DigestDecode)?;
         let raw_message = database
-            .get_message_by_digest(&address_payload, &raw_digest[..], namespace)?
+            .get_message_by_digest(&address_payload, &raw_digest[..], namespace)
+            .await?
             .ok_or(GetMessageError::NotFound)?;
         let message = Message::decode(&raw_message[..]).unwrap(); // This is safe
         return Ok(Response::builder()
@@ -148,20 +111,18 @@ pub async fn get_payloads(
             .unwrap());
     }
 
-    let (start_prefix, end_prefix) =
-        construct_prefixes(&address_payload, query, &database, namespace)?;
-    let message_page =
-        database.get_messages_range(&start_prefix, end_prefix.as_ref().map(|v| &v[..]))?;
-    let payload_page = message_page.into_payload_page();
+    todo!();
 
-    // Serialize messages
-    let mut raw_payload_page = Vec::with_capacity(payload_page.encoded_len());
-    payload_page.encode(&mut raw_payload_page).unwrap();
+    // let payload_page = message_page.into_payload_page();
 
-    // Respond
-    Ok(Response::builder()
-        .body(Body::from(raw_payload_page))
-        .unwrap()) // TODO: Headers
+    // // Serialize messages
+    // let mut raw_payload_page = Vec::with_capacity(payload_page.encoded_len());
+    // payload_page.encode(&mut raw_payload_page).unwrap();
+
+    // // Respond
+    // Ok(Response::builder()
+    //     .body(Body::from(raw_payload_page))
+    //     .unwrap()) // TODO: Headers
 }
 
 pub async fn get_messages(
@@ -177,24 +138,22 @@ pub async fn get_messages(
     if let Some(digest) = query.digest {
         let raw_digest = hex::decode(digest).map_err(GetMessageError::DigestDecode)?;
         let message = database
-            .get_message_by_digest(&address_payload, &raw_digest[..], namespace)?
+            .get_message_by_digest(&address_payload, &raw_digest[..], namespace)
+            .await?
             .ok_or(GetMessageError::NotFound)?;
         return Ok(Response::builder().body(Body::from(message)).unwrap());
     }
 
-    let (start_prefix, end_prefix) =
-        construct_prefixes(&address_payload, query, &database, namespace)?;
-    let message_set =
-        database.get_messages_range(&start_prefix, end_prefix.as_ref().map(|v| &v[..]))?;
+    todo!();
 
-    // Serialize messages
-    let mut raw_message_page = Vec::with_capacity(message_set.encoded_len());
-    message_set.encode(&mut raw_message_page).unwrap();
+    // // Serialize messages
+    // let mut raw_message_page = Vec::with_capacity(message_set.encoded_len());
+    // message_set.encode(&mut raw_message_page).unwrap();
 
     // Respond
-    Ok(Response::builder()
-        .body(Body::from(raw_message_page))
-        .unwrap()) // TODO: Headers
+    // Ok(Response::builder()
+    //     .body(Body::from(raw_message_page))
+    //     .unwrap()) // TODO: Headers
 }
 
 pub async fn remove_messages(
@@ -210,14 +169,13 @@ pub async fn remove_messages(
     if let Some(digest) = query.digest {
         let raw_digest = hex::decode(digest).map_err(GetMessageError::DigestDecode)?;
         database
-            .remove_message_by_digest(&address_payload, &raw_digest[..], namespace)?
+            .remove_message_by_digest(&address_payload, &raw_digest[..], namespace)
+            .await?
             .ok_or(GetMessageError::NotFound)?;
         return Ok(Response::builder().body(Body::empty()).unwrap());
     }
 
-    let (start_prefix, end_prefix) =
-        construct_prefixes(&address_payload, query, &database, namespace)?;
-    database.remove_messages_range(&start_prefix, end_prefix.as_ref().map(|v| &v[..]))?;
+    todo!();
 
     // Respond
     Ok(Response::builder().body(Body::empty()).unwrap()) // TODO: Headers
@@ -226,7 +184,7 @@ pub async fn remove_messages(
 #[derive(Debug, Error)]
 pub enum PutMessageError {
     #[error("failed to write to database: {0}")]
-    DB(RocksError),
+    DB(PostgresError),
     #[error("destination malformed")]
     DestinationMalformed,
     #[error("failed to decode message: {0}")]
@@ -241,8 +199,8 @@ pub enum PutMessageError {
     StampBroadcast(HttpError),
 }
 
-impl From<RocksError> for PutMessageError {
-    fn from(err: RocksError) -> Self {
+impl From<PostgresError> for PutMessageError {
+    fn from(err: PostgresError) -> Self {
         Self::DB(err)
     }
 }
@@ -331,22 +289,26 @@ pub async fn put_message(
             .map_err(PutMessageError::StampBroadcast)?;
 
         // Push to source key
-        database.push_message(
-            &source_pubkey_hash,
-            timestamp,
-            &raw_message[..],
-            &parsed_message.payload_digest[..],
-            namespace,
-        )?;
+        database
+            .push_message(
+                &source_pubkey_hash,
+                timestamp,
+                &raw_message[..],
+                &parsed_message.payload_digest[..],
+                namespace,
+            )
+            .await?;
 
         // Push to destination key
-        database.push_message(
-            &destination_pubkey_hash,
-            timestamp,
-            &raw_message[..],
-            &parsed_message.payload_digest[..],
-            namespace,
-        )?;
+        database
+            .push_message(
+                &destination_pubkey_hash,
+                timestamp,
+                &raw_message[..],
+                &parsed_message.payload_digest[..],
+                namespace,
+            )
+            .await?;
 
         // If serialized payload too long then remove it
         let raw_message_ws =
