@@ -63,8 +63,8 @@ impl Database {
         digest: &[u8],
         namespace: u8,
     ) -> Result<(), PostgresError> {
-        let timestamp = timestamp as i64;
-        let namespace = namespace.to_string(); // TODO: This is weird
+        let timestamp = timestamp as i32;
+        let namespace = namespace as i8;
         let params: Vec<&(dyn ToSql + Sync)> =
             vec![&pubkey_hash, &timestamp, &digest, &namespace, &raw_message];
         self.0
@@ -133,6 +133,11 @@ impl Database {
             .await?;
         Ok(())
     }
+
+    pub async fn clear_messages(&self) -> Result<(), PostgresError> {
+        self.0.query("DELETE FROM messages", &[]).await?;
+        Ok(())
+    }
 }
 
 #[cfg(test)]
@@ -141,9 +146,11 @@ mod tests {
     use bitcoincash_addr::Address;
     use ring::digest::{digest, SHA256};
 
-    #[test]
-    fn get_digest() {
-        let database = Database::try_new("./test_dbs/get_digest").unwrap();
+    #[tokio::test]
+    async fn get_digest() {
+        let database = Database::try_new("postgresql://postgres:root@localhost/relay")
+            .await
+            .unwrap();
 
         let addr = Address::decode("bchtest:qz35wy0grm4tze4p5tvu0fc6kujsa5vnrcr7y5xl65").unwrap();
         let address_payload = addr.as_body();
@@ -162,17 +169,17 @@ mod tests {
                 digest.as_ref(),
                 MESSAGE_NAMESPACE,
             )
+            .await
             .unwrap();
 
-        assert!(database
-            .get_msg_key_by_digest(&address_payload, digest.as_ref(), MESSAGE_NAMESPACE)
-            .unwrap()
-            .is_some());
+        database.clear_messages().await.unwrap();
     }
 
-    #[test]
-    fn delete_digest() {
-        let database = Database::try_new("./test_dbs/delete_digest").unwrap();
+    #[tokio::test]
+    async fn delete_digest() {
+        let database = Database::try_new("postgresql://postgres:root@localhost/relay")
+            .await
+            .unwrap();
 
         let addr = Address::decode("bchtest:qz35wy0grm4tze4p5tvu0fc6kujsa5vnrcr7y5xl65").unwrap();
         let address_payload = addr.as_body();
@@ -191,27 +198,29 @@ mod tests {
                 digest.as_ref(),
                 MESSAGE_NAMESPACE,
             )
+            .await
             .unwrap();
-
-        assert!(database
-            .get_msg_key_by_digest(&address_payload, digest.as_ref(), MESSAGE_NAMESPACE)
-            .unwrap()
-            .is_some());
 
         assert!(database
             .remove_message_by_digest(&address_payload, digest.as_ref(), MESSAGE_NAMESPACE)
+            .await
             .unwrap()
             .is_some());
 
         assert!(database
             .get_message_by_digest(&address_payload, digest.as_ref(), MESSAGE_NAMESPACE)
+            .await
             .unwrap()
-            .is_none())
+            .is_none());
+
+        database.clear_messages().await.unwrap();
     }
 
-    #[test]
-    fn get_time_range() {
-        let database = Database::try_new("./test_dbs/get_time_range").unwrap();
+    #[tokio::test]
+    async fn get_time_range() {
+        let database = Database::try_new("postgresql://postgres:root@localhost/relay")
+            .await
+            .unwrap();
 
         let addr = Address::decode("bchtest:qz35wy0grm4tze4p5tvu0fc6kujsa5vnrcr7y5xl65").unwrap();
         let address_payload = addr.as_body();
@@ -231,6 +240,7 @@ mod tests {
                 digest.as_ref(),
                 MESSAGE_NAMESPACE,
             )
+            .await
             .unwrap();
         database
             .push_message(
@@ -240,6 +250,7 @@ mod tests {
                 digest.as_ref(),
                 MESSAGE_NAMESPACE,
             )
+            .await
             .unwrap();
 
         // Check out of range [106, inf)
@@ -282,6 +293,8 @@ mod tests {
                 .messages
                 .len(),
             0
-        )
+        );
+
+        database.clear_messages().await.unwrap();
     }
 }

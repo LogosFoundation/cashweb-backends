@@ -3,7 +3,6 @@ use bytes::Bytes;
 use cashweb::auth_wrapper::{ParseError, VerifyError};
 use prost::Message as _;
 use thiserror::Error;
-use tokio::task;
 use tokio_postgres::Error as PostgresError;
 use warp::{http::Response, hyper::Body, reject::Reject};
 

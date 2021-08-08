@@ -21,10 +21,7 @@ use tracing::warn;
 use warp::{http::Response, hyper::Body, reject::Reject};
 
 use super::{ws::MessageBus, IntoResponse};
-use crate::{
-    db::{self, Database},
-    SETTINGS,
-};
+use crate::{db::Database, SETTINGS};
 
 #[derive(Debug, Deserialize)]
 pub struct Query {
