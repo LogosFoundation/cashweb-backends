@@ -66,8 +66,9 @@ async fn main() {
     info!(message = "starting", version = crate_version!());
 
     // Database state
-    info!(message = "opening database", path = %SETTINGS.db_path);
-    let db = Database::try_new(&SETTINGS.db_path)
+    let connection_string = SETTINGS.database.to_connection_string();
+    info!(message = "opening database", connection_string = %connection_string);
+    let db = Database::try_new(&connection_string)
         .await
         .expect("failed to open database");
     let db_state = warp::any().map(move || db.clone());

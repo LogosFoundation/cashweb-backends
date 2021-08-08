@@ -26,11 +26,6 @@ args:
         long: rpc-password
         help: Bitcoin RPC password
         takes_value: true
-    - db-path:
-        short: d
-        long: db-path
-        help: Database path
-        takes_value: true
     - network:
         long: network
         help: Bitcoin network

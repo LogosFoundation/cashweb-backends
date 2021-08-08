@@ -52,11 +52,53 @@ pub struct Websocket {
 }
 
 #[derive(Debug, Deserialize)]
+#[serde(untagged)]
+pub enum Userspec {
+    Both { username: String, password: String },
+    OnlyUsername { username: String },
+    None,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct Database {
+    #[serde(flatten)]
+    pub userspec: Userspec,
+    pub host: String,
+    pub port: Option<u16>,
+    pub database_name: String,
+    pub parameters: Option<String>,
+}
+
+impl Database {
+    pub fn to_connection_string(&self) -> String {
+        let user_spec = match &self.userspec {
+            Userspec::OnlyUsername { username } => format!("{}@", username),
+            Userspec::Both { username, password } => format!("{}:{}@", username, password),
+            Userspec::None => String::new(),
+        };
+        let host_spec = self
+            .port
+            .map(|port| format!("{}:{}", self.host, port))
+            .unwrap_or_else(|| self.host.clone());
+        let param_spec = self
+            .parameters
+            .as_ref()
+            .map(|params| format!("?{}", params))
+            .unwrap_or_default();
+
+        format!(
+            "postgresql://{}{}/{}{}",
+            user_spec, host_spec, self.database_name, param_spec
+        )
+    }
+}
+
+#[derive(Debug, Deserialize)]
 pub struct Settings {
     pub bind: SocketAddr,
     #[cfg(feature = "monitoring")]
     pub bind_prom: SocketAddr,
-    pub db_path: String,
+    pub database: Database,
     pub network: Network,
     pub bitcoin_rpc: BitcoinRpc,
     pub limits: Limits,
@@ -86,7 +128,6 @@ impl Settings {
         s.set_default("network", DEFAULT_NETWORK)?;
         let mut default_db = home_dir.clone();
         default_db.push(format!("{}/db", FOLDER_DIR));
-        s.set_default("db_path", default_db.to_str())?;
         s.set_default("bitcoin_rpc.address", DEFAULT_RPC_ADDR)?;
         s.set_default("bitcoin_rpc.username", DEFAULT_RPC_USER)?;
         s.set_default("bitcoin_rpc.password", DEFAULT_RPC_PASSWORD)?;
@@ -128,11 +169,6 @@ impl Settings {
         // Set the bitcoin network
         if let Some(network) = matches.value_of("network") {
             s.set("network", network)?;
-        }
-
-        // Set db from cmd line
-        if let Some(db_path) = matches.value_of("db-path") {
-            s.set("db_path", db_path)?;
         }
 
         // Set node IP from cmd line
