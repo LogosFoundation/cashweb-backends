@@ -13,6 +13,7 @@ use ring::digest::{digest, SHA256};
 use thiserror::Error;
 
 use crate::{
+    merkle,
     var_int::{DecodeError as VarIntDecodeError, VarInt},
     Decodable, Encodable,
 };
@@ -53,10 +54,10 @@ impl SignatureHashType {
     }
 }
 
-/// Calculate the transaction ID. This is the double SHA256 digest of the raw transaction in big-endian encoding.
+/// Calculate the transaction hash. This is the double SHA256 digest of the raw transaction in big-endian encoding.
 #[inline]
-pub fn transaction_id(raw_transaction: &[u8]) -> [u8; 32] {
-    let mut tx_id_le = transaction_id_le(raw_transaction);
+pub fn transaction_hash_rev(raw_transaction: &[u8]) -> [u8; 32] {
+    let mut tx_id_le = transaction_hash(raw_transaction);
     tx_id_le.reverse();
     tx_id_le
 }
@@ -65,28 +66,68 @@ pub fn transaction_id(raw_transaction: &[u8]) -> [u8; 32] {
 ///
 /// Note that typically the transaction ID are big-endian encoded.
 #[inline]
-pub fn transaction_id_le(raw_transaction: &[u8]) -> [u8; 32] {
+pub fn transaction_hash(raw_transaction: &[u8]) -> [u8; 32] {
     let tx_id = digest(&SHA256, digest(&SHA256, &raw_transaction).as_ref());
     tx_id.as_ref().try_into().unwrap()
 }
 
 impl Transaction {
-    /// Calculate the transaction ID in little-endian format. This is the double SHA256 digest of the raw transaction.
+    /// Calculate the transaction hash in little-endian format. This is the double SHA256 digest of the raw transaction.
+    ///
+    /// Note that typically the transaction hash are big-endian encoded.
+    #[inline]
+    pub fn transaction_hash(&self) -> [u8; 32] {
+        let mut raw_tx = Vec::with_capacity(self.encoded_len());
+        self.encode_raw(&mut raw_tx);
+        transaction_hash(&raw_tx)
+    }
+
+    /// Calculate the reversed transaction hash. Typically used in the
+    /// lotusd-rpc hex encoding. This is the double SHA256 digest of the raw
+    /// transaction in big-endian encoding.
+    #[inline]
+    pub fn transaction_hash_rev(&self) -> [u8; 32] {
+        let mut raw_tx = Vec::with_capacity(self.encoded_len());
+        self.encode_raw(&mut raw_tx);
+        transaction_hash(&raw_tx)
+    }
+
+    /// Calculate the reversed transaction ID which is used in the lotusd rpc
     ///
     /// Note that typically the transaction ID are big-endian encoded.
     #[inline]
-    pub fn transaction_id_le(&self) -> [u8; 32] {
-        let mut raw_tx = Vec::with_capacity(self.encoded_len());
-        self.encode_raw(&mut raw_tx);
-        transaction_id_le(&raw_tx)
+    pub fn transaction_id_rev(&self) -> [u8; 32] {
+        let mut txid = self.transaction_id();
+        txid.reverse();
+        txid
     }
 
     /// Calculate the transaction ID. This is the double SHA256 digest of the raw transaction in big-endian encoding.
     #[inline]
     pub fn transaction_id(&self) -> [u8; 32] {
-        let mut raw_tx = Vec::with_capacity(self.encoded_len());
-        self.encode_raw(&mut raw_tx);
-        transaction_id(&raw_tx)
+        let mut buf = Vec::with_capacity(4 + 32 + 1 + 32 + 1 + 4);
+        buf.put_u32_le(self.version);
+        let mut inputleaves = Vec::with_capacity(self.inputs.len());
+        for input in &self.inputs {
+            let mut inputbuf = Vec::new();
+            input.outpoint.encode_raw(&mut inputbuf);
+            inputbuf.put_u32_le(input.sequence);
+            inputleaves.push(merkle::sha256d(&inputbuf));
+        }
+        let (input_merkle, inputs_height) = merkle::lotus_merkle_root(inputleaves);
+        buf.extend_from_slice(&input_merkle);
+        buf.push(inputs_height); // height
+        let mut outputleaves = Vec::with_capacity(self.inputs.len());
+        for output in &self.outputs {
+            let mut outputbuf = Vec::new();
+            output.encode_raw(&mut outputbuf);
+            outputleaves.push(merkle::sha256d(&outputbuf));
+        }
+        let (output_merkle, outputs_height) = merkle::lotus_merkle_root(outputleaves);
+        buf.extend_from_slice(&output_merkle);
+        buf.push(outputs_height); //height
+        buf.put_u32_le(self.lock_time);
+        merkle::sha256d(&buf)
     }
 
     /// Calculate input count VarInt.
@@ -337,6 +378,27 @@ mod tests {
             let mut raw_tx_output = Vec::with_capacity(0);
             assert!(tx.encode(&mut raw_tx_output.as_mut_slice()).is_err());
         }
+    }
+
+    #[test]
+    fn test_txid_calculations() {
+        for (hex_tx, hex_txid) in test_txs_for_txid() {
+            let raw_tx_input = hex::decode(hex_tx).unwrap();
+            let raw_tx_id = hex::decode(hex_txid).unwrap();
+
+            let tx = Transaction::decode(&mut raw_tx_input.as_slice()).unwrap();
+
+            assert_eq!(tx.transaction_id_rev().to_vec(), raw_tx_id);
+        }
+    }
+
+    fn test_txs_for_txid() -> Vec<(&'static str, &'static str)> {
+        vec![
+            ( 
+                "02000000010000000000000000000000000000000000000000000000000000000000000000ffffffff020000ffffffff0f00000000000000000b6a056c6f676f73034b9b006413a024000000001976a914745a32d27fe3ac28528591dd8a4ba6c4c4fe3d2988ac913cd1020000000017a914b6c79031b71d86ab0d617e1e1e706ec4ee34b07f87913cd102000000001976a914b8ae1c47effb58f72f7bca819fe7fc252f9e852e88ac913cd102000000001976a914b50b86a893d80c9e2ee72b199612374b7b4c1cd888ac913cd102000000001976a914da76a31b6760dcb90aa469c15965da6e80096e4588ac913cd102000000001976a9141325d2d8ba6e8c7d99ff66d21530917cc73429d288ac913cd102000000001976a9146a171891ab9443020bd2755ef79c6e59efc5926588ac913cd102000000001976a91419e8d8d0edab6ec43f04b656bff72af78d63ff6588ac913cd102000000001976a914c6492d4e44dcd0051e60a8add6af02b2f291b2aa88ac913cd102000000001976a914b5aeafec9f2972110c4c6af9508a3c41e1d3c73b88ac913cd102000000001976a9147c28aa91b93faf8aee0a6520a0a83f42dbc4a45b88ac913cd102000000001976a914b18eb08c4978e73480743b1598061d3cf38e10a888ac913cd102000000001976a9147d0893d1a278bab27e7ad92ed88bd7dceafd83a588ac913cd102000000001976a9144b869f9a55c57003df178bdc801184109d904f8b88ac00000000", 
+                "92c8a467696f41fd9c171f4d53e1aff2932bb0a32b7ca81108fe0a9dc01d7aaf",
+            ),
+        ]
     }
 
     fn test_txs<'a>() -> Vec<&'a str> {

@@ -79,11 +79,10 @@ pub async fn process_payment(
         .transactions
         .iter()
         .map(|raw_tx| {
-            let mut tx_id = digest(&SHA256, digest(&SHA256, &raw_tx).as_ref())
-                .as_ref()
-                .to_vec();
-            tx_id.as_mut_slice().reverse();
-            Transaction::decode(&mut raw_tx.as_slice()).map(move |tx| (tx, tx_id))
+            Transaction::decode(&mut raw_tx.as_slice()).map(move |tx| {
+                let tx_id = tx.transaction_id_rev().to_vec();
+                (tx, tx_id)
+            })
         })
         .collect();
     let txs = txs_res.map_err(PaymentError::MalformedTx)?;

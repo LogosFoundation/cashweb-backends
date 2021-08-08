@@ -11,6 +11,7 @@
 //! [`Hierarchical Deterministic Wallets`]: https://github.com/bitcoin/bips/blob/master/bip-0032.mediawiki
 
 pub mod bip32;
+pub mod merkle;
 pub mod prelude;
 pub mod transaction;
 pub mod var_int;
