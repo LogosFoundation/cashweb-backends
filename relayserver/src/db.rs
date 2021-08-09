@@ -51,8 +51,17 @@ impl Database {
         pubkey_hash: &[u8],
         digest: &[u8],
         namespace: u8,
-    ) -> Result<Option<()>, PostgresError> {
-        todo!()
+    ) -> Result<Option<Vec<u8>>, PostgresError> {
+        let namespace = namespace as i8;
+        let params: Vec<&(dyn ToSql + Sync)> = vec![&pubkey_hash, &digest, &namespace];
+        let rows = self
+            .0
+            .query_opt(
+                "DELETE FROM messages WHERE pk_hash=$1 AND message_digest=$2 AND namespace = $3",
+                &params,
+            )
+            .await?;
+        Ok(rows.map(|row| row.get(0)))
     }
 
     pub async fn push_message(
