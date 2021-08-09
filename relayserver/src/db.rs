@@ -151,6 +151,7 @@ mod tests {
         let database = Database::try_new("postgresql://postgres:root@localhost/relay")
             .await
             .unwrap();
+        database.clear_messages().await.unwrap();
 
         let addr = Address::decode("bchtest:qz35wy0grm4tze4p5tvu0fc6kujsa5vnrcr7y5xl65").unwrap();
         let address_payload = addr.as_body();
@@ -171,8 +172,6 @@ mod tests {
             )
             .await
             .unwrap();
-
-        database.clear_messages().await.unwrap();
     }
 
     #[tokio::test]
@@ -180,6 +179,7 @@ mod tests {
         let database = Database::try_new("postgresql://postgres:root@localhost/relay")
             .await
             .unwrap();
+        database.clear_messages().await.unwrap();
 
         let addr = Address::decode("bchtest:qz35wy0grm4tze4p5tvu0fc6kujsa5vnrcr7y5xl65").unwrap();
         let address_payload = addr.as_body();
@@ -212,8 +212,6 @@ mod tests {
             .await
             .unwrap()
             .is_none());
-
-        database.clear_messages().await.unwrap();
     }
 
     #[tokio::test]
@@ -221,6 +219,7 @@ mod tests {
         let database = Database::try_new("postgresql://postgres:root@localhost/relay")
             .await
             .unwrap();
+        database.clear_messages().await.unwrap();
 
         let addr = Address::decode("bchtest:qz35wy0grm4tze4p5tvu0fc6kujsa5vnrcr7y5xl65").unwrap();
         let address_payload = addr.as_body();
@@ -294,7 +293,5 @@ mod tests {
                 .len(),
             0
         );
-
-        database.clear_messages().await.unwrap();
     }
 }
