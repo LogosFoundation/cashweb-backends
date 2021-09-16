@@ -6,11 +6,13 @@ pub mod db;
 pub mod models;
 pub mod net;
 pub mod peering;
+pub mod pubsub;
 pub mod settings;
 
 #[cfg(feature = "monitoring")]
 pub mod monitoring;
 
+use serde::Deserialize;
 use std::{env, sync::Arc, time::Duration};
 
 use cashweb::{
@@ -20,6 +22,7 @@ use cashweb::{
 use futures::prelude::*;
 use hyper::{client::HttpConnector, http::Uri};
 use lazy_static::lazy_static;
+use prost::Message;
 use tracing::{error, info};
 use tracing_subscriber::{fmt, EnvFilter};
 use warp::{
@@ -27,14 +30,18 @@ use warp::{
     Filter,
 };
 
+use crate::models::wrapper::AuthWrapper;
 use db::Database;
 use net::{payments, protection};
 use peering::{PeerHandler, TokenCache};
 use settings::Settings;
 
+use crate::pubsub::PubSubDatabase;
+
 const METADATA_PATH: &str = "keys";
 const PEERS_PATH: &str = "peers";
 pub const PAYMENTS_PATH: &str = "payments";
+const MESSAGES_PATH: &str = "messages";
 
 lazy_static! {
     // Static settings
@@ -51,8 +58,9 @@ async fn main() {
         .finish();
     tracing::subscriber::set_global_default(subscriber).expect("no global subscriber has been set");
 
-    // Initialize database
+    // Initialize databases
     let db = Database::try_new(&SETTINGS.db_path).expect("failed to open database");
+    let pubsub_db = PubSubDatabase::new("messages").expect("failed to open database");
 
     // Fetch peers from settings
     let peers_settings: Vec<Uri> = SETTINGS
@@ -124,6 +132,9 @@ async fn main() {
 
     // Database state
     let db_state = warp::any().map(move || db.clone());
+
+    // PubSub Database state
+    let pubsub_db_state = warp::any().map(move || pubsub_db.clone());
 
     // Initialize bitcoin client
     let bitcoin_client = BitcoinClientHTTP::new(
@@ -200,6 +211,45 @@ async fn main() {
         .and(peer_handler)
         .and_then(move |peer_handler| net::get_peers(peer_handler).map_err(warp::reject::custom));
 
+    let payload_digest_path_param =
+        warp::path::param().and_then(|payload_digest: String| async move {
+            hex::decode(&payload_digest).map_err(|_| warp::reject::not_found())
+        });
+
+    #[derive(Deserialize)]
+    struct MessageGetQueryParameters {
+        topic: String,
+        from: i64,
+        to: i64,
+    }
+    let messages_get = warp::path(MESSAGES_PATH)
+        .and(warp::get())
+        .and(pubsub_db_state.clone())
+        .and(warp::query::<MessageGetQueryParameters>())
+        .and_then(|db: PubSubDatabase, params: MessageGetQueryParameters| {
+            pubsub::get_messages(db, params.topic, params.from, params.to)
+        });
+
+    let messages_get_id = warp::path(MESSAGES_PATH)
+        .and(warp::get())
+        .and(pubsub_db_state.clone())
+        .and(payload_digest_path_param)
+        .and_then(|db: PubSubDatabase, payload_digest: Vec<u8>| {
+            pubsub::get_message(db, payload_digest)
+        });
+
+    let messages_put = warp::path(MESSAGES_PATH)
+        .and(warp::put())
+        .and(pubsub_db_state.clone())
+        .and(bitcoin_client_state.clone())
+        .and(warp::body::content_length_limit(100_000))
+        .and(warp::body::bytes())
+        .and_then(move |db, bitcoin_client, body| {
+            println!("Received new message");
+            let wrapper = AuthWrapper::decode(body).unwrap();
+            pubsub::put_message(db, bitcoin_client, wrapper)
+        });
+
     // Payment handler
     let payments = warp::path(PAYMENTS_PATH)
         .and(warp::post())
@@ -243,6 +293,9 @@ async fn main() {
         .or(metadata_get)
         .or(metadata_put)
         .or(peers_get)
+        .or(messages_get)
+        .or(messages_get_id)
+        .or(messages_put)
         .recover(net::handle_rejection)
         .with(cors)
         .with(warp::trace::request());
