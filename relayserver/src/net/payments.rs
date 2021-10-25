@@ -11,7 +11,7 @@ use cashweb::{
         transaction::{DecodeError as TransactionDecodeError, Transaction},
         Decodable,
     },
-    bitcoin_client::{BitcoinClient, HttpClient, HttpError, NodeError},
+    bitcoin_client::{BitcoinClient, BitcoinClientHTTP, NodeError},
     payments::bip70::{Output, Payment, PaymentAck, PaymentDetails, PaymentRequest},
     payments::{
         wallet::{UnexpectedOutputs, Wallet as WalletGeneric},
@@ -44,7 +44,7 @@ pub enum PaymentError {
     #[error("missing merchant data")]
     MissingMerchantData,
     #[error("bitcoin request failed: {0}")]
-    Node(HttpError),
+    Node(NodeError),
 }
 
 impl Reject for PaymentError {}
@@ -71,7 +71,7 @@ impl IntoResponse for PaymentError {
 pub async fn process_payment(
     payment: Payment,
     wallet: Wallet,
-    bitcoin_client: BitcoinClient<HttpClient>,
+    bitcoin_client: BitcoinClientHTTP,
     token_state: Arc<HmacScheme>,
 ) -> Result<Response<Body>, PaymentError> {
     let txs_res: Result<Vec<Transaction>, TransactionDecodeError> = payment
@@ -129,7 +129,7 @@ pub enum PaymentRequestError {
     #[error("address decoding failed: {0}, {1}")]
     Address(CashAddrError, Base58Error),
     #[error("failed to retrieve address from bitcoind: {0}")]
-    Node(HttpError),
+    Node(NodeError),
     #[error("mismatched network")]
     MismatchedNetwork,
 }
@@ -137,7 +137,7 @@ pub enum PaymentRequestError {
 pub async fn generate_payment_request(
     addr: Address,
     wallet: Wallet,
-    bitcoin_client: BitcoinClient<HttpClient>,
+    bitcoin_client: BitcoinClientHTTP,
 ) -> Result<Response<Body>, PaymentRequestError> {
     let output_addr_str = bitcoin_client
         .get_new_addr()

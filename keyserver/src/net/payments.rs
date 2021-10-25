@@ -1,7 +1,7 @@
 use std::time::{SystemTime, UNIX_EPOCH};
 
 use bitcoincash_addr::{cashaddr::EncodingError as AddrEncodingError, Address};
-use cashweb::bitcoin_client::{BitcoinClient, HttpClient, HttpError, NodeError};
+use cashweb::bitcoin_client::{BitcoinClient, BitcoinClientHTTP, NodeError};
 use cashweb::{
     bitcoin::{
         transaction::{DecodeError as TransactionDecodeError, Transaction},
@@ -40,7 +40,7 @@ pub enum PaymentError {
     #[error("missing merchant data")]
     MissingMerchantData,
     #[error("bitcoin request failed: {0}")]
-    Node(HttpError),
+    Node(NodeError),
     #[error("incorrect length preimage")]
     IncorrectLengthPreimage,
     #[error("address encoding failed: {0}")]
@@ -72,7 +72,7 @@ impl IntoResponse for PaymentError {
 
 pub async fn process_payment(
     payment: Payment,
-    bitcoin_client: BitcoinClient<HttpClient>,
+    bitcoin_client: BitcoinClientHTTP,
 ) -> Result<Response<Body>, PaymentError> {
     // Deserialize transactions
     let txs_res: Result<Vec<(Transaction, Vec<u8>)>, _> = payment
@@ -163,7 +163,7 @@ pub enum PaymentRequestError {
     #[error("incorrect length preimage")]
     IncorrectLengthPreimage,
     #[error("bitcoin request failed: {0}")]
-    Node(HttpError),
+    Node(NodeError),
     #[error("unexpected network")]
     UnepxectedNetwork,
 }
