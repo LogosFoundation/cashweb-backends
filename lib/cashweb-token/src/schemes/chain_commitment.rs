@@ -3,21 +3,19 @@
 //!
 //! [`Keyserver Protocol`]: https://github.com/cashweb/specifications/blob/master/keyserver-protocol/specification.mediawiki
 
-use std::{convert::TryInto, fmt};
+use std::{convert::TryInto};
 
 use bitcoin::{
     prelude::{Transaction, TransactionDecodeError},
     Decodable,
 };
-use bitcoin_client::{BitcoinClient, HttpClient, HttpsClient, NodeError};
-use hyper::{Body, Request as HttpRequest, Response as HttpResponse};
+use bitcoin_client::{BitcoinClient, NodeError};
 use ring::digest::{Context, SHA256};
 use thiserror::Error;
-use tower_service::Service;
 
 /// Error associated with token validation.
 #[derive(Debug, Error)]
-pub enum ValidationError<E: fmt::Debug + fmt::Display + 'static> {
+pub enum ValidationError {
     /// Failed to decode token.
     #[error("failed to decode token: {0}")]
     Base64(base64::DecodeError),
@@ -29,7 +27,7 @@ pub enum ValidationError<E: fmt::Debug + fmt::Display + 'static> {
     Invalid,
     /// Error occured when communicating with bitcoind.
     #[error(transparent)]
-    Node(NodeError<E>),
+    Node(NodeError),
     /// Specified output was not an `OP_RETURN`.
     #[error("output is not an op return format")]
     NotOpReturn,
@@ -46,8 +44,8 @@ pub enum ValidationError<E: fmt::Debug + fmt::Display + 'static> {
 
 /// Chain commitment scheme used in the keyserver protocol.
 #[derive(Clone, Debug)]
-pub struct ChainCommitmentScheme<S> {
-    client: BitcoinClient<S>,
+pub struct ChainCommitmentScheme<C: BitcoinClient> {
+    client: C,
 }
 
 const COMMITMENT_LEN: usize = 32;
@@ -72,44 +70,19 @@ pub fn construct_token(tx_id: &[u8], vout: u32) -> String {
     base64::encode_config(raw_token, url_safe_config)
 }
 
-impl<S> ChainCommitmentScheme<S> {
+impl<Client: BitcoinClient> ChainCommitmentScheme<Client> {
     /// Create a [`ChainCommitmentScheme`] from a [`BitcoinClient`].
-    pub fn from_client(client: BitcoinClient<S>) -> Self {
+    pub fn from_client(client: Client) -> Self {
         ChainCommitmentScheme { client }
     }
-}
 
-impl ChainCommitmentScheme<HttpClient> {
-    /// Create a [`ChainCommitmentScheme`] from a [`BitcoinClient`] using a standard HTTP connector.
-    pub fn new(endpoint: String, username: String, password: String) -> Self {
-        Self {
-            client: BitcoinClient::new(endpoint, username, password),
-        }
-    }
-}
-
-impl ChainCommitmentScheme<HttpsClient> {
-    /// Create a [`ChainCommitmentScheme`] from a [`BitcoinClient`] using a standard HTTPS connector.
-    pub fn new_tls(endpoint: String, username: String, password: String) -> Self {
-        Self {
-            client: BitcoinClient::new_tls(endpoint, username, password),
-        }
-    }
-}
-
-impl<S> ChainCommitmentScheme<S>
-where
-    S: Service<HttpRequest<Body>, Response = HttpResponse<Body>> + Clone,
-    S::Error: fmt::Debug + fmt::Display + 'static,
-    S::Future: Send + 'static,
-{
     /// Validate a token.
     pub async fn validate_token(
         &self,
         pub_key_hash: &[u8],
         address_metadata_hash: &[u8],
         token: &str,
-    ) -> Result<Vec<u8>, ValidationError<S::Error>> {
+    ) -> Result<Vec<u8>, ValidationError> {
         let url_safe_config = base64::Config::new(base64::CharacterSet::UrlSafe, false);
         let outpoint_raw =
             base64::decode_config(token, url_safe_config).map_err(ValidationError::Base64)?;

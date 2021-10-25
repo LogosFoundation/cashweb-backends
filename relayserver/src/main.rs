@@ -29,7 +29,7 @@ use warp::{
 #[cfg(feature = "monitoring")]
 use prometheus::{Encoder, TextEncoder};
 
-use cashweb::bitcoin_client::BitcoinClient;
+use cashweb::bitcoin_client::{BitcoinClientHTTP};
 use db::{Database, FEED_NAMESPACE, MESSAGE_NAMESPACE};
 use net::{payments, protection};
 use settings::Settings;
@@ -90,7 +90,7 @@ async fn main() {
 
     // Bitcoin client state
     info!(message = "constructing bitcoin client", address = %SETTINGS.bitcoin_rpc.address);
-    let bitcoin_client = BitcoinClient::new(
+    let bitcoin_client = BitcoinClientHTTP::new(
         SETTINGS.bitcoin_rpc.address.clone(),
         SETTINGS.bitcoin_rpc.username.clone(),
         SETTINGS.bitcoin_rpc.password.clone(),

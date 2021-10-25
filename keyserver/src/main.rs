@@ -14,7 +14,7 @@ pub mod monitoring;
 use std::{env, sync::Arc, time::Duration};
 
 use cashweb::{
-    bitcoin_client::BitcoinClient, payments::preprocess_payment,
+    bitcoin_client::BitcoinClientHTTP, payments::preprocess_payment,
     token::schemes::chain_commitment::ChainCommitmentScheme,
 };
 use futures::prelude::*;
@@ -126,7 +126,7 @@ async fn main() {
     let db_state = warp::any().map(move || db.clone());
 
     // Initialize bitcoin client
-    let bitcoin_client = BitcoinClient::new(
+    let bitcoin_client = BitcoinClientHTTP::new(
         SETTINGS.bitcoin_rpc.address.clone(),
         SETTINGS.bitcoin_rpc.username.clone(),
         SETTINGS.bitcoin_rpc.password.clone(),

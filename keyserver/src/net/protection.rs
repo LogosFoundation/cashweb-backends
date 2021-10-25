@@ -2,10 +2,8 @@ use std::sync::Arc;
 
 use bitcoincash_addr::Address;
 use bytes::Bytes;
-use cashweb::bitcoin_client::HttpClient;
-use cashweb::token::{extract_pop, schemes::chain_commitment::*};
+use cashweb::{bitcoin_client::BitcoinClientHTTP, token::{extract_pop, schemes::chain_commitment::*}};
 use http::header::HeaderMap;
-use hyper::Error as HyperError;
 use prost::Message as _;
 use ring::digest::{digest, SHA256};
 use thiserror::Error;
@@ -19,7 +17,7 @@ pub enum ProtectionError {
     #[error("missing token, pubkey: {0:?}")] // TODO: Make this prettier
     MissingToken(Vec<u8>, Vec<u8>),
     #[error("validation failed: {0}")]
-    Validation(ValidationError<HyperError>),
+    Validation(ValidationError),
     #[error("failed to decode authorization wrapper: {0}")]
     Decode(prost::DecodeError),
 }
@@ -46,7 +44,7 @@ pub async fn pop_protection(
     addr: Address,
     auth_wrapper_raw: Bytes,
     header_map: HeaderMap,
-    token_scheme: Arc<ChainCommitmentScheme<HttpClient>>,
+    token_scheme: Arc<ChainCommitmentScheme<BitcoinClientHTTP>>,
 ) -> Result<(Address, Bytes, AuthWrapper, Vec<u8>), ProtectionError> {
     let auth_wrapper =
         AuthWrapper::decode(auth_wrapper_raw.clone()).map_err(ProtectionError::Decode)?;

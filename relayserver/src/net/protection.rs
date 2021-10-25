@@ -1,7 +1,7 @@
 use std::sync::Arc;
 
 use bitcoincash_addr::Address;
-use cashweb::bitcoin_client::{BitcoinClient, HttpClient};
+use cashweb::bitcoin_client::BitcoinClientHTTP;
 use cashweb::token::{extract_pop, schemes::hmac_bearer::*, split_pop_token};
 use http::header::HeaderMap;
 use thiserror::Error;
@@ -12,7 +12,7 @@ use crate::net::payments::{generate_payment_request, Wallet};
 #[derive(Debug, Error)]
 pub enum ProtectionError {
     #[error("missing token: {0:?}")] // TODO: Make this prettier
-    MissingToken(Address, Wallet, BitcoinClient<HttpClient>),
+    MissingToken(Address, Wallet, BitcoinClientHTTP),
     #[error("validation failed: {0}")]
     Validation(ValidationError),
 }
@@ -46,7 +46,7 @@ pub async fn pop_protection(
     access_token: Option<String>,
     token_scheme: Arc<HmacScheme>,
     wallet: Wallet,
-    bitcoin_client: BitcoinClient<HttpClient>,
+    bitcoin_client: BitcoinClientHTTP,
 ) -> Result<Address, ProtectionError> {
     match extract_pop(&header_map).or_else(|| {
         access_token

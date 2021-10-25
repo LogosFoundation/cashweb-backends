@@ -5,10 +5,7 @@ use std::{
 
 use bitcoincash_addr::Address;
 use bytes::Bytes;
-use cashweb::{
-    bitcoin_client::{BitcoinClient, HttpClient, HttpError, NodeError},
-    relay::{stamp::StampError, *},
-};
+use cashweb::{bitcoin_client::{BitcoinClient, BitcoinClientHTTP, NodeError}, relay::{stamp::StampError, *}};
 use futures::future;
 use hex::FromHexError;
 use prost::Message as _;
@@ -238,7 +235,7 @@ pub enum PutMessageError {
     #[error("failed verify stamp: {0}")]
     StampVerify(StampError),
     #[error("failed to broadcast stamp: {0}")]
-    StampBroadcast(HttpError),
+    StampBroadcast(NodeError),
 }
 
 impl From<RocksError> for PutMessageError {
@@ -267,7 +264,7 @@ pub async fn put_message(
     addr: Address,
     messages_raw: Bytes,
     database: Database,
-    bitcoin_client: BitcoinClient<HttpClient>,
+    bitcoin_client: BitcoinClientHTTP,
     msg_bus: MessageBus,
     namespace: u8,
 ) -> Result<Response<Body>, PutMessageError> {
