@@ -18,7 +18,7 @@ use ring::digest::{digest, SHA256};
 use secp256k1::{key::PublicKey, Error as SecpError, Message, Secp256k1, Signature};
 use thiserror::Error;
 
-pub use models::{auth_wrapper::SignatureScheme, AuthWrapper};
+pub use models::{auth_wrapper::SignatureScheme, *};
 
 /// Represents an [`AuthWrapper`] post-parsing.
 #[derive(Debug, Clone, PartialEq, Eq)]
