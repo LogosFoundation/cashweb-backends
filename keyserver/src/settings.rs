@@ -64,6 +64,7 @@ pub struct Settings {
     #[cfg(feature = "monitoring")]
     pub bind_prom: SocketAddr,
     pub db_path: String,
+    pub pubsub_db_path: String,
     pub network: String,
     pub bitcoin_rpc: BitcoinRpc,
     pub limits: Limits,
@@ -94,6 +95,9 @@ impl Settings {
         let mut default_db = home_dir.clone();
         default_db.push(format!("{}/db", FOLDER_DIR));
         s.set_default("db_path", default_db.to_str())?;
+        let mut default_pubsub_db = home_dir.clone();
+        default_pubsub_db.push(format!("{}/pubsub_db", FOLDER_DIR));
+        s.set_default("pubsub_db_path", default_pubsub_db.to_str())?;
 
         s.set_default("bitcoin_rpc.address", DEFAULT_RPC_ADDR)?;
         s.set_default("bitcoin_rpc.username", DEFAULT_RPC_USER)?;
@@ -148,6 +152,11 @@ impl Settings {
         // Set db from cmd line
         if let Some(db_path) = matches.value_of("db-path") {
             s.set("db_path", db_path)?;
+        }
+
+        // Set db from cmd line
+        if let Some(pubsub_db_path) = matches.value_of("pubsub-db-path") {
+            s.set("pubsub_db_path", pubsub_db_path)?;
         }
 
         // Set node IP from cmd line
