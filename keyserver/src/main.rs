@@ -105,7 +105,7 @@ async fn main() {
     let token_cache_inner = token_cache.clone();
     let peer_handler_inner = peer_handler.clone();
     let db_inner = db.clone();
-    let broadcast_heartbeat = || async move {
+    let broadcast_heartbeat = async move {
         while let Some(val) = subscriber.next().await {
             if let Ok(inner) = val {
                 if let Some(block) = inner.get(1) {
@@ -117,7 +117,7 @@ async fn main() {
             }
         }
     };
-    tokio::spawn(broadcast_heartbeat());
+    tokio::spawn(broadcast_heartbeat);
 
     // Peer state
     let peer_handler = warp::any().map(move || peer_handler.clone());
