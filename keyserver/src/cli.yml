@@ -35,6 +35,11 @@ args:
         long: db-path
         help: Database path
         takes_value: true
+    - pubsub-db-path:
+        short: p
+        long: pubsub-db-path
+        help: PubSub Database Path
+        takes_value: true
     - network:
         long: network
         help: Bitcoin network

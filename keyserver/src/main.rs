@@ -60,7 +60,7 @@ async fn main() {
 
     // Initialize databases
     let db = Database::try_new(&SETTINGS.db_path).expect("failed to open database");
-    let pubsub_db = PubSubDatabase::new("messages").expect("failed to open database");
+    let pubsub_db = PubSubDatabase::new(&SETTINGS.pubsub_db_path).expect("failed to open database");
 
     // Fetch peers from settings
     let peers_settings: Vec<Uri> = SETTINGS
