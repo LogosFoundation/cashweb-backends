@@ -44,8 +44,7 @@ pub struct PeerHandler<S> {
 fn uris_to_peers(uris: &[Uri]) -> Peers {
     let peers = uris
         .iter()
-        .map(|uri| uri.to_string())
-        .map(|uri_str| Peer { url: uri_str })
+        .map(|uri| Peer { url: uri.to_string() })
         .collect();
     Peers { peers }
 }
@@ -53,7 +52,7 @@ fn uris_to_peers(uris: &[Uri]) -> Peers {
 fn uris_to_raw_peers(uris: &[Uri]) -> Vec<u8> {
     let mut buffer = Vec::with_capacity(uris.len());
     let peers = uris_to_peers(uris);
-    peers.encode(&mut buffer).unwrap(); // This is safe
+    peers.encode(&mut buffer).unwrap(); // Never fails
     buffer
 }
 
@@ -79,6 +78,8 @@ where
         &self.keyserver_manager
     }
 
+    // TODO: actually use this
+    #[allow(dead_code)]
     pub async fn get_urls(&self) -> Vec<Uri> {
         self.keyserver_manager.get_uris().read().await.clone()
     }

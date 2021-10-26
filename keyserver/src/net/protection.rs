@@ -2,19 +2,21 @@ use std::sync::Arc;
 
 use bitcoincash_addr::Address;
 use bytes::Bytes;
-use cashweb::{bitcoin_client::BitcoinClientHTTP, token::{extract_pop, schemes::chain_commitment::*}};
+use cashweb::{
+    bitcoin_client::BitcoinClientHTTP,
+    token::{extract_pop, schemes::chain_commitment::*},
+};
 use http::header::HeaderMap;
 use prost::Message as _;
-use ring::digest::{digest, SHA256};
 use thiserror::Error;
 use tracing::info;
 use warp::{http::Response, hyper::Body, reject::Reject};
 
-use crate::{models::wrapper::AuthWrapper, net::payments};
+use crate::{crypto::sha256, models::wrapper::AuthWrapper, net::payments};
 
 #[derive(Debug, Error)]
 pub enum ProtectionError {
-    #[error("missing token, pubkey: {0:?}")] // TODO: Make this prettier
+    #[error("missing token, pubkey: {}", hex::encode(.0))]
     MissingToken(Vec<u8>, Vec<u8>),
     #[error("validation failed: {0}")]
     Validation(ValidationError),
@@ -52,11 +54,11 @@ pub async fn pop_protection(
     let metadata_hash = if auth_wrapper.payload_digest.len() == 32 {
         auth_wrapper.payload_digest.clone()
     } else {
-        digest(&SHA256, &auth_wrapper.payload).as_ref().to_vec()
+        sha256(&auth_wrapper.payload).to_vec()
     };
 
     // SHA256 of the public key
-    let pub_key_hash = digest(&SHA256, &auth_wrapper.public_key);
+    let pub_key_hash = sha256(&auth_wrapper.public_key);
 
     match extract_pop(&header_map) {
         Some(pop_token) => {
@@ -68,7 +70,7 @@ pub async fn pop_protection(
             Ok((addr, auth_wrapper_raw, auth_wrapper, raw_token))
         }
         None => Err(ProtectionError::MissingToken(
-            pub_key_hash.as_ref().to_vec(),
+            pub_key_hash.to_vec(),
             metadata_hash,
         )),
     }

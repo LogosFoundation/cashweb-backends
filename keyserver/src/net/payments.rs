@@ -158,31 +158,6 @@ pub async fn process_payment(
         .unwrap())
 }
 
-#[derive(Debug, Error)]
-pub enum PaymentRequestError {
-    #[error("incorrect length preimage")]
-    IncorrectLengthPreimage,
-    #[error("bitcoin request failed: {0}")]
-    Node(NodeError),
-    #[error("unexpected network")]
-    UnepxectedNetwork,
-}
-
-impl Reject for PaymentRequestError {}
-
-impl IntoResponse for PaymentRequestError {
-    fn to_status(&self) -> u16 {
-        match self {
-            Self::IncorrectLengthPreimage => 400,
-            Self::Node(err) => match err {
-                NodeError::Rpc(_) => 400,
-                _ => 500,
-            },
-            Self::UnepxectedNetwork => 400,
-        }
-    }
-}
-
 pub fn construct_payment_response(pub_key_hash: &[u8], metadata_digest: &[u8]) -> Response<Body> {
     // Construct metadata commitment
     let commitment_preimage = [pub_key_hash, metadata_digest].concat();

@@ -2,12 +2,13 @@
 extern crate clap;
 extern crate serde;
 
-pub mod db;
-pub mod models;
-pub mod net;
-pub mod peering;
-pub mod pubsub;
-pub mod settings;
+mod crypto;
+mod db;
+mod models;
+mod net;
+mod peering;
+mod pubsub;
+mod settings;
 
 #[cfg(feature = "monitoring")]
 pub mod monitoring;

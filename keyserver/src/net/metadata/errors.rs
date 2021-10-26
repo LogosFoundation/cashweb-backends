@@ -11,8 +11,6 @@ use crate::{
 pub enum PutMetadataError {
     #[error("failed to write to database: {0}")]
     Database(RocksError),
-    #[error("failed to decode authorization wrapper: {0}")]
-    MetadataDecode(prost::DecodeError),
     #[error("failed to verify authorization wrapper: {0}")]
     InvalidAuthWrapper(ParseError),
     #[error("failed to parse authorization wrapper: {0}")]
