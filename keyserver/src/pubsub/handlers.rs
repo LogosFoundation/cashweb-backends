@@ -32,6 +32,8 @@ pub enum MessagesRpcRejection {
     TransactionInvalidError(#[from] TransactionDecodeError),
     #[error("invalid transaction output amount")]
     TransactionOutputInvalid(),
+    #[error("invalid topic format")]
+    InvalidTopicFormat(),
 }
 
 impl Reject for MessagesRpcRejection {}
@@ -94,6 +96,18 @@ pub async fn put_message(
         let mut sha256_context = Context::new(&SHA256);
         sha256_context.update(message.payload.as_slice());
         message.payload_digest = sha256_context.finish().as_ref().to_vec();
+    }
+
+    let payload = BroadcastMessage::decode(&message.payload[..])
+        .map_err(MessagesRpcRejection::ProtoBufDecodeError)?;
+    let topic = &payload.topic;
+    let split_topic = topic.split(".").collect::<Vec<&str>>();
+    if split_topic.len() > 10 {
+        return Err(warp::reject::custom(MessagesRpcRejection::InvalidTopicFormat()));
+    }
+    let invalid_segments = split_topic.iter().any(|segment| segment.len() == 0);
+    if invalid_segments {
+        return Err(warp::reject::custom(MessagesRpcRejection::InvalidTopicFormat()));
     }
 
     let mut transactions = HashMap::<Vec<u8>, BurnOutputsWithAmounts>::new();
@@ -208,9 +222,7 @@ pub async fn put_message(
         .values()
         .map(|burn_output| burn_output.1)
         .fold(0, |total, v| total + v);
-        
-    let payload = BroadcastMessage::decode(&message.payload[..])
-        .map_err(MessagesRpcRejection::ProtoBufDecodeError)?;
+
     db.put_message(timestamp, &payload.topic, &message)
         .map_err(MessagesRpcRejection::DatabaseError)?;
     Ok(Response::builder().status(200).body(b"".as_ref()).unwrap())
