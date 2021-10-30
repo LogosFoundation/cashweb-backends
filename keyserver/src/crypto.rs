@@ -1,4 +1,5 @@
 use ring::digest::{Context, SHA256};
+use std::convert::TryInto;
 
 pub fn sha256(data: &[u8]) -> [u8; 32] {
     let mut sha256_context = Context::new(&SHA256);
