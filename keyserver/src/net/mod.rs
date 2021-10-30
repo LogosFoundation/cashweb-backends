@@ -93,11 +93,6 @@ pub async fn handle_rejection(err: Rejection) -> Result<Response<Body>, Infallib
         return Ok(err.into_response());
     }
 
-    if let Some(err) = err.find::<PaymentRequestError>() {
-        error!(message = "payment request error", error = %err);
-        return Ok(err.into_response());
-    }
-
     if let Some(err) = err.find::<PeeringUnavailible>() {
         error!(message = "failed to get peers", error = %err);
         return Ok(err.into_response());

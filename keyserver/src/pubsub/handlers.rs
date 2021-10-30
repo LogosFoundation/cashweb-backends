@@ -1,3 +1,4 @@
+use crate::crypto::sha256;
 use crate::models::broadcast::BroadcastMessage;
 use cashweb::auth_wrapper::{AuthWrapper, AuthWrapperSet, BurnOutputs};
 use cashweb::bitcoin::{
@@ -6,7 +7,6 @@ use cashweb::bitcoin::{
 };
 use cashweb::bitcoin_client::{BitcoinClient, NodeError};
 use prost::Message;
-use ring::digest::{Context, SHA256};
 use std::collections::HashMap;
 use std::convert::TryInto;
 use std::time::{SystemTime, UNIX_EPOCH};
@@ -25,15 +25,15 @@ pub enum MessagesRpcRejection {
     #[error("DB Error error: {0}")]
     DatabaseError(#[from] PubSubDatabaseError),
     #[error("payload contains an transaction with a burn output in the wrong format")]
-    InvalidOutputFormat(),
+    InvalidOutputFormat,
     #[error("burn transaction commitment incorrect")]
-    InvalidOutputCommitment(),
+    InvalidOutputCommitment,
     #[error("unable to decode a burn transaction")]
     TransactionInvalidError(#[from] TransactionDecodeError),
     #[error("invalid transaction output amount")]
-    TransactionOutputInvalid(),
+    TransactionOutputInvalid,
     #[error("invalid topic format")]
-    InvalidTopicFormat(),
+    InvalidTopicFormat,
 }
 
 impl Reject for MessagesRpcRejection {}
@@ -52,8 +52,7 @@ pub async fn get_messages(
     let mut message_page = AuthWrapperSet::default();
     message_page.items = messages;
     // Serialze message which is stored in database
-    let encoded_length = message_page.encoded_len();
-    let mut raw_message_page = Vec::with_capacity(encoded_length);
+    let mut raw_message_page = Vec::with_capacity(message_page.encoded_len());
     message_page.encode(&mut raw_message_page).unwrap();
 
     Ok(Response::builder().body(raw_message_page).unwrap())
@@ -88,26 +87,27 @@ pub async fn put_message(
 ) -> Result<impl Reply, Rejection> {
     if message.transactions.len() == 0 {
         return Err(warp::reject::custom(
-            MessagesRpcRejection::InvalidOutputFormat(),
+            MessagesRpcRejection::InvalidOutputFormat,
         ));
     }
     if message.payload_digest.len() == 0 {
         // Ensure payload_digest is set
-        let mut sha256_context = Context::new(&SHA256);
-        sha256_context.update(message.payload.as_slice());
-        message.payload_digest = sha256_context.finish().as_ref().to_vec();
+        message.payload_digest = sha256(&message.payload).to_vec();
     }
 
-    let payload = BroadcastMessage::decode(&message.payload[..])
+    let payload = BroadcastMessage::decode(message.payload.as_slice())
         .map_err(MessagesRpcRejection::ProtoBufDecodeError)?;
-    let topic = &payload.topic;
-    let split_topic = topic.split(".").collect::<Vec<&str>>();
+    let split_topic = payload.topic.split(".").collect::<Vec<_>>();
     if split_topic.len() > 10 {
-        return Err(warp::reject::custom(MessagesRpcRejection::InvalidTopicFormat()));
+        return Err(warp::reject::custom(
+            MessagesRpcRejection::InvalidTopicFormat,
+        ));
     }
     let invalid_segments = split_topic.iter().any(|segment| segment.len() == 0);
     if invalid_segments {
-        return Err(warp::reject::custom(MessagesRpcRejection::InvalidTopicFormat()));
+        return Err(warp::reject::custom(
+            MessagesRpcRejection::InvalidTopicFormat,
+        ));
     }
 
     let mut transactions = HashMap::<Vec<u8>, BurnOutputsWithAmounts>::new();
@@ -120,53 +120,52 @@ pub async fn put_message(
         let output = &tx.outputs[idx as usize];
         if !output.script.is_op_return() {
             return Err(warp::reject::custom(
-                MessagesRpcRejection::InvalidOutputFormat(),
+                MessagesRpcRejection::InvalidOutputFormat,
             ));
         }
         let raw_script = output.script.as_bytes();
         if raw_script.len() != COMMITMENT_LENGTH {
             return Err(warp::reject::custom(
-                MessagesRpcRejection::InvalidOutputFormat(),
+                MessagesRpcRejection::InvalidOutputFormat,
             ));
         }
 
+        // Lord have mercy on your soul
         if raw_script[1] != 4
             || &raw_script[2..6] != &POND_PREFIX
             || !(raw_script[6] == 81 || raw_script[6] == 0)
             || raw_script[7] != 32
         {
             return Err(warp::reject::custom(
-                MessagesRpcRejection::InvalidOutputFormat(),
+                MessagesRpcRejection::InvalidOutputFormat,
             ));
         }
         let upvote = raw_script[6] == 81;
         let commitment = &raw_script[8..COMMITMENT_LENGTH];
         if &message.payload_digest[..] != commitment {
             return Err(warp::reject::custom(
-                MessagesRpcRejection::InvalidOutputCommitment(),
+                MessagesRpcRejection::InvalidOutputCommitment,
             ));
         }
         let value: i64 = output
             .value
             .try_into()
-            .map_err(|_| MessagesRpcRejection::TransactionOutputInvalid())?;
+            .map_err(|_| MessagesRpcRejection::TransactionOutputInvalid)?;
 
         let txid = tx.transaction_id();
         let tx_map_key = [txid.as_ref(), idx.to_be_bytes().as_ref()].concat();
         transactions.insert(
             tx_map_key,
-            BurnOutputsWithAmounts(transaction.clone(), if upvote { value } else { -1 * value }),
+            BurnOutputsWithAmounts(transaction.clone(), if upvote { value } else { -value }),
         );
     }
 
     // Attempt to broadcast the transactions
     for burn in &message.transactions {
-        let send_result = client.send_tx(burn.tx.as_ref()).await;
-        if send_result.is_err() {
-            return Err(warp::reject::custom(MessagesRpcRejection::BitcoinRPCError(
-                send_result.unwrap_err(),
-            )));
-        }
+        client
+            .send_tx(burn.tx.as_ref())
+            .await
+            .map_err(|err| warp::reject::custom(MessagesRpcRejection::BitcoinRPCError(err)))?;
     }
 
     // Check to see if this thing already exists, if so just bump the number of burn transactions.
@@ -184,16 +183,13 @@ pub async fn put_message(
             let value: i64 = output
                 .value
                 .try_into()
-                .map_err(|_| MessagesRpcRejection::TransactionOutputInvalid())?;
+                .map_err(|_| MessagesRpcRejection::TransactionOutputInvalid)?;
 
             let txid = tx.transaction_id();
             let tx_map_key = [txid.as_ref(), idx.to_be_bytes().as_ref()].concat();
             transactions.insert(
                 tx_map_key,
-                BurnOutputsWithAmounts(
-                    transaction.clone(),
-                    if upvote { value } else { -1 * value },
-                ),
+                BurnOutputsWithAmounts(transaction.clone(), if upvote { value } else { -value }),
             );
         }
         // Update the transactions in the database
@@ -204,7 +200,7 @@ pub async fn put_message(
         wrapper.burn_amount = transactions
             .values()
             .map(|burn_output| burn_output.1)
-            .fold(0, |total, v| total + v);
+            .sum::<i64>();
         db.update_message(&wrapper)
             .map_err(MessagesRpcRejection::DatabaseError)?;
 
@@ -221,7 +217,7 @@ pub async fn put_message(
     message.burn_amount = transactions
         .values()
         .map(|burn_output| burn_output.1)
-        .fold(0, |total, v| total + v);
+        .sum::<i64>();
 
     db.put_message(timestamp, &payload.topic, &message)
         .map_err(MessagesRpcRejection::DatabaseError)?;
@@ -256,7 +252,7 @@ pub mod tests {
         }
         /// Get a raw bitcoin transaction by txid
         async fn get_raw_transaction(&self, _tx_id: &[u8]) -> Result<Vec<u8>, NodeError> {
-            Ok([0; 0].to_vec())
+            Ok(vec![])
         }
     }
 
@@ -322,9 +318,7 @@ pub mod tests {
         output.push(81);
         output.push(32);
 
-        let mut sha256_context = Context::new(&SHA256);
-        sha256_context.update(wrapper_in.payload.as_slice());
-        let payload_hash = sha256_context.finish().as_ref().to_vec();
+        let payload_hash = sha256(&wrapper_in.payload);
         output.extend(payload_hash);
 
         tx.outputs.push(Output {
@@ -333,7 +327,7 @@ pub mod tests {
         });
 
         // Buffer with enough space to encode txn.
-        let mut tx_buf = Vec::<u8>::with_capacity(50);
+        let mut tx_buf = Vec::with_capacity(50);
         tx.encode(&mut tx_buf).unwrap();
         wrapper_in.transactions.push(BurnOutputs {
             tx: tx_buf,
@@ -341,14 +335,11 @@ pub mod tests {
         });
 
         let result = put_message(database.clone(), MockTransactionSender {}, wrapper_in).await;
-
-        let the_error = result.as_ref().err();
-        if let Some(err) = the_error {
+        if let Err(err) = result.as_ref() {
             println!("{:?}", err);
         }
-        assert!(result.is_ok(), "Result is error");
         assert!(
-            result.unwrap().into_response().status() == 200,
+            result.expect("Result is error").into_response().status() == 200,
             "Incorrect status code"
         );
 
