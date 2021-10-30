@@ -173,7 +173,7 @@ pub async fn put_message(
     if existing_value.is_ok() && message.payload.len() == 0 {
         let mut wrapper = existing_value.unwrap();
         // Dedupe transactions
-        for transaction in &message.transactions {
+        for transaction in &wrapper.transactions {
             let tx = Transaction::decode(&mut transaction.tx.as_slice())
                 .map_err(MessagesRpcRejection::TransactionInvalidError)?;
             let idx = transaction.index;
