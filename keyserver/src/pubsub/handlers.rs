@@ -97,17 +97,33 @@ pub async fn put_message(
 
     let payload = BroadcastMessage::decode(message.payload.as_slice())
         .map_err(MessagesRpcRejection::ProtoBufDecodeError)?;
-    let split_topic = payload.topic.split(".").collect::<Vec<_>>();
-    if split_topic.len() > 10 {
-        return Err(warp::reject::custom(
-            MessagesRpcRejection::InvalidTopicFormat,
-        ));
-    }
-    let invalid_segments = split_topic.iter().any(|segment| segment.len() == 0);
-    if invalid_segments {
-        return Err(warp::reject::custom(
-            MessagesRpcRejection::InvalidTopicFormat,
-        ));
+
+    // In the case where the payload must be specified, we want to validate a
+    // few items. In the case where this is simply a vote, ignore the checks.
+    if  message.payload.encoded_len() > 0 {
+        let topic = &payload.topic;
+        let valid_topic = topic
+            .chars()
+            .all(|c| !c.is_whitespace() || !c.is_lowercase());
+        if !valid_topic {
+            return Err(warp::reject::custom(
+                MessagesRpcRejection::InvalidTopicFormat,
+            ));
+        }
+
+        let split_topic = topic.split(".").collect::<Vec<&str>>();
+        if split_topic.len() > 10 {
+            return Err(warp::reject::custom(
+                MessagesRpcRejection::InvalidTopicFormat,
+            ));
+        }
+
+        let invalid_segments = split_topic.iter().any(|segment| segment.len() == 0);
+        if invalid_segments {
+            return Err(warp::reject::custom(
+                MessagesRpcRejection::InvalidTopicFormat,
+            ));
+        }
     }
 
     let mut transactions = HashMap::<Vec<u8>, BurnOutputsWithAmounts>::new();
