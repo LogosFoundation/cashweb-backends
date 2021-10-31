@@ -100,11 +100,9 @@ pub async fn put_message(
 
     // In the case where the payload must be specified, we want to validate a
     // few items. In the case where this is simply a vote, ignore the checks.
-    if  message.payload.encoded_len() > 0 {
+    if message.payload.encoded_len() > 0 {
         let topic = &payload.topic;
-        let valid_topic = topic
-            .chars()
-            .all(|c| !c.is_whitespace() || !c.is_lowercase());
+        let valid_topic = topic.chars().all(|c| c.is_lowercase() || c.is_numeric() || c == '.' || c == '-');
         if !valid_topic {
             return Err(warp::reject::custom(
                 MessagesRpcRejection::InvalidTopicFormat,
@@ -284,7 +282,7 @@ pub mod tests {
 
         wrapper_in.scheme = 1;
         let mut message = BroadcastMessage::default();
-        message.topic = "cashweb.is.amazing".to_string();
+        message.topic = "cashweb.is.amazing11".to_string();
         message.timestamp = SystemTime::now()
             .duration_since(UNIX_EPOCH)
             .unwrap()
@@ -358,6 +356,62 @@ pub mod tests {
             result.expect("Result is error").into_response().status() == 200,
             "Incorrect status code"
         );
+
+        // Destroy database
+        drop(database);
+        DB::destroy(&Options::default(), TEST_NAME).unwrap();
+    }
+
+    #[tokio::test]
+    async fn test_put_invalid_topic() {
+        const TEST_NAME: &str = "./tests/test_put_invalid_topic";
+
+        // Create database
+        let database = PubSubDatabase::new(TEST_NAME).unwrap();
+
+        // Create database wrapper
+        let mut wrapper_in = AuthWrapper::default();
+
+        wrapper_in.scheme = 1;
+        let mut message = BroadcastMessage::default();
+        message.topic = "this topic is not valid".to_string();
+        message.timestamp = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap()
+            .as_millis() as i64;
+
+        let mut message_buf = Vec::with_capacity(message.encoded_len());
+        message.encode(&mut message_buf).unwrap();
+        wrapper_in.payload = message_buf;
+
+        // Create the burn transaction
+        let mut tx = Transaction::default();
+        let mut output = Vec::<u8>::with_capacity(COMMITMENT_LENGTH);
+        output.push(106);
+        output.push(4);
+        output.extend_from_slice(&POND_PREFIX);
+        output.push(81);
+        output.push(32);
+
+        let payload_hash = sha256(&wrapper_in.payload);
+        output.extend(payload_hash);
+
+        tx.outputs.push(Output {
+            script: Script::from(output),
+            value: 0,
+        });
+
+        // Buffer with enough space to encode txn.
+        let mut tx_buf = Vec::with_capacity(50);
+        tx.encode(&mut tx_buf).unwrap();
+        wrapper_in.transactions.push(BurnOutputs {
+            tx: tx_buf,
+            index: 0,
+        });
+
+        let result = put_message(database.clone(), MockTransactionSender {}, wrapper_in).await;
+        assert!(result.is_err(), "Result is error");
+        // TODO: Test specific error somehow
 
         // Destroy database
         drop(database);

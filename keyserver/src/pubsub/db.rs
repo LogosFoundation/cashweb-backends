@@ -92,7 +92,7 @@ impl PubSubDatabase {
         from: i64,
         to: i64,
     ) -> Result<Vec<AuthWrapper>, PubSubDatabaseError> {
-        let valid_topic = topic.chars().all(|c| !c.is_whitespace());
+        let valid_topic = topic.chars().all(|c| c.is_lowercase() || c.is_numeric() || c == '.' || c == '-');
         if !valid_topic {
             return Err(PubSubDatabaseError::TopicInvalidCharacters());
         }
