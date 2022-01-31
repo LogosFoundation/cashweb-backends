@@ -1,14 +1,14 @@
 use std::time::{SystemTime, UNIX_EPOCH};
 
-use bitcoincash_addr::{cashaddr::EncodingError as AddrEncodingError, Address};
-use cashweb::bitcoin_client::{BitcoinClient, BitcoinClientHTTP, NodeError};
+use bitcoincash_addr::{cashaddr, Address};
 use cashweb::{
     bitcoin::{
-        transaction::{DecodeError as TransactionDecodeError, Transaction},
+        transaction::{self, Transaction},
         Decodable,
     },
-    payments::{bip70::*, PreprocessingError},
-    token::schemes::chain_commitment::*,
+    bitcoin_client::{BitcoinClient, BitcoinClientHTTP, NodeError},
+    payments::{bip70, PreprocessingError},
+    token::schemes::chain_commitment::{construct_commitment, construct_token},
 };
 use prost::Message as _;
 use ring::digest::{digest, SHA256};
@@ -22,8 +22,7 @@ use warp::{
     reject::Reject,
 };
 
-use super::IntoResponse;
-use crate::{METADATA_PATH, PAYMENTS_PATH, SETTINGS};
+use crate::{net::IntoResponse, METADATA_PATH, PAYMENTS_PATH, SETTINGS};
 
 pub const COMMITMENT_PREIMAGE_SIZE: usize = 32 + 32;
 pub const COMMITMENT_SIZE: usize = 32;
@@ -36,7 +35,7 @@ pub enum PaymentError {
     #[error("missing commitment")]
     MissingCommitment,
     #[error("malformed tx: {0}")]
-    MalformedTx(TransactionDecodeError),
+    MalformedTx(transaction::DecodeError),
     #[error("missing merchant data")]
     MissingMerchantData,
     #[error("bitcoin request failed: {0}")]
@@ -44,7 +43,7 @@ pub enum PaymentError {
     #[error("incorrect length preimage")]
     IncorrectLengthPreimage,
     #[error("address encoding failed: {0}")]
-    Address(AddrEncodingError),
+    Address(cashaddr::EncodingError),
 }
 
 impl Reject for PaymentError {}
@@ -71,7 +70,7 @@ impl IntoResponse for PaymentError {
 }
 
 pub async fn process_payment(
-    payment: Payment,
+    payment: bip70::Payment,
     bitcoin_client: BitcoinClientHTTP,
 ) -> Result<Response<Body>, PaymentError> {
     // Deserialize transactions
@@ -145,7 +144,7 @@ pub async fn process_payment(
 
     // Create PaymentAck
     let memo = Some(SETTINGS.payments.memo.clone());
-    let payment_ack = PaymentAck { payment, memo };
+    let payment_ack = bip70::PaymentAck { payment, memo };
 
     // Encode payment ack
     let mut raw_ack = Vec::with_capacity(payment_ack.encoded_len());
@@ -164,7 +163,7 @@ pub fn construct_payment_response(pub_key_hash: &[u8], metadata_digest: &[u8]) -
     let commitment = digest(&SHA256, &commitment_preimage);
     let op_return_pre: [u8; 2] = [106, COMMITMENT_SIZE as u8];
     let script = [&op_return_pre[..], commitment.as_ref()].concat();
-    let output = Output {
+    let output = bip70::Output {
         amount: None,
         script,
     };
@@ -172,7 +171,7 @@ pub fn construct_payment_response(pub_key_hash: &[u8], metadata_digest: &[u8]) -
     // Valid interval
     let current_time = SystemTime::now();
 
-    let payment_details = PaymentDetails {
+    let payment_details = bip70::PaymentDetails {
         network: Some(SETTINGS.network.to_string()),
         time: current_time.duration_since(UNIX_EPOCH).unwrap().as_secs(),
         expires: None,
@@ -189,7 +188,7 @@ pub fn construct_payment_response(pub_key_hash: &[u8], metadata_digest: &[u8]) -
     // Generate payment invoice
     // TODO: Signing
     let pki_type = Some("none".to_string());
-    let payment_invoice = PaymentRequest {
+    let payment_invoice = bip70::PaymentRequest {
         pki_type,
         pki_data: None,
         payment_details_version: Some(1),

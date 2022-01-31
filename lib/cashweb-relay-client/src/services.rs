@@ -2,6 +2,8 @@
 
 use std::{fmt, pin::Pin};
 
+use cashweb_auth_wrapper::AuthWrapper;
+use cashweb_relay::{MessagePage, Profile};
 use futures_core::{
     task::{Context, Poll},
     Future,
@@ -19,9 +21,7 @@ use prost::{DecodeError, Message as _};
 use thiserror::Error;
 use tower_service::Service;
 
-use super::RelayClient;
-use ::auth_wrapper::*;
-use relay::{MessagePage, Profile};
+use crate::RelayClient;
 
 type ResponseFuture<Response, Error> =
     Pin<Box<dyn Future<Output = Result<Response, Error>> + 'static + Send>>;

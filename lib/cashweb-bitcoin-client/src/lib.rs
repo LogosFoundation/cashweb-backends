@@ -9,25 +9,20 @@
 //! basic asynchronous methods for interacting with bitcoind.
 use async_trait::async_trait;
 use hex::FromHexError;
-use hyper::{
-    client::{connect::Connect, HttpConnector},
-     Client as HyperClient,
-};
+use hyper::client::{connect::Connect, HttpConnector};
 use hyper_tls::HttpsConnector;
 use json_rpc::{
-    clients::{
-        http::Client as JsonClient,
-    },
+    clients::http::Client as JsonClient,
     prelude::{JsonError, RequestFactory, RpcError},
 };
 use serde_json::Value;
 use thiserror::Error;
 
 /// Standard HTTP client.
-pub type HttpClient = HyperClient<HttpConnector>;
+pub type HttpClient = hyper::Client<HttpConnector>;
 
 /// Standard HTTPs client.
-pub type HttpsClient = HyperClient<HttpsConnector<HttpConnector>>;
+pub type HttpsClient = hyper::Client<HttpsConnector<HttpConnector>>;
 
 /// Error associated with the Bitcoin RPC.
 #[derive(Debug, Error)]
@@ -49,7 +44,6 @@ pub enum NodeError {
     HexDecode(#[from] FromHexError),
 }
 
-
 /// Bitcoin Client function traits
 #[async_trait]
 pub trait BitcoinClient {
@@ -63,7 +57,7 @@ pub trait BitcoinClient {
 
 /// Basic Bitcoin JSON-RPC client.
 #[derive(Clone, Debug)]
-pub struct BitcoinClientHTTP(JsonClient<HyperClient<HttpConnector>>);
+pub struct BitcoinClientHTTP(JsonClient<hyper::Client<HttpConnector>>);
 
 impl BitcoinClientHTTP {
     /// Create a new HTTP [`BitcoinClient`].
@@ -74,7 +68,7 @@ impl BitcoinClientHTTP {
 
 /// Basic HTTPS Bitcoin JSON-RPC client.
 #[derive(Clone, Debug)]
-pub struct BitcoinClientTLS(JsonClient<HyperClient<HttpsConnector<HttpConnector>>>);
+pub struct BitcoinClientTLS(JsonClient<hyper::Client<HttpsConnector<HttpConnector>>>);
 
 impl BitcoinClientTLS {
     /// Create a new HTTPS [`BitcoinClient`].
@@ -87,7 +81,7 @@ impl BitcoinClientTLS {
     }
 }
 
-type BitcoinJsonClient<C> = JsonClient<HyperClient<C>>;
+type BitcoinJsonClient<C> = JsonClient<hyper::Client<C>>;
 trait Connectable: Connect + Clone + Send + Sync + 'static {}
 impl<T: Connect + Clone + Send + Sync + 'static> Connectable for T {}
 

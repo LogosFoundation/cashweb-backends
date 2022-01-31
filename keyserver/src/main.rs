@@ -13,17 +13,17 @@ mod settings;
 #[cfg(feature = "monitoring")]
 pub mod monitoring;
 
-use serde::Deserialize;
 use std::{env, sync::Arc, time::Duration};
 
 use cashweb::{
-    bitcoin_client::BitcoinClientHTTP, payments::preprocess_payment,
+    auth_wrapper::AuthWrapper, bitcoin_client::BitcoinClientHTTP, payments::preprocess_payment,
     token::schemes::chain_commitment::ChainCommitmentScheme,
 };
 use futures::prelude::*;
 use hyper::{client::HttpConnector, http::Uri};
 use lazy_static::lazy_static;
-use prost::Message;
+use prost::Message as _;
+use serde::Deserialize;
 use tracing::{error, info};
 use tracing_subscriber::{fmt, EnvFilter};
 use warp::{
@@ -31,13 +31,12 @@ use warp::{
     Filter,
 };
 
-use crate::models::wrapper::AuthWrapper;
-use db::Database;
-use net::{payments, protection};
-use peering::{PeerHandler, TokenCache};
-use settings::Settings;
-
-use crate::pubsub::PubSubDatabase;
+use crate::{
+    db::Database,
+    peering::{PeerHandler, TokenCache},
+    pubsub::PubSubDatabase,
+    settings::Settings,
+};
 
 const METADATA_PATH: &str = "keys";
 const PEERS_PATH: &str = "peers";
@@ -169,8 +168,7 @@ async fn main() {
         .and(warp::header::headers_cloned())
         .and(token_scheme_state.clone())
         .and_then(move |addr, body, headers, token_scheme| {
-            protection::pop_protection(addr, body, headers, token_scheme)
-                .map_err(warp::reject::custom)
+            net::pop_protection(addr, body, headers, token_scheme).map_err(warp::reject::custom)
         })
         .untuple_one();
 
@@ -261,7 +259,7 @@ async fn main() {
         .and(warp::body::bytes())
         .and_then(move |headers, body| {
             preprocess_payment(headers, body)
-                .map_err(payments::PaymentError::Preprocess)
+                .map_err(net::PaymentError::Preprocess)
                 .map_err(warp::reject::custom)
         })
         .and(bitcoin_client_state.clone())

@@ -3,13 +3,13 @@
 //!
 //! [`Keyserver Protocol`]: https://github.com/cashweb/specifications/blob/master/keyserver-protocol/specification.mediawiki
 
-use std::{convert::TryInto};
+use std::convert::TryInto;
 
-use bitcoin::{
-    prelude::{Transaction, TransactionDecodeError},
+use cashweb_bitcoin::{
+    transaction::{self, Transaction},
     Decodable,
 };
-use bitcoin_client::{BitcoinClient, NodeError};
+use cashweb_bitcoin_client::{BitcoinClient, NodeError};
 use ring::digest::{Context, SHA256};
 use thiserror::Error;
 
@@ -36,7 +36,7 @@ pub enum ValidationError {
     OutputNotFound,
     /// Error decoding specified transaction.
     #[error("failed to decode transaction: {0}")]
-    Transaction(TransactionDecodeError),
+    Transaction(transaction::DecodeError),
     /// Token was unexpected length.
     #[error("unexpected token length")]
     TokenLength,

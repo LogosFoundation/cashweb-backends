@@ -1,29 +1,23 @@
 //! This module contains the [`Stamp`] message and methods for verifying and constructing them.
 
-use bitcoin::{
+use cashweb_bitcoin::{
     bip32::*,
-    transaction::{DecodeError as TransactionDecodeError, Transaction},
+    transaction::{self, Transaction},
     Decodable,
 };
 use ring::digest::{digest, SHA256};
 use ripemd160::{Digest, Ripemd160};
-use secp256k1::{
-    key::{PublicKey, SecretKey as PrivateKey},
-    Error as SecpError, Secp256k1,
-};
+use secp256k1::{Error as SecpError, PublicKey, Secp256k1, SecretKey};
 use thiserror::Error;
 
-pub use crate::{
-    create_shared_key,
-    models::{stamp::StampType, Stamp, StampOutpoints},
-};
+use crate::models::{stamp::StampType, Stamp, StampOutpoints};
 
 /// Error associated with verification of stamps.
 #[derive(Debug, Clone, PartialEq, Eq, Error)]
 pub enum StampError {
     /// Failed to decode a transaction.
     #[error("failed to decode transaction: {0}")]
-    Decode(TransactionDecodeError),
+    Decode(transaction::DecodeError),
     /// A specified stamp output doesn't exist.
     #[error("missing output")]
     MissingOutput,
@@ -77,7 +71,7 @@ pub fn verify_stamp(
     }
 
     // Calculate master pubkey
-    let payload_secret_key = PrivateKey::from_slice(&payload_digest.as_ref()).unwrap(); // This is safe
+    let payload_secret_key = SecretKey::from_slice(&payload_digest.as_ref()).unwrap(); // This is safe
     let payload_public_key =
         PublicKey::from_secret_key(&Secp256k1::signing_only(), &payload_secret_key);
     let combined_key = destination_public_key
@@ -160,10 +154,10 @@ pub enum StampKeyError {
 ///
 /// The `output_profile` is an iterable collection of the number of each stamp vouts.
 pub fn create_stamp_private_keys<O>(
-    mut private_key: PrivateKey,
+    mut private_key: SecretKey,
     payload_digest: &[u8; 32],
     output_profile: O,
-) -> Result<Vec<Vec<PrivateKey>>, StampKeyError>
+) -> Result<Vec<Vec<SecretKey>>, StampKeyError>
 where
     for<'a> &'a O: IntoIterator<Item = &'a u32>,
 {

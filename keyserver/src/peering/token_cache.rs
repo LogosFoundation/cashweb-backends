@@ -6,8 +6,7 @@ use hyper::{Body, Request, Response};
 use tokio::sync::RwLock;
 use tower_service::Service;
 
-use super::PeerHandler;
-use crate::{db::Database, SETTINGS};
+use crate::{db::Database, peering::PeerHandler, SETTINGS};
 
 #[derive(Clone)]
 pub struct TokenCache {

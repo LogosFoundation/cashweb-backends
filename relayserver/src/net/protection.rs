@@ -2,7 +2,11 @@ use std::sync::Arc;
 
 use bitcoincash_addr::Address;
 use cashweb::bitcoin_client::BitcoinClientHTTP;
-use cashweb::token::{extract_pop, schemes::hmac_bearer::*, split_pop_token};
+use cashweb::token::{
+    extract_pop,
+    schemes::hmac_bearer::{HmacScheme, ValidationError},
+    split_pop_token,
+};
 use http::header::HeaderMap;
 use thiserror::Error;
 use warp::{http::Response, hyper::Body, reject::Reject};

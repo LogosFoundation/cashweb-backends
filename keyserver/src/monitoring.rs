@@ -1,9 +1,6 @@
 use lazy_static::lazy_static;
-use prometheus::{CounterVec, HistogramVec};
+use prometheus::{CounterVec, Encoder, HistogramVec, TextEncoder};
 use warp::filters::log::Info;
-
-#[cfg(feature = "monitoring")]
-use prometheus::{Encoder, TextEncoder};
 
 use prometheus_static_metric::make_static_metric;
 

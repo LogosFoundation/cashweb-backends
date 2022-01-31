@@ -3,9 +3,9 @@
 
 pub mod opcodes;
 
-use crate::{var_int::VarInt, Encodable};
-
 use bytes::BufMut;
+
+use crate::{var_int::VarInt, Encodable};
 
 /// Represents a script.
 #[derive(Clone, Debug, Default, PartialEq, Eq)]

@@ -17,6 +17,7 @@ pub use hyper::{
     Uri,
 };
 
+use cashweb_relay::Profile;
 use hyper::client::Client as HyperClient;
 use hyper::http::uri::InvalidUri;
 use secp256k1::key::PublicKey;
@@ -24,8 +25,7 @@ use thiserror::Error;
 use tower_service::Service;
 use tower_util::ServiceExt;
 
-use relay::Profile;
-use services::*;
+use crate::services::{GetProfile, PutProfile};
 
 /// RelayClient allows queries to specific relay servers.
 #[derive(Clone, Debug)]

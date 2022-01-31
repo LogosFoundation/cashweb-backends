@@ -1,6 +1,5 @@
-use criterion::{black_box, criterion_group, criterion_main, Criterion};
-
 use cashweb_bitcoin::{transaction::Transaction, Decodable, Encodable};
+use criterion::{black_box, criterion_group, criterion_main, Criterion};
 
 fn decode(mut raw_tx: &[u8]) -> Transaction {
     Transaction::decode(&mut raw_tx).unwrap()

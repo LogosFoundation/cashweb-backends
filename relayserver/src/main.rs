@@ -2,7 +2,6 @@
 extern crate clap;
 
 pub mod db;
-pub mod models;
 pub mod net;
 pub mod settings;
 
@@ -11,6 +10,7 @@ pub mod monitoring;
 
 use std::{env, sync::Arc, time::Duration};
 
+use cashweb::bitcoin_client::BitcoinClientHTTP;
 use cashweb::{
     payments::{preprocess_payment, wallet::Wallet},
     token::schemes::hmac_bearer::HmacScheme,
@@ -29,10 +29,10 @@ use warp::{
 #[cfg(feature = "monitoring")]
 use prometheus::{Encoder, TextEncoder};
 
-use cashweb::bitcoin_client::{BitcoinClientHTTP};
-use db::{Database, FEED_NAMESPACE, MESSAGE_NAMESPACE};
-use net::{payments, protection};
-use settings::Settings;
+use crate::{
+    db::{Database, FEED_NAMESPACE, MESSAGE_NAMESPACE},
+    settings::Settings,
+};
 
 const DASHMAP_CAPACITY: usize = 2048;
 
@@ -118,7 +118,7 @@ async fn main() {
         .and(bitcoin_client_state.clone())
         .and_then(
             move |addr, headers, query: QueryAccessToken, token_scheme, wallet, bitcoin| {
-                protection::pop_protection(
+                net::pop_protection(
                     addr,
                     headers,
                     query.access_token,
@@ -255,7 +255,7 @@ async fn main() {
         .and(warp::body::bytes())
         .and_then(move |headers, body| {
             preprocess_payment(headers, body)
-                .map_err(payments::PaymentError::Preprocess)
+                .map_err(net::PaymentError::Preprocess)
                 .map_err(warp::reject::custom)
         })
         .and(wallet_state.clone())

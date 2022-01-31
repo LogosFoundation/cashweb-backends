@@ -5,8 +5,8 @@
 
 use std::convert::TryInto;
 
-use ring::hmac::{sign as hmac, Key as HmacKey, HMAC_SHA512};
-pub use secp256k1::{Error as SecpError, PublicKey, Secp256k1, SecretKey as PrivateKey};
+use ring::hmac::{self, HMAC_SHA512};
+use secp256k1::{PublicKey, Secp256k1, SecretKey};
 use thiserror::Error;
 
 /// Error associated with child number construction.
@@ -36,7 +36,7 @@ pub enum DeriveError {
     HardenedDeriveError,
     /// Invalid Tweak.
     #[error(transparent)]
-    InvalidTweak(SecpError),
+    InvalidTweak(secp256k1::Error),
 }
 
 impl ChildNumber {
@@ -142,11 +142,11 @@ impl ExtendedPublicKey {
             ChildNumber::Hardened(_) => return Err(DeriveError::HardenedDeriveError),
             ChildNumber::Normal(index) => index,
         };
-        let key = HmacKey::new(HMAC_SHA512, &self.chain_code);
+        let key = hmac::Key::new(HMAC_SHA512, &self.chain_code);
         let data = [&self.public_key.serialize()[..], &index.to_be_bytes()[..]].concat();
-        let hmac_result = hmac(&key, &data);
+        let hmac_result = hmac::sign(&key, &data);
 
-        let private_key = PrivateKey::from_slice(&hmac_result.as_ref()[..32]).unwrap(); // This is safe
+        let private_key = SecretKey::from_slice(&hmac_result.as_ref()[..32]).unwrap(); // This is safe
         let chain_code: [u8; 32] = hmac_result.as_ref()[32..].try_into().unwrap(); // This is safe
         let mut public_key = self.public_key;
         public_key
@@ -165,31 +165,31 @@ impl ExtendedPublicKey {
 /// [`Hierarchical Deterministic Wallets`]: https://github.com/bitcoin/bips/blob/master/bip-0032.mediawiki
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]
 pub struct ExtendedPrivateKey {
-    private_key: PrivateKey,
+    private_key: SecretKey,
     chain_code: [u8; 32],
 }
 
 impl ExtendedPrivateKey {
     /// Construct a new master private key.
-    pub fn new_master(private_key: PrivateKey, chain_code: [u8; 32]) -> Self {
+    pub fn new_master(private_key: SecretKey, chain_code: [u8; 32]) -> Self {
         ExtendedPrivateKey {
             private_key,
             chain_code,
         }
     }
 
-    /// Get the underlying [`PrivateKey`].
-    pub fn get_private_key(&self) -> &PrivateKey {
+    /// Get the underlying [`SecretKey`].
+    pub fn get_private_key(&self) -> &SecretKey {
         &self.private_key
     }
 
-    /// Convert into the underlying [`PrivateKey`].
-    pub fn into_private_key(self) -> PrivateKey {
+    /// Convert into the underlying [`SecretKey`].
+    pub fn into_private_key(self) -> SecretKey {
         self.private_key
     }
 
-    /// Convert into the [`PrivateKey`] and chain code.
-    pub fn into_parts(self) -> (PrivateKey, [u8; 32]) {
+    /// Convert into the [`SecretKey`] and chain code.
+    pub fn into_parts(self) -> (SecretKey, [u8; 32]) {
         (self.private_key, self.chain_code)
     }
 
@@ -223,24 +223,24 @@ impl ExtendedPrivateKey {
         child_number: ChildNumber,
     ) -> ExtendedPrivateKey {
         // Calculate HMAC
-        let key = HmacKey::new(HMAC_SHA512, &self.chain_code);
+        let key = hmac::Key::new(HMAC_SHA512, &self.chain_code);
         let hmac_result = match child_number {
             ChildNumber::Normal(index) => {
                 // Non-hardened key: compute public data and use that
                 let raw_public_key =
                     PublicKey::from_secret_key(secp, &self.private_key).serialize();
                 let data = [&raw_public_key[..], &index.to_be_bytes()].concat();
-                hmac(&key, &data)
+                hmac::sign(&key, &data)
             }
             ChildNumber::Hardened(index) => {
                 // Hardened key: use only secret data to prevent public derivation
                 let data = [&[0], &self.private_key[..], &index.to_be_bytes()].concat();
-                hmac(&key, &data)
+                hmac::sign(&key, &data)
             }
         };
 
         // Construct new private key
-        let mut private_key = PrivateKey::from_slice(&hmac_result.as_ref()[..32]).unwrap(); // This is safe
+        let mut private_key = SecretKey::from_slice(&hmac_result.as_ref()[..32]).unwrap(); // This is safe
         private_key.add_assign(&self.private_key[..]).unwrap(); // This is safe
 
         // Construct new extended private key
@@ -254,15 +254,16 @@ impl ExtendedPrivateKey {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
     use rand::thread_rng;
-    use secp256k1::Secp256k1;
+    use secp256k1::{PublicKey, Secp256k1, SecretKey};
+
+    use crate::bip32::{ChildNumber, ExtendedPrivateKey, ExtendedPublicKey};
 
     #[test]
     fn child_derivation() {
         let secp = Secp256k1::new();
         let mut rng = thread_rng();
-        let private_key = PrivateKey::new(&mut rng);
+        let private_key = SecretKey::new(&mut rng);
         let public_key = PublicKey::from_secret_key(&secp, &private_key);
         let hd_private_key = ExtendedPrivateKey::new_master(private_key, [0; 32]);
         let hd_public_key = ExtendedPublicKey::new_master(public_key, [0; 32]);
@@ -286,7 +287,7 @@ mod tests {
 
         let path = [ChildNumber::Normal(32), ChildNumber::Normal(4)];
 
-        let private_key = PrivateKey::new(&mut rng);
+        let private_key = SecretKey::new(&mut rng);
         let public_key = PublicKey::from_secret_key(&secp, &private_key);
         let hd_private_key = ExtendedPrivateKey::new_master(private_key, [0; 32]);
         let hd_public_key = ExtendedPublicKey::new_master(public_key, [0; 32]);
@@ -311,7 +312,7 @@ mod tests {
             ChildNumber::Normal(54),
         ];
 
-        let private_key = PrivateKey::new(&mut rng);
+        let private_key = SecretKey::new(&mut rng);
         let hd_private_key = ExtendedPrivateKey::new_master(private_key, [0; 32]);
 
         let hd_private_key_a = hd_private_key.derive_private_path(&secp, &path);

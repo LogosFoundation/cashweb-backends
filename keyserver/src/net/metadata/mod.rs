@@ -1,9 +1,12 @@
-pub mod errors;
+mod errors;
+
+pub use crate::net::metadata::errors::*;
 
 use std::fmt;
 
 use bitcoincash_addr::Address;
 use bytes::Bytes;
+use cashweb::auth_wrapper::AuthWrapper;
 use http::{
     header::{HeaderMap, HeaderValue, AUTHORIZATION},
     Request,
@@ -13,14 +16,13 @@ use tokio::task;
 use tower_service::Service;
 use warp::{http::Response, hyper::Body};
 
-use super::{HEADER_VALUE_FALSE, SAMPLING};
 use crate::{
     db::Database,
-    models::{database::DatabaseWrapper, wrapper::AuthWrapper},
+    models::database::DatabaseWrapper,
+    net::{HEADER_VALUE_FALSE, SAMPLING},
     peering::{PeerHandler, TokenCache},
     SETTINGS,
 };
-pub use errors::*;
 
 /// Handles metadata GET requests.
 pub async fn get_metadata<S>(

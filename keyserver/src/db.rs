@@ -1,9 +1,10 @@
 use std::sync::Arc;
 
+use cashweb::keyserver::Peers;
 use prost::Message;
 use rocksdb::{Error as RocksError, Options, DB};
 
-use crate::models::{database::DatabaseWrapper, keyserver::Peers};
+use crate::models::database::DatabaseWrapper;
 
 const METADATA_NAMESPACE: u8 = b'm';
 const PEER_NAMESPACE: u8 = b'p';
@@ -64,13 +65,11 @@ impl Database {
 
 #[cfg(test)]
 pub mod tests {
+    use cashweb::keyserver::{Peer, Peers};
+    use prost::Message as _;
     use rocksdb::{Options, DB};
 
-    use super::*;
-    use crate::models::{
-        database::DatabaseWrapper,
-        keyserver::{Peer, Peers},
-    };
+    use crate::{db::Database, models::database::DatabaseWrapper};
 
     #[test]
     fn peers() {

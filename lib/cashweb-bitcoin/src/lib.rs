@@ -12,7 +12,6 @@
 
 pub mod bip32;
 pub mod merkle;
-pub mod prelude;
 pub mod transaction;
 pub mod var_int;
 

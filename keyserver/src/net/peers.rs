@@ -1,8 +1,7 @@
 use thiserror::Error;
 use warp::{http::Response, hyper::Body, reject::Reject};
 
-use super::IntoResponse;
-use crate::{peering::PeerHandler, SETTINGS};
+use crate::{net::IntoResponse, peering::PeerHandler, SETTINGS};
 
 #[derive(Debug, Error)]
 #[error("peering not supported")]

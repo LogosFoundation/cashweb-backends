@@ -1,8 +1,9 @@
 //! This module implements a naive algorithm for calculating a merkle root as
 //! per the Bitcoin specification. This differs from bitcoin in that odd elements
 //! use the null hash, rather than duplicating the same value twice.
-use ring::digest::{digest, SHA256};
 use std::convert::TryInto;
+
+use ring::digest::{digest, SHA256};
 
 /// Poop poop
 pub fn sha256d(raw: &[u8]) -> [u8; 32] {
@@ -50,7 +51,9 @@ pub fn lotus_merkle_root(hashes: Vec<[u8; 32]>) -> ([u8; 32], u8) {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
+    use std::convert::TryInto;
+
+    use crate::merkle::lotus_merkle_root;
 
     #[test]
     fn test_merkle_calc() {

@@ -1,8 +1,8 @@
-pub mod messages;
-pub mod payments;
-pub mod profiles;
-pub mod protection;
-pub mod ws;
+mod messages;
+mod payments;
+mod profiles;
+mod protection;
+mod ws;
 
 pub use messages::*;
 pub use payments::*;

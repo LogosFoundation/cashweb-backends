@@ -4,8 +4,8 @@
 use bytes::{Buf, BufMut};
 use thiserror::Error;
 
-use super::script::Script;
 use crate::{
+    transaction::script::Script,
     var_int::{DecodeError as VarIntDecodeError, VarInt},
     Decodable, Encodable,
 };

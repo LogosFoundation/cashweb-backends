@@ -5,21 +5,23 @@ use std::{
 
 use bitcoincash_addr::Address;
 use bytes::Bytes;
-use cashweb::{bitcoin_client::{BitcoinClient, BitcoinClientHTTP, NodeError}, relay::{stamp::StampError, *}};
+use cashweb::{
+    bitcoin_client::{BitcoinClient, BitcoinClientHTTP, NodeError},
+    relay::{self, stamp::StampError},
+};
 use futures::future;
 use hex::FromHexError;
 use prost::Message as _;
 use ring::digest::{digest, SHA256};
 use ripemd160::{Digest, Ripemd160};
-use rocksdb::Error as RocksError;
 use serde::Deserialize;
 use thiserror::Error;
 use tracing::warn;
 use warp::{http::Response, hyper::Body, reject::Reject};
 
-use super::{ws::MessageBus, IntoResponse};
 use crate::{
     db::{self, Database},
+    net::{ws::MessageBus, IntoResponse},
     SETTINGS,
 };
 
@@ -35,7 +37,7 @@ pub struct Query {
 #[derive(Debug, Error)]
 pub enum GetMessageError {
     #[error("failed to read from database: {0}")]
-    DB(RocksError),
+    DB(rocksdb::Error),
     #[error("failed to decode digest: {0}")]
     DigestDecode(FromHexError),
     #[error("destination malformed")]
@@ -58,8 +60,8 @@ pub enum GetMessageError {
     EndDigestNotFound,
 }
 
-impl From<RocksError> for GetMessageError {
-    fn from(err: RocksError) -> Self {
+impl From<rocksdb::Error> for GetMessageError {
+    fn from(err: rocksdb::Error) -> Self {
         Self::DB(err)
     }
 }
@@ -139,7 +141,7 @@ pub async fn get_payloads(
         let raw_message = database
             .get_message_by_digest(&address_payload, &raw_digest[..], namespace)?
             .ok_or(GetMessageError::NotFound)?;
-        let message = Message::decode(&raw_message[..]).unwrap(); // This is safe
+        let message = relay::Message::decode(&raw_message[..]).unwrap(); // This is safe
         return Ok(Response::builder()
             .body(Body::from(message.payload))
             .unwrap());
@@ -223,13 +225,13 @@ pub async fn remove_messages(
 #[derive(Debug, Error)]
 pub enum PutMessageError {
     #[error("failed to write to database: {0}")]
-    DB(RocksError),
+    DB(rocksdb::Error),
     #[error("destination malformed")]
     DestinationMalformed,
     #[error("failed to decode message: {0}")]
     MessagesDecode(prost::DecodeError),
     #[error("failed to parse message: {0}")]
-    MessageParsing(ParseError),
+    MessageParsing(relay::ParseError),
     #[error("failed to decode payload: {0}")]
     PayloadDecode(prost::DecodeError),
     #[error("failed verify stamp: {0}")]
@@ -238,8 +240,8 @@ pub enum PutMessageError {
     StampBroadcast(NodeError),
 }
 
-impl From<RocksError> for PutMessageError {
-    fn from(err: RocksError) -> Self {
+impl From<rocksdb::Error> for PutMessageError {
+    fn from(err: rocksdb::Error) -> Self {
         Self::DB(err)
     }
 }
@@ -273,7 +275,7 @@ pub async fn put_message(
 
     // Decode message
     let message_set =
-        MessageSet::decode(&messages_raw[..]).map_err(PutMessageError::MessagesDecode)?;
+        relay::MessageSet::decode(&messages_raw[..]).map_err(PutMessageError::MessagesDecode)?;
 
     for mut message in message_set.messages.into_iter() {
         // Set received time

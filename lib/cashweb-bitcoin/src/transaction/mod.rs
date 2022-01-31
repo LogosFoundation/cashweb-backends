@@ -14,15 +14,10 @@ use thiserror::Error;
 
 use crate::{
     merkle,
+    transaction::{input::Input, output::Output, script::Script},
     var_int::{DecodeError as VarIntDecodeError, VarInt},
     Decodable, Encodable,
 };
-#[doc(inline)]
-pub use input::{DecodeError as InputDecodeError, Input};
-#[doc(inline)]
-pub use output::{DecodeError as OutputDecodeError, Output};
-#[doc(inline)]
-pub use script::Script;
 
 /// Represents a transaction.
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
@@ -278,13 +273,13 @@ pub enum DecodeError {
     InputCount(VarIntDecodeError),
     /// Failed to decode an input.
     #[error("input: {0}")]
-    Input(InputDecodeError),
+    Input(input::DecodeError),
     /// Failed to decode output count [`VarInt`].
     #[error("output count: {0}")]
     OutputCount(VarIntDecodeError),
     /// Failed to decode an output.
     #[error("output: {0}")]
-    Output(OutputDecodeError),
+    Output(output::DecodeError),
     /// Exhausted buffer when decoding `locktime` field.
     #[error("lock time too short")]
     LockTimeTooShort,

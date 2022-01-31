@@ -4,25 +4,21 @@ pub use token_cache::*;
 
 use std::{fmt, sync::Arc};
 
-use cashweb::keyserver_client::{
-    services::{GetPeersError, SampleError},
-    KeyserverManager,
+use cashweb::{
+    keyserver::{Peer, Peers},
+    keyserver_client::{
+        services::{GetPeersError, SampleError},
+        KeyserverManager,
+    },
 };
-use hyper::{
-    client::{Client as HttpClient, HttpConnector},
-    Body, Request, Response, Uri,
-};
+use hyper::{client::HttpConnector, Body, Request, Response, Uri};
 use hyper_tls::HttpsConnector;
 use prost::Message as _;
-use rocksdb::Error as RocksError;
 use tokio::sync::RwLock;
 use tower_service::Service;
 use tracing::warn;
 
-use crate::{
-    db::Database,
-    models::keyserver::{Peer, Peers},
-};
+use crate::db::Database;
 
 pub fn parse_uri_warn(uri_str: &str) -> Option<Uri> {
     let uri = uri_str.parse();
@@ -44,7 +40,9 @@ pub struct PeerHandler<S> {
 fn uris_to_peers(uris: &[Uri]) -> Peers {
     let peers = uris
         .iter()
-        .map(|uri| Peer { url: uri.to_string() })
+        .map(|uri| Peer {
+            url: uri.to_string(),
+        })
         .collect();
     Peers { peers }
 }
@@ -56,11 +54,11 @@ fn uris_to_raw_peers(uris: &[Uri]) -> Vec<u8> {
     buffer
 }
 
-impl PeerHandler<HttpClient<HttpsConnector<HttpConnector>>> {
+impl PeerHandler<hyper::Client<HttpsConnector<HttpConnector>>> {
     /// Construct new [`PeerHandler`].
     pub fn new(uris: Vec<Uri>) -> Self {
         let https = HttpsConnector::new();
-        let http_client = HttpClient::builder().build(https);
+        let http_client = hyper::Client::builder().build(https);
         let peers_cache = Arc::new(RwLock::new(uris_to_raw_peers(&uris)));
         let keyserver_manager = KeyserverManager::from_service(http_client, uris);
         Self {
@@ -96,7 +94,7 @@ where
         self.peers_cache.read().await.clone()
     }
 
-    pub async fn persist(&self, database: &Database) -> Result<(), RocksError> {
+    pub async fn persist(&self, database: &Database) -> Result<(), rocksdb::Error> {
         let raw_peers = self.get_raw_peers().await;
         database.put_peers(&raw_peers)
     }
