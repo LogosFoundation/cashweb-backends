@@ -2,7 +2,7 @@ use cashweb::auth_wrapper::{ParseError, VerifyError};
 use thiserror::Error;
 use warp::reject::Reject;
 
-use crate::net::IntoResponse;
+use crate::net::ToResponse;
 
 #[derive(Debug, Error)]
 pub enum PutMetadataError {
@@ -22,7 +22,7 @@ impl From<rocksdb::Error> for PutMetadataError {
 
 impl Reject for PutMetadataError {}
 
-impl IntoResponse for PutMetadataError {
+impl ToResponse for PutMetadataError {
     fn to_status(&self) -> u16 {
         match self {
             Self::Database(_) => 500,
@@ -47,7 +47,7 @@ impl From<rocksdb::Error> for GetMetadataError {
     }
 }
 
-impl IntoResponse for GetMetadataError {
+impl ToResponse for GetMetadataError {
     fn to_status(&self) -> u16 {
         match self {
             Self::NotFound => 404,

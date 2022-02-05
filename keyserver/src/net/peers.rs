@@ -1,7 +1,7 @@
 use thiserror::Error;
 use warp::{http::Response, hyper::Body, reject::Reject};
 
-use crate::{net::IntoResponse, peering::PeerHandler, SETTINGS};
+use crate::{net::ToResponse, peering::PeerHandler, SETTINGS};
 
 #[derive(Debug, Error)]
 #[error("peering not supported")]
@@ -9,7 +9,7 @@ pub struct PeeringUnavailible;
 
 impl Reject for PeeringUnavailible {}
 
-impl IntoResponse for PeeringUnavailible {
+impl ToResponse for PeeringUnavailible {
     fn to_status(&self) -> u16 {
         501
     }

@@ -42,19 +42,19 @@ pub fn address_decode(addr_str: &str) -> Result<Address, AddressDecode> {
     Address::decode(&addr_str).map_err(|(cash_err, base58_err)| AddressDecode(cash_err, base58_err))
 }
 
-impl IntoResponse for AddressDecode {
+impl ToResponse for AddressDecode {
     fn to_status(&self) -> u16 {
         400
     }
 }
 
 /// Helper trait for converting errors into a response.
-pub trait IntoResponse: fmt::Display + Sized {
+pub trait ToResponse: fmt::Display + Sized {
     /// Convert error into a status code.
     fn to_status(&self) -> u16;
 
     /// Convert error into a `Response`.
-    fn into_response(&self) -> Response<Body> {
+    fn to_response(&self) -> Response<Body> {
         let status = self.to_status();
 
         if status != 500 {
@@ -75,27 +75,27 @@ pub trait IntoResponse: fmt::Display + Sized {
 pub async fn handle_rejection(err: Rejection) -> Result<Response<Body>, Infallible> {
     if let Some(err) = err.find::<AddressDecode>() {
         error!(message = "failed to decode address", error = %err);
-        return Ok(err.into_response());
+        return Ok(err.to_response());
     }
 
     if let Some(err) = err.find::<GetMetadataError>() {
         error!(message = "failed to get metadata", error = %err);
-        return Ok(err.into_response());
+        return Ok(err.to_response());
     }
 
     if let Some(err) = err.find::<PutMetadataError>() {
         error!(message = "failed to put metadata", error = %err);
-        return Ok(err.into_response());
+        return Ok(err.to_response());
     }
 
     if let Some(err) = err.find::<PaymentError>() {
         error!(message = "payment failed", error = %err);
-        return Ok(err.into_response());
+        return Ok(err.to_response());
     }
 
     if let Some(err) = err.find::<PeeringUnavailible>() {
         error!(message = "failed to get peers", error = %err);
-        return Ok(err.into_response());
+        return Ok(err.to_response());
     }
 
     if let Some(err) = err.find::<ProtectionError>() {

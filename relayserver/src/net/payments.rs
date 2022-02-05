@@ -26,7 +26,7 @@ use warp::{
     reject::Reject,
 };
 
-use crate::{net::IntoResponse, PAYMENTS_PATH, SETTINGS};
+use crate::{net::ToResponse, PAYMENTS_PATH, SETTINGS};
 
 pub type Wallet = wallet::Wallet<Vec<u8>, Output>;
 
@@ -46,7 +46,7 @@ pub enum PaymentError {
 
 impl Reject for PaymentError {}
 
-impl IntoResponse for PaymentError {
+impl ToResponse for PaymentError {
     fn to_status(&self) -> u16 {
         match self {
             PaymentError::Preprocess(err) => match err {

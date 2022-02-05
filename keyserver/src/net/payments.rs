@@ -22,7 +22,7 @@ use warp::{
     reject::Reject,
 };
 
-use crate::{net::IntoResponse, METADATA_PATH, PAYMENTS_PATH, SETTINGS};
+use crate::{net::ToResponse, METADATA_PATH, PAYMENTS_PATH, SETTINGS};
 
 pub const COMMITMENT_PREIMAGE_SIZE: usize = 32 + 32;
 pub const COMMITMENT_SIZE: usize = 32;
@@ -48,7 +48,7 @@ pub enum PaymentError {
 
 impl Reject for PaymentError {}
 
-impl IntoResponse for PaymentError {
+impl ToResponse for PaymentError {
     fn to_status(&self) -> u16 {
         match self {
             Self::Address(_) => 400,
