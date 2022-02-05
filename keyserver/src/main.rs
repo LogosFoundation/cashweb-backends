@@ -160,7 +160,6 @@ async fn main() {
 
     // Protection
     let addr_protected = addr_base
-        .clone()
         .and(warp::body::content_length_limit(
             SETTINGS.limits.metadata_size,
         ))

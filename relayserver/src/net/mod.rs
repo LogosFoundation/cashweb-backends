@@ -36,7 +36,7 @@ impl Reject for AddressDecode {}
 
 pub fn address_decode(addr_str: &str) -> Result<Address, AddressDecode> {
     // Convert address
-    let address = Address::decode(&addr_str)
+    let address = Address::decode(addr_str)
         .map_err(|(cash_err, base58_err)| AddressDecode::Decode(cash_err, base58_err))?;
 
     // Check address payload is correct length

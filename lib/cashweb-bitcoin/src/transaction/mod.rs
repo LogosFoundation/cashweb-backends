@@ -62,7 +62,7 @@ pub fn transaction_hash_rev(raw_transaction: &[u8]) -> [u8; 32] {
 /// Note that typically the transaction ID are big-endian encoded.
 #[inline]
 pub fn transaction_hash(raw_transaction: &[u8]) -> [u8; 32] {
-    let tx_id = digest(&SHA256, digest(&SHA256, &raw_transaction).as_ref());
+    let tx_id = digest(&SHA256, digest(&SHA256, raw_transaction).as_ref());
     tx_id.as_ref().try_into().unwrap()
 }
 

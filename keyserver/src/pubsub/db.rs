@@ -51,7 +51,7 @@ impl PubSubDatabase {
     ) -> Result<(), PubSubDatabaseError> {
         let mut buf = Vec::new();
         message.encode(&mut buf)?;
-        let split_topic = topic.split(".").collect::<Vec<_>>();
+        let split_topic = topic.split('.').collect::<Vec<_>>();
         if split_topic.len() > 10 {
             return Err(PubSubDatabaseError::TopicTooLong(split_topic.len()));
         }
@@ -159,8 +159,10 @@ mod tests {
         let database = PubSubDatabase::new(TEST_NAME).unwrap();
 
         // Create database wrapper
-        let mut message_one = AuthWrapper::default();
-        message_one.payload_digest = vec![0; 32];
+        let message_one = AuthWrapper {
+            payload_digest: vec![0; 32],
+            ..Default::default()
+        };
 
         let data_wrapper_out_0 = database.get_messages("foo.bar.bob", 0).unwrap();
         assert_eq!(data_wrapper_out_0.len(), 0);
@@ -181,8 +183,10 @@ mod tests {
         assert_eq!(message_one, data_wrapper_out[0]);
 
         // Create database wrapper
-        let mut message_two = AuthWrapper::default();
-        message_two.payload_digest = vec![1; 32];
+        let message_two = AuthWrapper {
+            payload_digest: vec![1; 32],
+            ..Default::default()
+        };
 
         // Put to database
         database.put_message(1, "foo.bar", &message_two).unwrap();

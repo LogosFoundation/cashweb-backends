@@ -140,7 +140,7 @@ pub async fn process_payment(
     }
 
     // Construct token
-    let token = format!("POP {}", construct_token(&tx_id, vout as u32));
+    let token = format!("POP {}", construct_token(tx_id, vout as u32));
 
     // Create PaymentAck
     let memo = Some(SETTINGS.payments.memo.clone());

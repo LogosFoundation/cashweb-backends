@@ -7,7 +7,7 @@ use ring::digest::{digest, SHA256};
 
 /// Poop poop
 pub fn sha256d(raw: &[u8]) -> [u8; 32] {
-    digest(&SHA256, digest(&SHA256, &raw).as_ref())
+    digest(&SHA256, digest(&SHA256, raw).as_ref())
         .as_ref()
         .try_into()
         .unwrap()
@@ -43,10 +43,8 @@ pub fn lotus_merkle_root_inline(hashes: &mut [[u8; 32]], height: u8) -> ([u8; 32
 }
 
 /// poop
-pub fn lotus_merkle_root(hashes: Vec<[u8; 32]>) -> ([u8; 32], u8) {
-    // Recursion
-    let mut alloc = Vec::from(hashes);
-    lotus_merkle_root_inline(&mut alloc, 1)
+pub fn lotus_merkle_root(mut hashes: Vec<[u8; 32]>) -> ([u8; 32], u8) {
+    lotus_merkle_root_inline(&mut hashes, 1)
 }
 
 #[cfg(test)]

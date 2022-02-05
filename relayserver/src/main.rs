@@ -110,7 +110,6 @@ async fn main() {
 
     // Protection
     let addr_protected = addr_base
-        .clone()
         .and(warp::header::headers_cloned())
         .and(warp::query())
         .and(token_scheme_state.clone())
