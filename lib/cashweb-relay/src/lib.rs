@@ -344,17 +344,16 @@ impl ParsedMessage {
             .map_err(|_| OpenError::Authentication)?;
 
         // Decrypt
-        let mut raw_payload = &mut self.payload;
         let (key, iv) = shared_key.split_at(16);
-        let key = GenericArray::<u8, U16>::from_slice(&key);
-        let iv = GenericArray::<u8, U16>::from_slice(&iv);
-        let cipher = Aes128Cbc::new_var(&key, &iv).unwrap(); // This is safe
+        let key = GenericArray::<u8, U16>::from_slice(key);
+        let iv = GenericArray::<u8, U16>::from_slice(iv);
+        let cipher = Aes128Cbc::new_var(key, iv).unwrap(); // This is safe
         cipher
-            .decrypt(&mut raw_payload)
+            .decrypt(&mut self.payload)
             .map_err(OpenError::Decrypt)?;
 
         // Decode
-        let payload = Payload::decode(&mut raw_payload.as_slice()).map_err(OpenError::Payload)?;
+        let payload = Payload::decode(self.payload.as_slice()).map_err(OpenError::Payload)?;
 
         Ok(Opened { txs, payload })
     }
@@ -377,9 +376,9 @@ impl ParsedMessage {
         // Decrypt
         let raw_payload = &self.payload;
         let (key, iv) = shared_key.as_ref().split_at(16);
-        let key = GenericArray::<u8, U16>::from_slice(&key);
-        let iv = GenericArray::<u8, U16>::from_slice(&iv);
-        let cipher = Aes128Cbc::new_var(&key, &iv).unwrap(); // This is safe
+        let key = GenericArray::<u8, U16>::from_slice(key);
+        let iv = GenericArray::<u8, U16>::from_slice(iv);
+        let cipher = Aes128Cbc::new_var(key, iv).unwrap(); // This is safe
         cipher
             .decrypt_vec(raw_payload)
             .map_err(OpenError::Decrypt)?;
@@ -398,18 +397,18 @@ impl MessagePage {
     }
 }
 
-impl Into<PayloadPage> for MessagePage {
-    fn into(self) -> PayloadPage {
-        let payloads: Vec<Vec<u8>> = self
+impl From<MessagePage> for PayloadPage {
+    fn from(message_page: MessagePage) -> PayloadPage {
+        let payloads: Vec<Vec<u8>> = message_page
             .messages
             .into_iter()
             .map(|message| message.payload)
             .collect();
         PayloadPage {
-            start_time: self.start_time,
-            end_time: self.end_time,
-            start_digest: self.start_digest,
-            end_digest: self.end_digest,
+            start_time: message_page.start_time,
+            end_time: message_page.end_time,
+            start_digest: message_page.start_digest,
+            end_digest: message_page.end_digest,
             payloads,
         }
     }
@@ -420,9 +419,9 @@ impl Into<PayloadPage> for MessagePage {
 /// Typically the shared key is `HMAC(sdG, salt)` created using the [`create_shared_key`] method.
 pub fn encrypt_payload(shared_key: &[u8], plaintext: &[u8]) -> Vec<u8> {
     let (key, iv) = shared_key.as_ref().split_at(16);
-    let key = GenericArray::<u8, U16>::from_slice(&key);
-    let iv = GenericArray::<u8, U16>::from_slice(&iv);
-    let cipher = Aes128Cbc::new_var(&key, &iv).unwrap(); // This is safe
+    let key = GenericArray::<u8, U16>::from_slice(key);
+    let iv = GenericArray::<u8, U16>::from_slice(iv);
+    let cipher = Aes128Cbc::new_var(key, iv).unwrap(); // This is safe
     cipher.encrypt_vec(plaintext)
 }
 
@@ -431,8 +430,8 @@ pub fn encrypt_payload(shared_key: &[u8], plaintext: &[u8]) -> Vec<u8> {
 /// Typically the shared key is `HMAC(sdG, salt)` created using the [`create_shared_key`] method.
 pub fn encrypt_payload_in_place(shared_key: &[u8], payload: &mut [u8]) {
     let (key, iv) = shared_key.as_ref().split_at(16);
-    let key = GenericArray::<u8, U16>::from_slice(&key);
-    let iv = GenericArray::<u8, U16>::from_slice(&iv);
-    let cipher = Aes128Cbc::new_var(&key, &iv).unwrap(); // This is safe
+    let key = GenericArray::<u8, U16>::from_slice(key);
+    let iv = GenericArray::<u8, U16>::from_slice(iv);
+    let cipher = Aes128Cbc::new_var(key, iv).unwrap(); // This is safe
     cipher.encrypt(payload, 0).unwrap(); // TODO: Double check this is safe
 }

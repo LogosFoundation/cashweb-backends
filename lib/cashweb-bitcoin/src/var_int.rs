@@ -21,9 +21,9 @@ pub enum DecodeError {
 #[derive(Clone, Debug, PartialEq)]
 pub struct VarInt(pub u64);
 
-impl Into<u64> for VarInt {
-    fn into(self) -> u64 {
-        self.0
+impl From<VarInt> for u64 {
+    fn from(num: VarInt) -> u64 {
+        num.0
     }
 }
 

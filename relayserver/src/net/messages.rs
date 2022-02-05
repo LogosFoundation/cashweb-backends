@@ -139,7 +139,7 @@ pub async fn get_payloads(
     if let Some(digest) = query.digest {
         let raw_digest = hex::decode(digest).map_err(GetMessageError::DigestDecode)?;
         let raw_message = database
-            .get_message_by_digest(&address_payload, &raw_digest[..], namespace)?
+            .get_message_by_digest(address_payload, &raw_digest[..], namespace)?
             .ok_or(GetMessageError::NotFound)?;
         let message = relay::Message::decode(&raw_message[..]).unwrap(); // This is safe
         return Ok(Response::builder()
@@ -148,7 +148,7 @@ pub async fn get_payloads(
     }
 
     let (start_prefix, end_prefix) =
-        construct_prefixes(&address_payload, query, &database, namespace)?;
+        construct_prefixes(address_payload, query, &database, namespace)?;
     let message_page =
         database.get_messages_range(&start_prefix, end_prefix.as_ref().map(|v| &v[..]))?;
     let payload_page = message_page.into_payload_page();
@@ -176,13 +176,13 @@ pub async fn get_messages(
     if let Some(digest) = query.digest {
         let raw_digest = hex::decode(digest).map_err(GetMessageError::DigestDecode)?;
         let message = database
-            .get_message_by_digest(&address_payload, &raw_digest[..], namespace)?
+            .get_message_by_digest(address_payload, &raw_digest[..], namespace)?
             .ok_or(GetMessageError::NotFound)?;
         return Ok(Response::builder().body(Body::from(message)).unwrap());
     }
 
     let (start_prefix, end_prefix) =
-        construct_prefixes(&address_payload, query, &database, namespace)?;
+        construct_prefixes(address_payload, query, &database, namespace)?;
     let message_set =
         database.get_messages_range(&start_prefix, end_prefix.as_ref().map(|v| &v[..]))?;
 
@@ -209,13 +209,13 @@ pub async fn remove_messages(
     if let Some(digest) = query.digest {
         let raw_digest = hex::decode(digest).map_err(GetMessageError::DigestDecode)?;
         database
-            .remove_message_by_digest(&address_payload, &raw_digest[..], namespace)?
+            .remove_message_by_digest(address_payload, &raw_digest[..], namespace)?
             .ok_or(GetMessageError::NotFound)?;
         return Ok(Response::builder().body(Body::empty()).unwrap());
     }
 
     let (start_prefix, end_prefix) =
-        construct_prefixes(&address_payload, query, &database, namespace)?;
+        construct_prefixes(address_payload, query, &database, namespace)?;
     database.remove_messages_range(&start_prefix, end_prefix.as_ref().map(|v| &v[..]))?;
 
     // Respond
@@ -284,9 +284,9 @@ pub async fn put_message(
         // Get sender public key
         let source_pubkey = &message.source_public_key;
         let destination_pubkey = &message.destination_public_key;
-        let source_pubkey_hash = Ripemd160::digest(digest(&SHA256, &source_pubkey).as_ref());
+        let source_pubkey_hash = Ripemd160::digest(digest(&SHA256, source_pubkey).as_ref());
         let destination_pubkey_hash =
-            Ripemd160::digest(digest(&SHA256, &destination_pubkey).as_ref());
+            Ripemd160::digest(digest(&SHA256, destination_pubkey).as_ref());
 
         // Check if URL address is correct
         if addr.as_body() == &destination_pubkey_hash[..] {

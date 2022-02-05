@@ -39,7 +39,7 @@ impl fmt::Display for AddressDecode {
 /// Helper method for decoding an address string.
 pub fn address_decode(addr_str: &str) -> Result<Address, AddressDecode> {
     // Convert address
-    Address::decode(&addr_str).map_err(|(cash_err, base58_err)| AddressDecode(cash_err, base58_err))
+    Address::decode(addr_str).map_err(|(cash_err, base58_err)| AddressDecode(cash_err, base58_err))
 }
 
 impl ToResponse for AddressDecode {

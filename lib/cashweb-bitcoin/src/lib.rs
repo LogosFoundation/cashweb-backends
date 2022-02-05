@@ -84,12 +84,12 @@ impl TryFrom<String> for Network {
     }
 }
 
-impl Into<String> for Network {
-    fn into(self) -> String {
-        match self {
-            Self::Mainnet => "mainnet".to_string(),
-            Self::Testnet => "testnet".to_string(),
-            Self::Regtest => "regtest".to_string(),
+impl From<Network> for String {
+    fn from(network: Network) -> Self {
+        match network {
+            Network::Mainnet => "mainnet".to_string(),
+            Network::Testnet => "testnet".to_string(),
+            Network::Regtest => "regtest".to_string(),
         }
     }
 }

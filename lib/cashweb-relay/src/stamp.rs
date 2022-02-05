@@ -71,7 +71,7 @@ pub fn verify_stamp(
     }
 
     // Calculate master pubkey
-    let payload_secret_key = SecretKey::from_slice(&payload_digest.as_ref()).unwrap(); // This is safe
+    let payload_secret_key = SecretKey::from_slice(payload_digest.as_ref()).unwrap(); // This is safe
     let payload_public_key =
         PublicKey::from_secret_key(&Secp256k1::signing_only(), &payload_secret_key);
     let combined_key = destination_public_key

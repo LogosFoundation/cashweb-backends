@@ -55,8 +55,7 @@ pub async fn get_messages(
     let messages = db
         .get_messages_to(&topic, from, to)
         .map_err(MessagesRpcRejection::DatabaseError)?;
-    let mut message_page = AuthWrapperSet::default();
-    message_page.items = messages;
+    let message_page = AuthWrapperSet { items: messages };
     // Serialze message which is stored in database
     let mut raw_message_page = Vec::with_capacity(message_page.encoded_len());
     message_page.encode(&mut raw_message_page).unwrap();
@@ -91,12 +90,12 @@ pub async fn put_message(
     client: impl BitcoinClient,
     mut message: AuthWrapper,
 ) -> Result<impl Reply, Rejection> {
-    if message.transactions.len() == 0 {
+    if message.transactions.is_empty() {
         return Err(warp::reject::custom(
             MessagesRpcRejection::InvalidOutputFormat,
         ));
     }
-    if message.payload_digest.len() == 0 {
+    if message.payload_digest.is_empty() {
         // Ensure payload_digest is set
         message.payload_digest = sha256(&message.payload).to_vec();
     }
@@ -117,14 +116,14 @@ pub async fn put_message(
             ));
         }
 
-        let split_topic = topic.split(".").collect::<Vec<&str>>();
+        let split_topic = topic.split('.').collect::<Vec<&str>>();
         if split_topic.len() > 10 {
             return Err(warp::reject::custom(
                 MessagesRpcRejection::InvalidTopicFormat,
             ));
         }
 
-        let invalid_segments = split_topic.iter().any(|segment| segment.len() == 0);
+        let invalid_segments = split_topic.iter().any(|segment| segment.is_empty());
         if invalid_segments {
             return Err(warp::reject::custom(
                 MessagesRpcRejection::InvalidTopicFormat,
@@ -154,7 +153,7 @@ pub async fn put_message(
 
         // Lord have mercy on your soul
         if raw_script[1] != 4
-            || &raw_script[2..6] != &POND_PREFIX
+            || raw_script[2..6] != POND_PREFIX
             || !(raw_script[6] == 81 || raw_script[6] == 0)
             || raw_script[7] != 32
         {
@@ -192,7 +191,7 @@ pub async fn put_message(
 
     // Check to see if this thing already exists, if so just bump the number of burn transactions.
     let existing_value = db.get_message(&message.payload_digest);
-    if existing_value.is_ok() && message.payload.len() == 0 {
+    if existing_value.is_ok() && message.payload.is_empty() {
         let mut wrapper = existing_value.unwrap();
         // Dedupe transactions
         for transaction in &wrapper.transactions {
@@ -285,20 +284,24 @@ pub mod tests {
         // Create database
         let database = PubSubDatabase::new(TEST_NAME).unwrap();
 
-        // Create database wrapper
-        let mut wrapper_in = AuthWrapper::default();
-
-        wrapper_in.scheme = 1;
-        let mut message = BroadcastMessage::default();
-        message.topic = "cashweb.is.amazing11".to_string();
-        message.timestamp = SystemTime::now()
-            .duration_since(UNIX_EPOCH)
-            .unwrap()
-            .as_millis() as i64;
+        let message = BroadcastMessage {
+            topic: "cashweb.is.amazing11".to_string(),
+            timestamp: SystemTime::now()
+                .duration_since(UNIX_EPOCH)
+                .unwrap()
+                .as_millis() as i64,
+            ..Default::default()
+        };
 
         let mut message_buf = Vec::with_capacity(message.encoded_len());
         message.encode(&mut message_buf).unwrap();
-        wrapper_in.payload = message_buf;
+
+        // Create database wrapper
+        let wrapper_in = AuthWrapper {
+            scheme: 1,
+            payload: message_buf,
+            ..Default::default()
+        };
 
         let result = put_message(database.clone(), MockTransactionSender {}, wrapper_in).await;
 
@@ -316,20 +319,17 @@ pub mod tests {
         // Create database
         let database = PubSubDatabase::new(TEST_NAME).unwrap();
 
-        // Create database wrapper
-        let mut wrapper_in = AuthWrapper::default();
-
-        wrapper_in.scheme = 1;
-        let mut message = BroadcastMessage::default();
-        message.topic = "cashweb.is.amazing".to_string();
-        message.timestamp = SystemTime::now()
-            .duration_since(UNIX_EPOCH)
-            .unwrap()
-            .as_millis() as i64;
+        let message = BroadcastMessage {
+            topic: "cashweb.is.amazing".to_string(),
+            timestamp: SystemTime::now()
+                .duration_since(UNIX_EPOCH)
+                .unwrap()
+                .as_millis() as i64,
+            ..Default::default()
+        };
 
         let mut message_buf = Vec::with_capacity(message.encoded_len());
         message.encode(&mut message_buf).unwrap();
-        wrapper_in.payload = message_buf;
 
         // Create the burn transaction
         let mut tx = Transaction::default();
@@ -340,7 +340,7 @@ pub mod tests {
         output.push(81);
         output.push(32);
 
-        let payload_hash = sha256(&wrapper_in.payload);
+        let payload_hash = sha256(&message_buf);
         output.extend(payload_hash);
 
         tx.outputs.push(Output {
@@ -351,10 +351,17 @@ pub mod tests {
         // Buffer with enough space to encode txn.
         let mut tx_buf = Vec::with_capacity(50);
         tx.encode(&mut tx_buf).unwrap();
-        wrapper_in.transactions.push(BurnOutputs {
-            tx: tx_buf,
-            index: 0,
-        });
+
+        // Create database wrapper
+        let wrapper_in = AuthWrapper {
+            scheme: 1,
+            payload: message_buf,
+            transactions: vec![BurnOutputs {
+                tx: tx_buf,
+                index: 0,
+            }],
+            ..Default::default()
+        };
 
         let result = put_message(database.clone(), MockTransactionSender {}, wrapper_in).await;
         if let Err(err) = result.as_ref() {
@@ -377,20 +384,17 @@ pub mod tests {
         // Create database
         let database = PubSubDatabase::new(TEST_NAME).unwrap();
 
-        // Create database wrapper
-        let mut wrapper_in = AuthWrapper::default();
-
-        wrapper_in.scheme = 1;
-        let mut message = BroadcastMessage::default();
-        message.topic = "this topic is not valid".to_string();
-        message.timestamp = SystemTime::now()
-            .duration_since(UNIX_EPOCH)
-            .unwrap()
-            .as_millis() as i64;
+        let message = BroadcastMessage {
+            topic: "this topic is not valid".to_string(),
+            timestamp: SystemTime::now()
+                .duration_since(UNIX_EPOCH)
+                .unwrap()
+                .as_millis() as i64,
+            ..Default::default()
+        };
 
         let mut message_buf = Vec::with_capacity(message.encoded_len());
         message.encode(&mut message_buf).unwrap();
-        wrapper_in.payload = message_buf;
 
         // Create the burn transaction
         let mut tx = Transaction::default();
@@ -401,7 +405,7 @@ pub mod tests {
         output.push(81);
         output.push(32);
 
-        let payload_hash = sha256(&wrapper_in.payload);
+        let payload_hash = sha256(&message_buf);
         output.extend(payload_hash);
 
         tx.outputs.push(Output {
@@ -412,10 +416,17 @@ pub mod tests {
         // Buffer with enough space to encode txn.
         let mut tx_buf = Vec::with_capacity(50);
         tx.encode(&mut tx_buf).unwrap();
-        wrapper_in.transactions.push(BurnOutputs {
-            tx: tx_buf,
-            index: 0,
-        });
+
+        // Create database wrapper
+        let wrapper_in = AuthWrapper {
+            scheme: 1,
+            payload: message_buf,
+            transactions: vec![BurnOutputs {
+                tx: tx_buf,
+                index: 0,
+            }],
+            ..Default::default()
+        };
 
         let result = put_message(database.clone(), MockTransactionSender {}, wrapper_in).await;
         assert!(result.is_err(), "Result is error");

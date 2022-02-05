@@ -11,9 +11,9 @@ use crate::{var_int::VarInt, Encodable};
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
 pub struct Script(pub Vec<u8>);
 
-impl Into<Vec<u8>> for Script {
-    fn into(self) -> Vec<u8> {
-        self.0
+impl From<Script> for Vec<u8> {
+    fn from(script: Script) -> Self {
+        script.0
     }
 }
 
