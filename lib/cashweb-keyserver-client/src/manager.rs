@@ -1,5 +1,7 @@
 use std::{collections::HashSet, fmt, str::FromStr, sync::Arc};
 
+use cashweb_auth_wrapper::AuthWrapper;
+use cashweb_keyserver::{Peer, Peers};
 use hyper::{
     client::Client as HyperClient,
     client::HttpConnector,
@@ -13,8 +15,8 @@ use tower_service::Service;
 use tower_util::ServiceExt;
 
 use crate::{
-    client::{services::*, KeyserverClient, MetadataPackage},
-    models::{AuthWrapper, Peer, Peers},
+    client::{KeyserverClient, MetadataPackage},
+    services::{GetMetadata, GetPeers, PutMetadata, PutRawAuthWrapper, SampleError, SampleRequest},
 };
 
 /// KeyserverManager wraps a client and allows sampling and selecting of queries across a set of keyservers.

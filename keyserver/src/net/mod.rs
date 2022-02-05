@@ -1,12 +1,12 @@
-pub mod metadata;
-pub mod payments;
-pub mod peers;
-pub mod protection;
+mod metadata;
+mod payments;
+mod peers;
+mod protection;
 
-pub use metadata::*;
-pub use payments::*;
-pub use peers::*;
-pub use protection::*;
+pub use crate::net::metadata::*;
+pub use crate::net::payments::*;
+pub use crate::net::peers::*;
+pub use crate::net::protection::*;
 
 use std::{convert::Infallible, fmt};
 

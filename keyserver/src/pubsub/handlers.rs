@@ -1,20 +1,26 @@
-use crate::crypto::sha256;
-use crate::models::broadcast::BroadcastMessage;
-use cashweb::auth_wrapper::{AuthWrapper, AuthWrapperSet, BurnOutputs};
-use cashweb::bitcoin::{
-    transaction::{DecodeError as TransactionDecodeError, Transaction},
-    Decodable,
+use std::{
+    collections::HashMap,
+    convert::TryInto,
+    time::{SystemTime, UNIX_EPOCH},
 };
-use cashweb::bitcoin_client::{BitcoinClient, NodeError};
-use prost::Message;
-use std::collections::HashMap;
-use std::convert::TryInto;
-use std::time::{SystemTime, UNIX_EPOCH};
-use thiserror::Error;
-use warp::http::Response;
-use warp::{reject::Reject, Rejection, Reply};
 
-use super::{PubSubDatabase, PubSubDatabaseError};
+use cashweb::{
+    auth_wrapper::{AuthWrapper, AuthWrapperSet, BurnOutputs},
+    bitcoin::{
+        transaction::{self, Transaction},
+        Decodable,
+    },
+    bitcoin_client::{BitcoinClient, NodeError},
+};
+use prost::Message as _;
+use thiserror::Error;
+use warp::{http::Response, reject::Reject, Rejection, Reply};
+
+use crate::{
+    crypto::sha256,
+    models::broadcast::BroadcastMessage,
+    pubsub::{PubSubDatabase, PubSubDatabaseError},
+};
 
 #[derive(Debug, Error)]
 pub enum MessagesRpcRejection {
@@ -29,7 +35,7 @@ pub enum MessagesRpcRejection {
     #[error("burn transaction commitment incorrect")]
     InvalidOutputCommitment,
     #[error("unable to decode a burn transaction")]
-    TransactionInvalidError(#[from] TransactionDecodeError),
+    TransactionInvalidError(#[from] transaction::DecodeError),
     #[error("invalid transaction output amount")]
     TransactionOutputInvalid,
     #[error("invalid topic format")]
@@ -102,7 +108,9 @@ pub async fn put_message(
     // few items. In the case where this is simply a vote, ignore the checks.
     if message.payload.encoded_len() > 0 {
         let topic = &payload.topic;
-        let valid_topic = topic.chars().all(|c| c.is_lowercase() || c.is_numeric() || c == '.' || c == '-');
+        let valid_topic = topic
+            .chars()
+            .all(|c| c.is_lowercase() || c.is_numeric() || c == '.' || c == '-');
         if !valid_topic {
             return Err(warp::reject::custom(
                 MessagesRpcRejection::InvalidTopicFormat,
@@ -244,7 +252,7 @@ pub mod tests {
     use cashweb::{
         auth_wrapper::BurnOutputs,
         bitcoin::{
-            transaction::{Output, Script},
+            transaction::{output::Output, script::Script},
             Encodable,
         },
         bitcoin_client::NodeError,

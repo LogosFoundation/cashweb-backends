@@ -3,18 +3,16 @@ use std::{
     time::{Duration, SystemTime, UNIX_EPOCH},
 };
 
-use bitcoincash_addr::{
-    base58::DecodingError as Base58Error, cashaddr::DecodingError as CashAddrError, Address,
-};
+use bitcoincash_addr::{base58, cashaddr, Address};
 use cashweb::{
     bitcoin::{
-        transaction::{DecodeError as TransactionDecodeError, Transaction},
+        transaction::{self, Transaction},
         Decodable,
     },
     bitcoin_client::{BitcoinClient, BitcoinClientHTTP, NodeError},
     payments::bip70::{Output, Payment, PaymentAck, PaymentDetails, PaymentRequest},
     payments::{
-        wallet::{UnexpectedOutputs, Wallet as WalletGeneric},
+        wallet::{self, UnexpectedOutputs},
         PreprocessingError,
     },
     token::schemes::hmac_bearer::HmacScheme,
@@ -28,10 +26,9 @@ use warp::{
     reject::Reject,
 };
 
-use super::IntoResponse;
-use crate::{PAYMENTS_PATH, SETTINGS};
+use crate::{net::IntoResponse, PAYMENTS_PATH, SETTINGS};
 
-pub type Wallet = WalletGeneric<Vec<u8>, Output>;
+pub type Wallet = wallet::Wallet<Vec<u8>, Output>;
 
 #[derive(Debug, Error)]
 pub enum PaymentError {
@@ -40,7 +37,7 @@ pub enum PaymentError {
     #[error(transparent)]
     Wallet(UnexpectedOutputs),
     #[error("malformed tx: {0}")]
-    MalformedTx(TransactionDecodeError),
+    MalformedTx(transaction::DecodeError),
     #[error("missing merchant data")]
     MissingMerchantData,
     #[error("bitcoin request failed: {0}")]
@@ -74,7 +71,7 @@ pub async fn process_payment(
     bitcoin_client: BitcoinClientHTTP,
     token_state: Arc<HmacScheme>,
 ) -> Result<Response<Body>, PaymentError> {
-    let txs_res: Result<Vec<Transaction>, TransactionDecodeError> = payment
+    let txs_res: Result<Vec<Transaction>, transaction::DecodeError> = payment
         .transactions
         .iter()
         .map(|raw_tx: &Vec<u8>| Transaction::decode(&mut raw_tx.as_slice()))
@@ -127,7 +124,7 @@ pub async fn process_payment(
 #[derive(Error, Debug)]
 pub enum PaymentRequestError {
     #[error("address decoding failed: {0}, {1}")]
-    Address(CashAddrError, Base58Error),
+    Address(cashaddr::DecodingError, base58::DecodingError),
     #[error("failed to retrieve address from bitcoind: {0}")]
     Node(NodeError),
     #[error("mismatched network")]

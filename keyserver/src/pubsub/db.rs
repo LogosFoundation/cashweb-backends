@@ -1,9 +1,11 @@
-use prost::Message;
-use rocksdb::{ColumnFamily, Direction, IteratorMode, Options, DB};
 use std::sync::Arc;
+
+use cashweb::auth_wrapper::AuthWrapper;
+use prost::Message as _;
+use rocksdb::{ColumnFamily, Direction, IteratorMode, Options, DB};
 use thiserror::Error;
 
-use crate::{crypto::sha256, models::wrapper::AuthWrapper};
+use crate::crypto::sha256;
 
 const MESSAGE_CF_NAME: &str = "messages";
 const PAYLOADS_CF_NAME: &str = "payloads";
@@ -92,7 +94,9 @@ impl PubSubDatabase {
         from: i64,
         to: i64,
     ) -> Result<Vec<AuthWrapper>, PubSubDatabaseError> {
-        let valid_topic = topic.chars().all(|c| c.is_lowercase() || c.is_numeric() || c == '.' || c == '-');
+        let valid_topic = topic
+            .chars()
+            .all(|c| c.is_lowercase() || c.is_numeric() || c == '.' || c == '-');
         if !valid_topic {
             return Err(PubSubDatabaseError::TopicInvalidCharacters());
         }

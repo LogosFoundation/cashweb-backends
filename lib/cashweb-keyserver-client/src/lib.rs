@@ -11,8 +11,6 @@
 
 mod client;
 mod manager;
-#[allow(missing_docs)]
-pub mod models;
 
 pub use client::*;
 pub use manager::*;

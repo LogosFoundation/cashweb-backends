@@ -3,6 +3,7 @@ use std::sync::Arc;
 use bitcoincash_addr::Address;
 use bytes::Bytes;
 use cashweb::{
+    auth_wrapper::AuthWrapper,
     bitcoin_client::BitcoinClientHTTP,
     token::{extract_pop, schemes::chain_commitment::*},
 };
@@ -12,7 +13,7 @@ use thiserror::Error;
 use tracing::info;
 use warp::{http::Response, hyper::Body, reject::Reject};
 
-use crate::{crypto::sha256, models::wrapper::AuthWrapper, net::payments};
+use crate::{crypto::sha256, net::payments};
 
 #[derive(Debug, Error)]
 pub enum ProtectionError {

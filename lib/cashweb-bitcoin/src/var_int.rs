@@ -4,7 +4,7 @@
 use bytes::{Buf, BufMut};
 use thiserror::Error;
 
-use super::{Decodable, Encodable};
+use crate::{Decodable, Encodable};
 
 /// Error associated with [`VarInt`] deserialization.
 #[derive(Clone, Debug, PartialEq, Eq, Error)]

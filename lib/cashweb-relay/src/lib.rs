@@ -14,18 +14,23 @@
 mod models;
 pub mod stamp;
 
+pub use crate::models::{
+    message::EncryptionScheme, Message, MessagePage, MessageSet, Payload, PayloadPage, Profile,
+    Stamp,
+};
+
 use std::convert::TryInto;
 
 use aes::{
     cipher::generic_array::{typenum::U16, GenericArray},
     Aes128,
 };
-use bitcoin::transaction::Transaction;
 use block_modes::{block_padding::Pkcs7, BlockMode, BlockModeError, Cbc};
+use cashweb_bitcoin::transaction::Transaction;
 use prost::{DecodeError as MessageDecodeError, Message as _};
 use ring::{
     digest::{digest, SHA256},
-    hmac::{sign, Key as HmacKey, HMAC_SHA256},
+    hmac::{self, sign, HMAC_SHA256},
 };
 use secp256k1::{key::PublicKey, Error as SecpError, Secp256k1};
 use thiserror::Error;
@@ -38,11 +43,6 @@ pub mod secp {
         Error as SecpError, Secp256k1,
     };
 }
-
-pub use crate::models::{
-    message::EncryptionScheme, Message, MessagePage, MessageSet, Payload, PayloadPage, Profile,
-};
-use stamp::*;
 
 type Aes128Cbc = Cbc<Aes128, Pkcs7>;
 
@@ -230,7 +230,7 @@ pub fn create_shared_key(
     let merged_key = create_merged_key(source_public_key, private_key)?;
     let raw_merged_key = merged_key.serialize();
 
-    let key = HmacKey::new(HMAC_SHA256, &raw_merged_key);
+    let key = hmac::Key::new(HMAC_SHA256, &raw_merged_key);
     let digest = sign(&key, salt);
     let shared_key: [u8; 32] = digest.as_ref().try_into().unwrap(); // This is safe
     Ok(shared_key)
@@ -249,7 +249,7 @@ pub fn authenticate(
     payload_hmac: &[u8],
 ) -> Result<(), InvalidHmac> {
     // HMAC shared_key with payload_digest
-    let shared_key = HmacKey::new(HMAC_SHA256, shared_key);
+    let shared_key = hmac::Key::new(HMAC_SHA256, shared_key);
     let payload_hmac_expected = sign(&shared_key, payload_digest);
 
     // Check equality
@@ -279,7 +279,7 @@ pub struct Opened {
 pub enum OpenError {
     /// Invalid stamp.
     #[error("stamp errror: {0}")]
-    Stamp(StampError),
+    Stamp(stamp::StampError),
     /// Failed to construct shared key.
     #[error("shared key: {0}")]
     SharedKey(SecpError),
@@ -321,7 +321,7 @@ impl ParsedMessage {
 
     /// Verify the stamp on the message and return the decoded transactions.
     #[inline]
-    pub fn verify_stamp(&self) -> Result<Vec<Transaction>, StampError> {
+    pub fn verify_stamp(&self) -> Result<Vec<Transaction>, stamp::StampError> {
         self.stamp
             .verify_stamp(&self.payload_digest, &self.destination_public_key)
     }

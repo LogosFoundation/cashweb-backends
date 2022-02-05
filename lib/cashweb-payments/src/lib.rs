@@ -16,7 +16,7 @@ pub mod wallet;
 
 use bytes::Buf;
 use http::header::{HeaderMap, HeaderValue, ACCEPT, CONTENT_TYPE};
-use prost::{DecodeError, Message};
+use prost::Message as _;
 use thiserror::Error;
 
 #[allow(missing_docs)]
@@ -41,7 +41,7 @@ pub enum PreprocessingError {
     MissingContentTypeHeader,
     /// Failed to decode the `Payment` protobuf.
     #[error("payment decoding failure: {0}")]
-    PaymentDecode(DecodeError),
+    PaymentDecode(prost::DecodeError),
 }
 
 /// Validates and parses the BIP70 payment.

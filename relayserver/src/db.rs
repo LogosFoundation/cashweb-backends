@@ -1,10 +1,11 @@
 use std::sync::Arc;
 
-use cashweb::relay::*;
-use prost::Message as PMessage;
+use cashweb::{
+    auth_wrapper::AuthWrapper,
+    relay::{Message, MessagePage},
+};
+use prost::Message as _;
 use rocksdb::{Direction, Error as RocksError, IteratorMode, Options, DB};
-
-use crate::models::wrapper::AuthWrapper;
 
 const DIGEST_LEN: usize = 4;
 const NAMESPACE_LEN: usize = 20 + 1;

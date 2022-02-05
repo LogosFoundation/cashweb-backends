@@ -1,21 +1,19 @@
 use bitcoincash_addr::Address;
 use bytes::Bytes;
-use cashweb::auth_wrapper::{ParseError, VerifyError};
+use cashweb::auth_wrapper::{AuthWrapper, ParseError, VerifyError};
 use prost::Message as _;
-use rocksdb::Error as RocksError;
 use thiserror::Error;
 use tokio::task;
 use warp::{http::Response, hyper::Body, reject::Reject};
 
-use super::IntoResponse;
-use crate::{db::Database, models::wrapper::AuthWrapper};
+use crate::{db::Database, net::IntoResponse};
 
 #[derive(Debug, Error)]
 pub enum GetProfileError {
     #[error("not found")]
     NotFound,
     #[error("failed to read from database: {0}")]
-    Database(#[from] RocksError),
+    Database(#[from] rocksdb::Error),
 }
 
 impl Reject for GetProfileError {}
@@ -32,7 +30,7 @@ impl IntoResponse for GetProfileError {
 #[derive(Debug, Error)]
 pub enum PutProfileError {
     #[error("failed to write to database: {0}")]
-    Database(#[from] RocksError),
+    Database(#[from] rocksdb::Error),
     #[error("failed to decode authorization wrapper: {0}")]
     ProfileDecode(prost::DecodeError),
     #[error("failed to verify authorization wrapper: {0}")]

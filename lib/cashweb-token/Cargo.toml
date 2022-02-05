@@ -19,5 +19,5 @@ ring = "0.16"
 thiserror = "1"
 tower-service = "0.3"
 
-bitcoin = { version = "0.1.0-alpha.4", package = "cashweb-bitcoin", path = "../cashweb-bitcoin" }
-bitcoin-client = { version = "0.1.0-alpha.5", package = "cashweb-bitcoin-client", path = "../cashweb-bitcoin-client" }
+cashweb-bitcoin = { version = "0.1.0-alpha.4", package = "cashweb-bitcoin", path = "../cashweb-bitcoin" }
+cashweb-bitcoin-client = { version = "0.1.0-alpha.5", package = "cashweb-bitcoin-client", path = "../cashweb-bitcoin-client" }

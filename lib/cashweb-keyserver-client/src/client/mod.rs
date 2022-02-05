@@ -5,15 +5,16 @@ pub mod services;
 use std::{error, fmt};
 
 use bytes::Bytes;
-use hyper::{client::Client as HyperClient, client::HttpConnector, http::uri::InvalidUri};
+use cashweb_auth_wrapper::AuthWrapper;
+use cashweb_keyserver::{AddressMetadata, Peers};
+use hyper::{client::HttpConnector, http::uri::InvalidUri, Uri};
 use hyper_tls::HttpsConnector;
 use secp256k1::key::PublicKey;
 use thiserror::Error;
 use tower_service::Service;
 use tower_util::ServiceExt;
 
-use crate::models::*;
-use services::*;
+use crate::client::services::{GetMetadata, GetPeers, PutMetadata, PutRawAuthWrapper};
 
 /// Error associated with sending a request to a keyserver.
 #[derive(Debug, Error)]
@@ -71,27 +72,27 @@ impl<S> KeyserverClient<S> {
     }
 }
 
-impl Default for KeyserverClient<HyperClient<HttpConnector>> {
+impl Default for KeyserverClient<hyper::Client<HttpConnector>> {
     fn default() -> Self {
         Self {
-            inner_client: HyperClient::new(),
+            inner_client: hyper::Client::new(),
         }
     }
 }
 
-impl KeyserverClient<HyperClient<HttpConnector>> {
+impl KeyserverClient<hyper::Client<HttpConnector>> {
     /// Create a new HTTP client.
     pub fn new() -> Self {
         Default::default()
     }
 }
 
-impl KeyserverClient<HyperClient<HttpsConnector<HttpConnector>>> {
+impl KeyserverClient<hyper::Client<HttpsConnector<HttpConnector>>> {
     /// Create new HTTPS client.
     pub fn new_tls() -> Self {
         let https = HttpsConnector::new();
         Self {
-            inner_client: HyperClient::builder().build(https),
+            inner_client: hyper::Client::builder().build(https),
         }
     }
 }

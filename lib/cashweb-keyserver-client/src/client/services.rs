@@ -2,6 +2,8 @@
 
 use std::{fmt, pin::Pin};
 
+use cashweb_auth_wrapper::{AuthWrapper, ParseError, VerifyError};
+use cashweb_keyserver::{AddressMetadata, Peers};
 use futures_core::{
     task::{Context, Poll},
     Future,
@@ -11,18 +13,13 @@ use hyper::{
     body::{aggregate, to_bytes},
     http::header::AUTHORIZATION,
     http::Method,
-    Body, Error as HyperError, Request, Response, StatusCode,
+    Body, Request, Response, StatusCode, Uri,
 };
-pub use hyper::{
-    client::{connect::Connect, HttpConnector},
-    Uri,
-};
-use prost::{DecodeError, Message as _};
+use prost::Message as _;
 use thiserror::Error;
 use tower_service::Service;
 
-use super::{KeyserverClient, MetadataPackage, RawAuthWrapperPackage};
-use crate::models::*;
+use crate::{KeyserverClient, MetadataPackage, RawAuthWrapperPackage};
 
 type FutResponse<Response, Error> =
     Pin<Box<dyn Future<Output = Result<Response, Error>> + 'static + Send>>;
@@ -36,13 +33,13 @@ pub struct GetPeers;
 pub enum GetPeersError<E: fmt::Debug + fmt::Display> {
     /// Error while processing the body.
     #[error("processing body failed: {0}")]
-    Body(HyperError),
+    Body(hyper::Error),
     /// A connection error occured.
     #[error("connection failure: {0}")]
     Service(E),
     /// Error while decoding the body.
     #[error("body decoding failure: {0}")]
-    Decode(DecodeError),
+    Decode(prost::DecodeError),
     /// Unexpected status code.
     #[error("unexpected status code: {0}")]
     UnexpectedStatusCode(u16),
@@ -107,7 +104,7 @@ pub struct GetRawAuthWrapper;
 pub enum GetRawAuthWrapperError<E: fmt::Debug + fmt::Display> {
     /// Error while processing the body.
     #[error("processing body failed: {0}")]
-    Body(HyperError),
+    Body(hyper::Error),
     /// A connection error occured.
     #[error("connection failure: {0}")]
     Service(E),
@@ -190,10 +187,10 @@ pub struct GetMetadata;
 pub enum GetMetadataError<E: fmt::Debug + fmt::Display> {
     /// Error while decoding the [`AddressMetadata`]
     #[error("metadata decoding failure: {0}")]
-    MetadataDecode(DecodeError),
+    MetadataDecode(prost::DecodeError),
     /// Error while decoding the [`AuthWrapper`].
     #[error("authwrapper decoding failure: {0}")]
-    AuthWrapperDecode(DecodeError),
+    AuthWrapperDecode(prost::DecodeError),
     /// Error while parsing the [`AuthWrapper`].
     #[error("authwrapper parsing failure: {0}")]
     AuthWrapperParse(ParseError),
@@ -202,7 +199,7 @@ pub enum GetMetadataError<E: fmt::Debug + fmt::Display> {
     AuthWrapperVerify(VerifyError),
     /// Error while processing the body.
     #[error("processing body failed: {0}")]
-    Body(HyperError),
+    Body(hyper::Error),
     /// A connection error occured.
     #[error("connection failure: {0}")]
     Service(E),

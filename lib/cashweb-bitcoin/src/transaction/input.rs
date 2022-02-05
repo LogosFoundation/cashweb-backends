@@ -4,12 +4,12 @@
 use bytes::{Buf, BufMut};
 use thiserror::Error;
 
-use super::{
-    outpoint::{DecodeError as OutpointDecodeError, Outpoint},
-    script::Script,
-};
 use crate::{
-    var_int::{DecodeError as VarIntDecodeError, VarInt},
+    transaction::{
+        outpoint::{self, Outpoint},
+        script::Script,
+    },
+    var_int::{self, VarInt},
     Decodable, Encodable,
 };
 
@@ -18,10 +18,10 @@ use crate::{
 pub enum DecodeError {
     /// Failed to decode [`Outpoint`].
     #[error("outpoint: {0}")]
-    Outpoint(OutpointDecodeError),
+    Outpoint(outpoint::DecodeError),
     /// Failed to decode script length [`VarInt`].
     #[error("script length: {0}")]
-    ScriptLen(VarIntDecodeError),
+    ScriptLen(var_int::DecodeError),
     /// Exhausted buffer when decoding `script` field.
     #[error("script too short")]
     ScriptTooShort,
