@@ -47,16 +47,16 @@ pub fn address_decode(addr_str: &str) -> Result<Address, AddressDecode> {
     Ok(address)
 }
 
-impl IntoResponse for AddressDecode {
+impl ToResponse for AddressDecode {
     fn to_status(&self) -> u16 {
         400
     }
 }
 
-pub trait IntoResponse: fmt::Display + Sized {
+pub trait ToResponse: fmt::Display + Sized {
     fn to_status(&self) -> u16;
 
-    fn into_response(&self) -> Response<Body> {
+    fn to_response(&self) -> Response<Body> {
         let status = self.to_status();
 
         if status != 500 {
@@ -76,32 +76,32 @@ pub trait IntoResponse: fmt::Display + Sized {
 pub async fn handle_rejection(err: Rejection) -> Result<Response<Body>, Infallible> {
     if let Some(err) = err.find::<AddressDecode>() {
         error!(message = "failed to decode address", error = %err);
-        return Ok(err.into_response());
+        return Ok(err.to_response());
     }
 
     if let Some(err) = err.find::<GetProfileError>() {
         error!(message = "failed to get profile", error = %err);
-        return Ok(err.into_response());
+        return Ok(err.to_response());
     }
 
     if let Some(err) = err.find::<PutProfileError>() {
         error!(message = "failed to put profile", error = %err);
-        return Ok(err.into_response());
+        return Ok(err.to_response());
     }
 
     if let Some(err) = err.find::<GetMessageError>() {
         error!(message = "failed to get messages", error = %err);
-        return Ok(err.into_response());
+        return Ok(err.to_response());
     }
 
     if let Some(err) = err.find::<PutMessageError>() {
         error!(message = "failed to put messages", error = %err);
-        return Ok(err.into_response());
+        return Ok(err.to_response());
     }
 
     if let Some(err) = err.find::<PaymentError>() {
         error!(message = "payment failed", error = %err);
-        return Ok(err.into_response());
+        return Ok(err.to_response());
     }
 
     if let Some(err) = err.find::<ProtectionError>() {

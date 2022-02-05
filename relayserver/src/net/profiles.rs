@@ -6,7 +6,7 @@ use thiserror::Error;
 use tokio::task;
 use warp::{http::Response, hyper::Body, reject::Reject};
 
-use crate::{db::Database, net::IntoResponse};
+use crate::{db::Database, net::ToResponse};
 
 #[derive(Debug, Error)]
 pub enum GetProfileError {
@@ -18,7 +18,7 @@ pub enum GetProfileError {
 
 impl Reject for GetProfileError {}
 
-impl IntoResponse for GetProfileError {
+impl ToResponse for GetProfileError {
     fn to_status(&self) -> u16 {
         match self {
             Self::NotFound => 404,
@@ -41,7 +41,7 @@ pub enum PutProfileError {
 
 impl Reject for PutProfileError {}
 
-impl IntoResponse for PutProfileError {
+impl ToResponse for PutProfileError {
     fn to_status(&self) -> u16 {
         match self {
             Self::Database(_) => 500,

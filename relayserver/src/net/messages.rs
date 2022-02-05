@@ -21,7 +21,7 @@ use warp::{http::Response, hyper::Body, reject::Reject};
 
 use crate::{
     db::{self, Database},
-    net::{ws::MessageBus, IntoResponse},
+    net::{ws::MessageBus, ToResponse},
     SETTINGS,
 };
 
@@ -68,7 +68,7 @@ impl From<rocksdb::Error> for GetMessageError {
 
 impl Reject for GetMessageError {}
 
-impl IntoResponse for GetMessageError {
+impl ToResponse for GetMessageError {
     fn to_status(&self) -> u16 {
         match self {
             Self::DB(_) => 500,
@@ -248,7 +248,7 @@ impl From<rocksdb::Error> for PutMessageError {
 
 impl Reject for PutMessageError {}
 
-impl IntoResponse for PutMessageError {
+impl ToResponse for PutMessageError {
     fn to_status(&self) -> u16 {
         match self {
             Self::DB(_) => 500,
